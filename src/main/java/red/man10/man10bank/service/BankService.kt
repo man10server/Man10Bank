@@ -6,8 +6,8 @@ import org.bukkit.Bukkit
 import org.ktorm.database.Database
 import red.man10.man10bank.repository.BankRepository
 import red.man10.man10bank.repository.BankRepository.LogParams
-import red.man10.man10bank.shared.OperationResult
-import red.man10.man10bank.shared.ResultCode
+import red.man10.man10bank.model.OperationResult
+import red.man10.man10bank.model.ResultCode
 import java.math.BigDecimal
 import java.util.UUID
 import java.util.concurrent.Executors
@@ -123,6 +123,10 @@ class BankService(db: Database, serverName: String = Bukkit.getServer().name) {
         return deferred.await()
     }
 
+    suspend fun getLog(uuid: UUID, limit: Int, offset: Int): List<LogParams> = withContext(dispatcher) {
+        repository.getLog(uuid.toString(), limit, offset)
+    }
+
     fun shutdown() {
         scope.cancel()
         dispatcher.close()
@@ -236,8 +240,22 @@ class BankService(db: Database, serverName: String = Bukkit.getServer().name) {
             val toUuidStr = toUuid.toString()
             val fromPlayer = Bukkit.getOfflinePlayer(fromUuid).name ?: ""
             val toPlayer = Bukkit.getOfflinePlayer(toUuid).name ?: ""
-            val afterFrom = repository.transfer(fromUuidStr, fromPlayer, toUuidStr, toPlayer, amount)
-            result.complete(OperationResult(ResultCode.SUCCESS, afterFrom))
+
+            val fromCurrent = repository.getBalanceByUuid(fromUuidStr) ?: BigDecimal.ZERO
+            if (fromCurrent < amount) {
+                result.complete(OperationResult(ResultCode.INSUFFICIENT_FUNDS))
+                return
+            }
+
+            repository.transferBetweenUsers(
+                fromUuid = fromUuidStr,
+                fromPlayer = fromPlayer,
+                toUuid = toUuidStr,
+                toPlayer = toPlayer,
+                amount = amount
+            )
+            val fromAfter = repository.getBalanceByUuid(fromUuidStr)
+            result.complete(OperationResult(ResultCode.SUCCESS, fromAfter))
         } catch (t: Throwable) {
             result.complete(OperationResult(ResultCode.FAILURE))
         }

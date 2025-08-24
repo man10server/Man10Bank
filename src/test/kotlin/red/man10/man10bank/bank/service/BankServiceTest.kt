@@ -11,7 +11,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.ktorm.database.Database
 import red.man10.man10bank.service.BankService
-import red.man10.man10bank.shared.ResultCode
+import red.man10.man10bank.model.ResultCode
 
 class BankServiceTest {
 
@@ -215,5 +215,16 @@ class BankServiceTest {
         val resNeg = service.transfer(from, to, (-20).toBigDecimal())
         assertEquals(ResultCode.INVALID_AMOUNT, res0.code)
         assertEquals(ResultCode.INVALID_AMOUNT, resNeg.code)
+    }
+
+    @Test
+    @DisplayName("transfer: 残高不足はINSUFFICIENT_FUNDS")
+    fun transfer_insufficientFunds_withMock_returnsInsufficient() = runBlocking {
+        val player1 = server.addPlayer("Kathy")
+        val player2 = server.addPlayer("Leo")
+        val from = player1.uniqueId
+        val to = player2.uniqueId
+        val res = service.transfer(from, to, 100.toBigDecimal())
+        assertEquals(ResultCode.INSUFFICIENT_FUNDS, res.code)
     }
 }

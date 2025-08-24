@@ -2,9 +2,8 @@ package red.man10.man10bank.repository
 
 import org.ktorm.database.Database
 import org.ktorm.dsl.*
-import org.ktorm.schema.year
+import red.man10.man10bank.db.tables.EstateHistoryTbl
 import red.man10.man10bank.db.tables.EstateTbl
-import red.man10.man10bank.db.tables.ServerEstateHistory
 import java.math.BigDecimal
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -23,9 +22,14 @@ class UserEstateRepository(private val db: Database) {
         val crypto: BigDecimal,
         val time: ZonedDateTime? = null,
     ){
-        fun total(): BigDecimal {
-            return vault + bank + cash + estate + shop + crypto - loan
-        }
+        fun total(): BigDecimal =
+            vault
+                .add(bank)
+                .add(cash)
+                .add(estate)
+                .add(shop)
+                .add(crypto)
+                .subtract(loan)
 
         override fun equals(other: Any?): Boolean {
             if (other !is UserEstateParams) return false
@@ -70,10 +74,21 @@ class UserEstateRepository(private val db: Database) {
             set(it.total, params.total())
             where { it.uuid eq params.uuid }
         }
-        if (updated < 0) {
-            return false
+        if (updated == 0) {
+            db.insert(EstateTbl) {
+                set(it.uuid, params.uuid)
+                set(it.player, params.player)
+                set(it.vault, params.vault)
+                set(it.bank, params.bank)
+                set(it.cash, params.cash)
+                set(it.estate, params.estate)
+                set(it.loan, params.loan)
+                set(it.shop, params.shop)
+                set(it.crypto, params.crypto)
+                set(it.total, params.total())
+            }
         }
-        val inserted = db.insert(EstateTbl) {
+        val insertedHist = db.insert(EstateHistoryTbl) {
             set(it.uuid, params.uuid)
             set(it.player, params.player)
             set(it.vault, params.vault)
@@ -84,8 +99,9 @@ class UserEstateRepository(private val db: Database) {
             set(it.shop, params.shop)
             set(it.crypto, params.crypto)
             set(it.total, params.total())
+            // date は DB 側の default now() を利用
         }
-        return inserted == 1
+        return insertedHist == 1
     }
 
     fun getLast(uuid: String): UserEstateParams? {

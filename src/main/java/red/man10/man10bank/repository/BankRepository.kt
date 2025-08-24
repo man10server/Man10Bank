@@ -6,10 +6,13 @@ import red.man10.man10bank.db.tables.MoneyLog
 import red.man10.man10bank.db.tables.UserBank
 import java.math.BigDecimal
 import java.math.RoundingMode
+import java.time.ZonedDateTime
 
 class BankRepository(private val db: Database, private val serverName: String) {
 
     data class LogParams(
+        val amount: BigDecimal? = null,
+        val time: ZonedDateTime? = null,
         val pluginName: String,
         val note: String,
         val displayNote: String,
@@ -33,46 +36,21 @@ class BankRepository(private val db: Database, private val serverName: String) {
         return adjustBalance(uuid, player, amount.negate(), log)
     }
 
-    fun transfer(
-        fromUuid: String,
-        fromPlayer: String,
-        toUuid: String,
-        toPlayer: String,
-        amount: BigDecimal,
-    ): BigDecimal {
-        require(amount.signum() > 0) { "amount は正の数である必要があります" }
-        return db.useTransaction {
-            val fromCurrent = getBalanceByUuid(fromUuid) ?: BigDecimal.ZERO
-            require(fromCurrent >= BigDecimal.ZERO) { "送金元の残高が不正です: $fromCurrent" }
-            val toCurrent = getBalanceByUuid(toUuid) ?: BigDecimal.ZERO
-            val fromNext = fromCurrent.subtract(amount)
-            val toNext = toCurrent.add(amount)
-
-            setBalance(fromUuid, fromPlayer, fromNext)
-            setBalance(toUuid, toPlayer, toNext)
-
-            logMoney(
-                uuid = fromUuid,
-                player = fromPlayer,
-                amount = amount.negate(),
-                deposit = false,
-                pluginName = "Man10Bank",
-                note = "RemittanceTo'$toPlayer",
-                displayNote = "${toPlayer}へ送金",
-                server = serverName,
-            )
-            logMoney(
-                uuid = toUuid,
-                player = toPlayer,
-                amount = amount,
-                deposit = true,
-                pluginName = "Man10Bank",
-                note = "RemittanceFrom$$fromPlayer",
-                displayNote = "${fromPlayer}からの送金",
-                server = serverName,
-            )
-            fromNext
-        }
+    fun getLog(uuid: String, limit: Int, offset: Int): List<LogParams> {
+        return db.from(MoneyLog)
+            .select()
+            .where { MoneyLog.uuid eq uuid }
+            .orderBy(MoneyLog.id.desc())
+            .limit(limit, offset)
+            .map { row ->
+                LogParams(
+                    amount = row[MoneyLog.amount],
+                    time = row[MoneyLog.date]?.atZone(ZonedDateTime.now().zone),
+                    pluginName = row[MoneyLog.pluginName] ?: "",
+                    note = row[MoneyLog.note] ?: "",
+                    displayNote = row[MoneyLog.displayNote] ?: "",
+                )
+            }
     }
 
     private fun adjustBalance(uuid: String, player: String, delta: BigDecimal, log: LogParams): BigDecimal {
@@ -130,6 +108,47 @@ class BankRepository(private val db: Database, private val serverName: String) {
             set(it.server, server)
             set(it.deposit, deposit)
             // date は DB 側の default now() を利用
+        }
+    }
+
+    fun transferBetweenUsers(
+        fromUuid: String,
+        fromPlayer: String,
+        toUuid: String,
+        toPlayer: String,
+        amount: BigDecimal,
+    ) {
+        require(amount > BigDecimal.ZERO) { "amount は 0 より大きい必要があります" }
+        db.useTransaction {
+            val fromCurrent = getBalanceByUuid(fromUuid) ?: BigDecimal.ZERO
+            if (fromCurrent < amount) error("INSUFFICIENT_FUNDS")
+
+            val nextFrom = fromCurrent.subtract(amount).setScale(0, RoundingMode.DOWN)
+            setBalance(fromUuid, fromPlayer, nextFrom)
+            logMoney(
+                uuid = fromUuid,
+                player = fromPlayer,
+                amount = amount.setScale(0, RoundingMode.DOWN).negate(),
+                deposit = false,
+                pluginName = "Transfer",
+                note = "Transfer to $toPlayer",
+                displayNote = "送金: $toPlayer",
+                server = serverName,
+            )
+
+            val toCurrent = getBalanceByUuid(toUuid) ?: BigDecimal.ZERO
+            val nextTo = toCurrent.add(amount).setScale(0, RoundingMode.DOWN)
+            setBalance(toUuid, toPlayer, nextTo)
+            logMoney(
+                uuid = toUuid,
+                player = toPlayer,
+                amount = amount.setScale(0, RoundingMode.DOWN),
+                deposit = true,
+                pluginName = "Transfer",
+                note = "Transfer from $fromPlayer",
+                displayNote = "受取: $fromPlayer",
+                server = serverName,
+            )
         }
     }
 }

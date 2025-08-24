@@ -1,4 +1,4 @@
-package red.man10.man10bank.shared
+package red.man10.man10bank.model
 
 import java.math.BigDecimal
 

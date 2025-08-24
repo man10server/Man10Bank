@@ -19,9 +19,14 @@ class ServerEstateRepository(private val db: Database) {
         val crypto: BigDecimal,
         val time: ZonedDateTime? = null,
     ){
-        fun total(): BigDecimal {
-            return vault + bank + cash + estate + shop + crypto - loan
-        }
+        fun total(): BigDecimal =
+            vault
+                .add(bank)
+                .add(cash)
+                .add(estate)
+                .add(shop)
+                .add(crypto)
+                .subtract(loan)
 
         override fun equals(other: Any?): Boolean {
             if (other !is ServerEstateParams) return false
@@ -110,13 +115,16 @@ class ServerEstateRepository(private val db: Database) {
     }
 
     private fun isRecorded(time: ZonedDateTime): Boolean {
-        return db.from(ServerEstateHistory)
-            .select()
+        val count = db.from(ServerEstateHistory)
+            .select(count())
             .where {
                 (ServerEstateHistory.year eq time.year) and
                         (ServerEstateHistory.month eq time.monthValue) and
                         (ServerEstateHistory.day eq time.dayOfMonth) and
                         (ServerEstateHistory.hour eq time.hour)
-            }.totalRecordsInAllPages >= 1
+            }
+            .map { it.getInt(1) }
+            .firstOrNull() ?: 0
+        return count >= 1
     }
 }

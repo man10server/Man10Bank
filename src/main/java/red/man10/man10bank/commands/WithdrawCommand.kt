@@ -7,7 +7,7 @@ import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 import red.man10.man10bank.Man10Bank
-import red.man10.man10bank.shared.ResultCode
+import red.man10.man10bank.model.ResultCode
 import red.man10.man10bank.util.StringFormat
 
 class WithdrawCommand(private val plugin: Man10Bank) : CommandExecutor {

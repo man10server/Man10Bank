@@ -3,8 +3,8 @@ package red.man10.man10bank.service
 import net.milkbowl.vault.economy.Economy
 import org.bukkit.Bukkit
 import org.bukkit.OfflinePlayer
-import red.man10.man10bank.shared.OperationResult
-import red.man10.man10bank.shared.ResultCode
+import red.man10.man10bank.model.OperationResult
+import red.man10.man10bank.model.ResultCode
 import red.man10.man10bank.util.BigDecimalConverter
 import java.math.BigDecimal
 import java.util.UUID
