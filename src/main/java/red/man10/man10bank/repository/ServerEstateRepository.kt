@@ -4,6 +4,7 @@ import org.ktorm.database.Database
 import org.ktorm.dsl.*
 import red.man10.man10bank.db.tables.ServerEstateHistory
 import java.math.BigDecimal
+import java.time.ZoneId
 import java.time.ZonedDateTime
 
 class ServerEstateRepository(private val db: Database) {
@@ -16,6 +17,7 @@ class ServerEstateRepository(private val db: Database) {
         val loan: BigDecimal,
         val shop: BigDecimal,
         val crypto: BigDecimal,
+        val time: ZonedDateTime? = null,
     ){
         fun total(): BigDecimal {
             return vault + bank + cash + estate + shop + crypto - loan
@@ -44,7 +46,7 @@ class ServerEstateRepository(private val db: Database) {
             ).hashCode()
     }
 
-    fun addEstateHistory(params: ServerEstateParams): Boolean {
+    fun updateAndAddHistory(params: ServerEstateParams): Boolean {
         val now = ZonedDateTime.now()
         if (isRecorded(now)) {
             return true
@@ -65,6 +67,46 @@ class ServerEstateRepository(private val db: Database) {
             set(it.date, now.toLocalDateTime())
         }
         return inserted == 1
+    }
+
+    fun getLast(): ServerEstateParams? {
+        return db.from(ServerEstateHistory)
+            .select()
+            .orderBy(ServerEstateHistory.id.desc())
+            .limit(1)
+            .map {
+                ServerEstateParams(
+                    vault = it[ServerEstateHistory.vault] ?: BigDecimal.ZERO,
+                    bank = it[ServerEstateHistory.bank] ?: BigDecimal.ZERO,
+                    cash = it[ServerEstateHistory.cash] ?: BigDecimal.ZERO,
+                    estate = it[ServerEstateHistory.estate] ?: BigDecimal.ZERO,
+                    loan = it[ServerEstateHistory.loan] ?: BigDecimal.ZERO,
+                    shop = it[ServerEstateHistory.shop] ?: BigDecimal.ZERO,
+                    crypto = it[ServerEstateHistory.crypto] ?: BigDecimal.ZERO,
+                    time = it[ServerEstateHistory.date]?.atZone(ZoneId.systemDefault())
+                )
+            }.firstOrNull()
+    }
+
+    fun listOnDate(time: ZonedDateTime): List<ServerEstateParams> {
+        return db.from(ServerEstateHistory)
+            .select()
+            .where {
+                (ServerEstateHistory.year eq time.year) and
+                        (ServerEstateHistory.month eq time.monthValue) and
+                        (ServerEstateHistory.day eq time.dayOfMonth)
+            }.map {
+                ServerEstateParams(
+                    vault = it[ServerEstateHistory.vault] ?: BigDecimal.ZERO,
+                    bank = it[ServerEstateHistory.bank] ?: BigDecimal.ZERO,
+                    cash = it[ServerEstateHistory.cash] ?: BigDecimal.ZERO,
+                    estate = it[ServerEstateHistory.estate] ?: BigDecimal.ZERO,
+                    loan = it[ServerEstateHistory.loan] ?: BigDecimal.ZERO,
+                    shop = it[ServerEstateHistory.shop] ?: BigDecimal.ZERO,
+                    crypto = it[ServerEstateHistory.crypto] ?: BigDecimal.ZERO,
+                    time = it[ServerEstateHistory.date]?.atZone(ZoneId.systemDefault())
+                )
+            }
     }
 
     private fun isRecorded(time: ZonedDateTime): Boolean {

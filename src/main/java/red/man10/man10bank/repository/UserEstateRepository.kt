@@ -2,8 +2,12 @@ package red.man10.man10bank.repository
 
 import org.ktorm.database.Database
 import org.ktorm.dsl.*
+import org.ktorm.schema.year
 import red.man10.man10bank.db.tables.EstateTbl
+import red.man10.man10bank.db.tables.ServerEstateHistory
 import java.math.BigDecimal
+import java.time.ZoneId
+import java.time.ZonedDateTime
 
 class UserEstateRepository(private val db: Database) {
 
@@ -17,6 +21,7 @@ class UserEstateRepository(private val db: Database) {
         val loan: BigDecimal,
         val shop: BigDecimal,
         val crypto: BigDecimal,
+        val time: ZonedDateTime? = null,
     ){
         fun total(): BigDecimal {
             return vault + bank + cash + estate + shop + crypto - loan
@@ -49,7 +54,7 @@ class UserEstateRepository(private val db: Database) {
     }
 
     //TODO: 成功/失敗/重複の判定をちゃんとする
-    fun addEstateHistory(params: UserEstateParams): Boolean {
+    fun updateAndAddHistory(params: UserEstateParams): Boolean {
         if (equalsLastEstate(params)) {
             return true
         }
@@ -81,6 +86,54 @@ class UserEstateRepository(private val db: Database) {
             set(it.total, params.total())
         }
         return inserted == 1
+    }
+
+    fun getLast(uuid: String): UserEstateParams? {
+        return db.from(EstateTbl)
+            .select()
+            .where { EstateTbl.uuid eq uuid }
+            .orderBy(EstateTbl.id.desc())
+            .limit(1)
+            .map { row ->
+                UserEstateParams(
+                    uuid = row[EstateTbl.uuid] ?: "",
+                    player = row[EstateTbl.player] ?: "",
+                    vault = row[EstateTbl.vault] ?: BigDecimal.ZERO,
+                    bank = row[EstateTbl.bank] ?: BigDecimal.ZERO,
+                    cash = row[EstateTbl.cash] ?: BigDecimal.ZERO,
+                    estate = row[EstateTbl.estate] ?: BigDecimal.ZERO,
+                    loan = row[EstateTbl.loan] ?: BigDecimal.ZERO,
+                    shop = row[EstateTbl.shop] ?: BigDecimal.ZERO,
+                    crypto = row[EstateTbl.crypto] ?: BigDecimal.ZERO,
+                    time = row[EstateTbl.date]?.atZone(ZoneId.systemDefault())
+                )
+            }.firstOrNull()
+    }
+
+    fun listOnDate(uuid: String, time: ZonedDateTime): List<UserEstateParams> {
+        val start = time.toLocalDate().atStartOfDay(time.zone)
+        val end = start.plusDays(1)
+
+        return db.from(EstateTbl)
+            .select()
+            .where {
+                EstateTbl.uuid eq uuid and
+                (EstateTbl.date greaterEq start.toLocalDateTime()) and
+                        (EstateTbl.date less end.toLocalDateTime())
+            }.map { row ->
+                UserEstateParams(
+                    uuid = row[EstateTbl.uuid] ?: "",
+                    player = row[EstateTbl.player] ?: "",
+                    vault = row[EstateTbl.vault] ?: BigDecimal.ZERO,
+                    bank = row[EstateTbl.bank] ?: BigDecimal.ZERO,
+                    cash = row[EstateTbl.cash] ?: BigDecimal.ZERO,
+                    estate = row[EstateTbl.estate] ?: BigDecimal.ZERO,
+                    loan = row[EstateTbl.loan] ?: BigDecimal.ZERO,
+                    shop = row[EstateTbl.shop] ?: BigDecimal.ZERO,
+                    crypto = row[EstateTbl.crypto] ?: BigDecimal.ZERO,
+                    time = row[EstateTbl.date]?.atZone(ZoneId.systemDefault())
+                )
+            }
     }
 
     private fun equalsLastEstate(params: UserEstateParams): Boolean {
