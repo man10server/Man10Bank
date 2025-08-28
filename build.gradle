@@ -46,6 +46,7 @@ dependencies {
     testImplementation "org.jetbrains.kotlin:kotlin-test-junit5:${kotlinVersion}"
     testImplementation "com.h2database:h2:2.2.224"
     testImplementation 'com.github.seeseemelk:MockBukkit-v1.20:3.9.0'
+    testImplementation "com.github.MilkBowl:VaultAPI:1.7"
     testImplementation("ch.qos.logback:logback-classic:1.4.14")
 }
 
