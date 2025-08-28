@@ -27,7 +27,7 @@ class Man10Bank : JavaPlugin(), Listener {
 
         appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-        bankService = BankService(DatabaseProvider.database())
+        bankService = BankService(DatabaseProvider.database(), this)
         val vault = VaultEconomyService.create()
         if (vault == null) {
             logger.warning("Vault の Economy プラグインが見つかりません。ホワイトリストにします。")

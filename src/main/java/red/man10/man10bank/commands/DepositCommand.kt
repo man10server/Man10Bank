@@ -36,7 +36,7 @@ class DepositCommand(private val plugin: Man10Bank) : CommandExecutor {
                 return@launch
             }
 
-            val bankRes = plugin.bankService.deposit(uuid, amount, "Man10Bank", "PlayerDepositOnCommand", "/depositによる入金")
+            val bankRes = plugin.bankService.deposit(uuid, amount, "PlayerDepositOnCommand", "/depositによる入金")
             if (bankRes.code == ResultCode.SUCCESS) {
                 Bukkit.getScheduler().runTask(plugin, Runnable {
                     sender.sendMessage("所持金から銀行に入金しました。残高: ${StringFormat.money(bankRes.balance!!)}")

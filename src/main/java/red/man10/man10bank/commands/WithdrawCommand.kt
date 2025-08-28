@@ -27,7 +27,7 @@ class WithdrawCommand(private val plugin: Man10Bank) : CommandExecutor {
         }
         val uuid = sender.uniqueId
         plugin.appScope.launch {
-            val bankRes = plugin.bankService.withdraw(uuid, amount, "Man10Bank", "PlayerWithdrawOnCommand", "/withdrawによる出金")
+            val bankRes = plugin.bankService.withdraw(uuid, amount, "PlayerWithdrawOnCommand", "/withdrawによる出金")
             if (bankRes.code != ResultCode.SUCCESS) {
                 Bukkit.getScheduler().runTask(plugin, Runnable {
                     sender.sendMessage(bankRes.code.message)
@@ -42,7 +42,7 @@ class WithdrawCommand(private val plugin: Man10Bank) : CommandExecutor {
                 })
             } else {
                 // 銀行へ戻す（補償）
-                plugin.bankService.deposit(uuid, amount, "Command", "RollbackVaultFailure", "Vault入金失敗の返金")
+                plugin.bankService.deposit(uuid, amount, "RollbackVaultFailure", "Vault入金失敗の返金")
                 Bukkit.getScheduler().runTask(plugin, Runnable {
                     sender.sendMessage(vaultRes.code.message)
                     sender.sendMessage("所持金への入金に失敗したため、銀行残高を元に戻しました。")

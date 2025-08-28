@@ -59,7 +59,7 @@ class BankServiceTest {
             st.executeBatch()
             st.close()
         }
-        service = BankService(db, serverName = "test")
+        service = BankService(db, "TestBank", serverName = "test")
     }
 
     @AfterEach
@@ -75,7 +75,7 @@ class BankServiceTest {
         try {
             val player = server.addPlayer("Grace")
             val uuid = player.uniqueId
-            val res = service.setBalance(uuid, 1000.toBigDecimal(), "Test", "Set", null)
+            val res = service.setBalance(uuid, 1000.toBigDecimal(), "Set", null)
             assertEquals(ResultCode.SUCCESS, res.code)
             assertEquals(1000.toBigDecimal(), res.balance)
             val bal = service.getBalance(uuid)
@@ -90,9 +90,9 @@ class BankServiceTest {
     fun setBalance_decrease_updatesBalance() = runBlocking {
         val player = server.addPlayer("Henry")
         val uuid = player.uniqueId
-        val dep = service.deposit(uuid, 800.toBigDecimal(), "Test", "Deposit", null)
+        val dep = service.deposit(uuid, 800.toBigDecimal(), "Deposit", null)
         assertEquals(ResultCode.SUCCESS, dep.code)
-        val res = service.setBalance(uuid, 300.toBigDecimal(), "Test", "Set", null)
+        val res = service.setBalance(uuid, 300.toBigDecimal(), "Set", null)
         assertEquals(ResultCode.SUCCESS, res.code)
         assertEquals(300.toBigDecimal(), res.balance)
         val bal = service.getBalance(uuid)
@@ -104,7 +104,7 @@ class BankServiceTest {
     fun setBalance_negative_returnsInvalid() = runBlocking {
         val player = server.addPlayer("Hank")
         val uuid = player.uniqueId
-        val res = service.setBalance(uuid, (-500).toBigDecimal(), "Test", "Set", null)
+        val res = service.setBalance(uuid, (-500).toBigDecimal(), "Set", null)
         assertEquals(ResultCode.INVALID_AMOUNT, res.code)
     }
 
@@ -121,7 +121,7 @@ class BankServiceTest {
     fun getBalance_returnsBalance_whenKnown() = runBlocking {
         val player = server.addPlayer("Bob")
         val uuid = player.uniqueId
-        val dep = service.deposit(uuid, 200.toBigDecimal(), "Test", "Deposit", null)
+        val dep = service.deposit(uuid, 200.toBigDecimal(), "Deposit", null)
         assertEquals(ResultCode.SUCCESS, dep.code)
         val bal = service.getBalance(uuid)
         assertEquals(200.toBigDecimal(), bal)
@@ -132,7 +132,7 @@ class BankServiceTest {
     fun deposit_success_returnsNewBalance() = runBlocking {
         val player = server.addPlayer("Eve")
         val uuid = player.uniqueId
-        val res = service.deposit(uuid, 150.toBigDecimal(), "Test", "Deposit", null)
+        val res = service.deposit(uuid, 150.toBigDecimal(), "Deposit", null)
         assertEquals(ResultCode.SUCCESS, res.code)
         assertEquals(150.toBigDecimal(), res.balance)
         val bal = service.getBalance(uuid)
@@ -144,8 +144,8 @@ class BankServiceTest {
     fun deposit_invalidAmount_returnsInvalid() = runBlocking {
         val player = server.addPlayer("Charlie")
         val uuid = player.uniqueId
-        val res0 = service.deposit(uuid, 0.toBigDecimal(), "Test", "Deposit", null)
-        val resNeg = service.deposit(uuid, (-10).toBigDecimal(), "Test", "Deposit", null)
+        val res0 = service.deposit(uuid, 0.toBigDecimal(), "Deposit", null)
+        val resNeg = service.deposit(uuid, (-10).toBigDecimal(), "Deposit", null)
         assertEquals(ResultCode.INVALID_AMOUNT, res0.code)
         assertEquals(ResultCode.INVALID_AMOUNT, resNeg.code)
     }
@@ -155,9 +155,9 @@ class BankServiceTest {
     fun withdraw_success_returnsNewBalance() = runBlocking {
         val player = server.addPlayer("Frank")
         val uuid = player.uniqueId
-        val dep = service.deposit(uuid, 500.toBigDecimal(), "Test", "Deposit", null)
+        val dep = service.deposit(uuid, 500.toBigDecimal(), "Deposit", null)
         assertEquals(ResultCode.SUCCESS, dep.code)
-        val res = service.withdraw(uuid, 200.toBigDecimal(), "Test", "Withdraw", null)
+        val res = service.withdraw(uuid, 200.toBigDecimal(), "Withdraw", null)
         assertEquals(ResultCode.SUCCESS, res.code)
         assertEquals(300.toBigDecimal(), res.balance)
         val bal = service.getBalance(uuid)
@@ -169,7 +169,7 @@ class BankServiceTest {
     fun withdraw_insufficientFunds_withMock_returnsInsufficient() = runBlocking {
         val player = server.addPlayer("Alice")
         val uuid = player.uniqueId
-        val res = service.withdraw(uuid, 100.toBigDecimal(), "Test", "Withdraw", null)
+        val res = service.withdraw(uuid, 100.toBigDecimal(), "Withdraw", null)
         assertEquals(ResultCode.INSUFFICIENT_FUNDS, res.code)
     }
 
@@ -178,8 +178,8 @@ class BankServiceTest {
     fun withdraw_invalidAmount_returnsInvalid() = runBlocking {
         val player = server.addPlayer("Dave")
         val uuid = player.uniqueId
-        val res0 = service.withdraw(uuid, 0.toBigDecimal(), "Test", "Withdraw", null)
-        val resNeg = service.withdraw(uuid, (-10).toBigDecimal(), "Test", "Withdraw", null)
+        val res0 = service.withdraw(uuid, 0.toBigDecimal(), "Withdraw", null)
+        val resNeg = service.withdraw(uuid, (-10).toBigDecimal(), "Withdraw", null)
         assertEquals(ResultCode.INVALID_AMOUNT, res0.code)
         assertEquals(ResultCode.INVALID_AMOUNT, resNeg.code)
     }
@@ -192,7 +192,7 @@ class BankServiceTest {
         val fromId = from.uniqueId
         val toId = to.uniqueId
 
-        val dep = service.deposit(fromId, 1000.toBigDecimal(), "Test", "Deposit", null)
+        val dep = service.deposit(fromId, 1000.toBigDecimal(),  "Deposit", null)
         assertEquals(ResultCode.SUCCESS, dep.code)
 
         val res = service.transfer(fromId, toId, 300.toBigDecimal())

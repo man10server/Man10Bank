@@ -3,6 +3,7 @@ package red.man10.man10bank.service
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import org.bukkit.Bukkit
+import org.bukkit.plugin.java.JavaPlugin
 import org.ktorm.database.Database
 import red.man10.man10bank.repository.BankRepository
 import red.man10.man10bank.repository.BankRepository.LogParams
@@ -12,7 +13,9 @@ import java.math.BigDecimal
 import java.util.UUID
 import java.util.concurrent.Executors
 
-class BankService(db: Database, serverName: String = Bukkit.getServer().name) {
+class BankService(db: Database, private val pluginName: String, serverName: String = Bukkit.getServer().name) {
+
+    constructor(db: Database, plugin: JavaPlugin, serverName: String = Bukkit.getServer().name): this(db, plugin.name, serverName)
 
     private val repository = BankRepository(db, serverName)
 
@@ -28,7 +31,6 @@ class BankService(db: Database, serverName: String = Bukkit.getServer().name) {
         data class SetBalance(
             val uuid: UUID,
             val amount: BigDecimal,
-            val pluginName: String,
             val note: String,
             val displayNote: String?,
             val result: CompletableDeferred<OperationResult>
@@ -36,7 +38,6 @@ class BankService(db: Database, serverName: String = Bukkit.getServer().name) {
         data class Deposit(
             val uuid: UUID,
             val amount: BigDecimal,
-            val pluginName: String,
             val note: String,
             val displayNote: String?,
             val result: CompletableDeferred<OperationResult>
@@ -45,7 +46,6 @@ class BankService(db: Database, serverName: String = Bukkit.getServer().name) {
         data class Withdraw(
             val uuid: UUID,
             val amount: BigDecimal,
-            val pluginName: String,
             val note: String,
             val displayNote: String?,
             val result: CompletableDeferred<OperationResult>
@@ -80,36 +80,33 @@ class BankService(db: Database, serverName: String = Bukkit.getServer().name) {
     suspend fun setBalance(
         uuid: UUID,
         amount: BigDecimal,
-        pluginName: String,
         note: String,
         displayNote: String?,
     ): OperationResult {
         val deferred = CompletableDeferred<OperationResult>()
-        queue.send(Op.SetBalance(uuid, amount, pluginName, note, displayNote, deferred))
+        queue.send(Op.SetBalance(uuid, amount, note, displayNote, deferred))
         return deferred.await()
     }
 
     suspend fun deposit(
         uuid: UUID,
         amount: BigDecimal,
-        pluginName: String,
         note: String,
         displayNote: String?,
     ): OperationResult {
         val deferred = CompletableDeferred<OperationResult>()
-        queue.send(Op.Deposit(uuid, amount, pluginName, note, displayNote, deferred))
+        queue.send(Op.Deposit(uuid, amount, note, displayNote, deferred))
         return deferred.await()
     }
 
     suspend fun withdraw(
         uuid: UUID,
         amount: BigDecimal,
-        pluginName: String,
         note: String,
         displayNote: String?,
     ): OperationResult {
         val deferred = CompletableDeferred<OperationResult>()
-        queue.send(Op.Withdraw(uuid, amount, pluginName, note, displayNote, deferred))
+        queue.send(Op.Withdraw(uuid, amount, note, displayNote, deferred))
         return deferred.await()
     }
 
@@ -133,7 +130,7 @@ class BankService(db: Database, serverName: String = Bukkit.getServer().name) {
     }
 
     private fun handleSetBalance(op: Op.SetBalance) {
-        val (uuid, amount, pluginName, note, displayNote, result) = op
+        val (uuid, amount, note, displayNote, result) = op
         try {
             if (amount.signum() < 0) {
                 result.complete(OperationResult(ResultCode.INVALID_AMOUNT))
@@ -175,7 +172,7 @@ class BankService(db: Database, serverName: String = Bukkit.getServer().name) {
     }
 
     private fun handleDeposit(op: Op.Deposit) {
-        val (uuid, amount, pluginName, note, displayNote, result) = op
+        val (uuid, amount, note, displayNote, result) = op
         try {
             if (amount.signum() <= 0) {
                 result.complete(OperationResult(ResultCode.INVALID_AMOUNT))
@@ -200,7 +197,7 @@ class BankService(db: Database, serverName: String = Bukkit.getServer().name) {
     }
 
     private fun handleWithdraw(op: Op.Withdraw) {
-        val (uuid, amount, pluginName, note, displayNote, result) = op
+        val (uuid, amount, note, displayNote, result) = op
         try {
             if (amount.signum() <= 0) {
                 result.complete(OperationResult(ResultCode.INVALID_AMOUNT))
@@ -253,7 +250,7 @@ class BankService(db: Database, serverName: String = Bukkit.getServer().name) {
                 player = fromPlayer,
                 amount = amount,
                 log = LogParams(
-                    pluginName = "Transfer",
+                    pluginName = pluginName,
                     note = "Transfer to $toPlayer",
                     displayNote = "送金: $toPlayer",
                 )
@@ -264,7 +261,7 @@ class BankService(db: Database, serverName: String = Bukkit.getServer().name) {
                     player = toPlayer,
                     amount = amount,
                     log = LogParams(
-                        pluginName = "Transfer",
+                        pluginName = pluginName,
                         note = "Transfer from $fromPlayer",
                         displayNote = "受取: $fromPlayer",
                     )
@@ -276,7 +273,7 @@ class BankService(db: Database, serverName: String = Bukkit.getServer().name) {
                     player = fromPlayer,
                     amount = amount,
                     log = LogParams(
-                        pluginName = "Transfer",
+                        pluginName = pluginName,
                         note = "Rollback transfer to $toPlayer",
                         displayNote = "送金失敗の返金: $toPlayer",
                     )
