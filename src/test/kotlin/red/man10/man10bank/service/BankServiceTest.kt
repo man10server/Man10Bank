@@ -1,22 +1,18 @@
-package red.man10.man10bank.bank.service
+package red.man10.man10bank.service
 
 import be.seeseemelk.mockbukkit.MockBukkit
 import be.seeseemelk.mockbukkit.ServerMock
 import kotlinx.coroutines.runBlocking
-import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.DisplayName
-import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.*
 import org.ktorm.database.Database
-import red.man10.man10bank.service.BankService
 import red.man10.man10bank.model.ResultCode
 
 class BankServiceTest {
 
     private lateinit var db: Database
+    private lateinit var failingDb: Database
     private lateinit var service: BankService
+    private lateinit var failingService: BankService
     private lateinit var server: ServerMock
 
     @BeforeEach
@@ -27,6 +23,12 @@ class BankServiceTest {
             url = "jdbc:h2:mem:bank;MODE=MySQL;DB_CLOSE_DELAY=-1",
             driver = "org.h2.Driver",
         )
+
+        failingDb = Database.connect(
+            url = "jdbc:h2:mem:failing;MODE=MySQL;DB_CLOSE_DELAY=-1",
+            driver = "org.h2.Driver",
+        )
+
         // 最小限のテーブルを作成
         db.useConnection { c ->
             val st = c.createStatement()
@@ -60,6 +62,7 @@ class BankServiceTest {
             st.close()
         }
         service = BankService(db, "TestBank", serverName = "test")
+        failingService = BankService(failingDb, "FailingBank", serverName = "test")
     }
 
     @AfterEach
@@ -67,6 +70,7 @@ class BankServiceTest {
         MockBukkit.unmock()
         service.shutdown()
         db.useConnection { it.createStatement().use { st -> st.execute("DROP ALL OBJECTS") } }
+        failingService.shutdown()
     }
 
     @Test
@@ -76,10 +80,10 @@ class BankServiceTest {
             val player = server.addPlayer("Grace")
             val uuid = player.uniqueId
             val res = service.setBalance(uuid, 1000.toBigDecimal(), "Set", null)
-            assertEquals(ResultCode.SUCCESS, res.code)
-            assertEquals(1000.toBigDecimal(), res.balance)
+            Assertions.assertEquals(ResultCode.SUCCESS, res.code)
+            Assertions.assertEquals(1000.toBigDecimal(), res.balance)
             val bal = service.getBalance(uuid)
-            assertEquals(1000.toBigDecimal(), bal)
+            Assertions.assertEquals(1000.toBigDecimal(), bal)
         } finally {
             MockBukkit.unmock()
         }
@@ -91,12 +95,12 @@ class BankServiceTest {
         val player = server.addPlayer("Henry")
         val uuid = player.uniqueId
         val dep = service.deposit(uuid, 800.toBigDecimal(), "Deposit", null)
-        assertEquals(ResultCode.SUCCESS, dep.code)
+        Assertions.assertEquals(ResultCode.SUCCESS, dep.code)
         val res = service.setBalance(uuid, 300.toBigDecimal(), "Set", null)
-        assertEquals(ResultCode.SUCCESS, res.code)
-        assertEquals(300.toBigDecimal(), res.balance)
+        Assertions.assertEquals(ResultCode.SUCCESS, res.code)
+        Assertions.assertEquals(300.toBigDecimal(), res.balance)
         val bal = service.getBalance(uuid)
-        assertEquals(300.toBigDecimal(), bal)
+        Assertions.assertEquals(300.toBigDecimal(), bal)
     }
 
     @Test
@@ -105,7 +109,16 @@ class BankServiceTest {
         val player = server.addPlayer("Hank")
         val uuid = player.uniqueId
         val res = service.setBalance(uuid, (-500).toBigDecimal(), "Set", null)
-        assertEquals(ResultCode.INVALID_AMOUNT, res.code)
+        Assertions.assertEquals(ResultCode.INVALID_AMOUNT, res.code)
+    }
+
+    @Test
+    @DisplayName("setBalance: DBダウン時はFAILUREを返す")
+    fun setBalance_whenDbDown_returnsFailure() = runBlocking {
+        val s = failingService
+        val uuid = server.addPlayer("DbDownUser3").uniqueId
+        val res = s.setBalance(uuid, 1000.toBigDecimal(), "Set", null)
+        Assertions.assertEquals(ResultCode.FAILURE, res.code)
     }
 
     @Test
@@ -113,7 +126,7 @@ class BankServiceTest {
     fun getBalance_returnsNull_whenUnknown() = runBlocking {
         val player = server.addPlayer("Alice")
         val bal = service.getBalance(player.uniqueId)
-        assertNull(bal)
+        Assertions.assertNull(bal)
     }
 
     @Test
@@ -122,9 +135,9 @@ class BankServiceTest {
         val player = server.addPlayer("Bob")
         val uuid = player.uniqueId
         val dep = service.deposit(uuid, 200.toBigDecimal(), "Deposit", null)
-        assertEquals(ResultCode.SUCCESS, dep.code)
+        Assertions.assertEquals(ResultCode.SUCCESS, dep.code)
         val bal = service.getBalance(uuid)
-        assertEquals(200.toBigDecimal(), bal)
+        Assertions.assertEquals(200.toBigDecimal(), bal)
     }
 
     @Test
@@ -133,12 +146,12 @@ class BankServiceTest {
         val player = server.addPlayer("Eve")
         val uuid = player.uniqueId
         val res = service.deposit(uuid, 150.toBigDecimal(), "Deposit", null)
-        assertEquals(ResultCode.SUCCESS, res.code)
-        assertEquals(150.toBigDecimal(), res.balance)
+        Assertions.assertEquals(ResultCode.SUCCESS, res.code)
+        Assertions.assertEquals(150.toBigDecimal(), res.balance)
         val bal = service.getBalance(uuid)
-        assertEquals(150.toBigDecimal(), bal)
+        Assertions.assertEquals(150.toBigDecimal(), bal)
         val log = service.getLog(uuid, 1, 0)
-        assertEquals("Deposit", log[0].note)
+        Assertions.assertEquals("Deposit", log[0].note)
     }
 
     @Test
@@ -148,8 +161,17 @@ class BankServiceTest {
         val uuid = player.uniqueId
         val res0 = service.deposit(uuid, 0.toBigDecimal(), "Deposit", null)
         val resNeg = service.deposit(uuid, (-10).toBigDecimal(), "Deposit", null)
-        assertEquals(ResultCode.INVALID_AMOUNT, res0.code)
-        assertEquals(ResultCode.INVALID_AMOUNT, resNeg.code)
+        Assertions.assertEquals(ResultCode.INVALID_AMOUNT, res0.code)
+        Assertions.assertEquals(ResultCode.INVALID_AMOUNT, resNeg.code)
+    }
+
+    @Test
+    @DisplayName("deposit: DBダウン時はFAILUREを返す")
+    fun deposit_whenDbDown_returnsFailure() = runBlocking {
+        val s = failingService
+        val uuid = server.addPlayer("DbDownUser").uniqueId
+        val res = s.deposit(uuid, 100.toBigDecimal(), "Deposit", null)
+        Assertions.assertEquals(ResultCode.FAILURE, res.code)
     }
 
     @Test
@@ -158,14 +180,14 @@ class BankServiceTest {
         val player = server.addPlayer("Frank")
         val uuid = player.uniqueId
         val dep = service.deposit(uuid, 500.toBigDecimal(), "Deposit", null)
-        assertEquals(ResultCode.SUCCESS, dep.code)
+        Assertions.assertEquals(ResultCode.SUCCESS, dep.code)
         val res = service.withdraw(uuid, 200.toBigDecimal(), "Withdraw", null)
-        assertEquals(ResultCode.SUCCESS, res.code)
-        assertEquals(300.toBigDecimal(), res.balance)
+        Assertions.assertEquals(ResultCode.SUCCESS, res.code)
+        Assertions.assertEquals(300.toBigDecimal(), res.balance)
         val bal = service.getBalance(uuid)
-        assertEquals(300.toBigDecimal(), bal)
+        Assertions.assertEquals(300.toBigDecimal(), bal)
         val log = service.getLog(uuid, 1, 0)
-        assertEquals("Withdraw", log[0].note)
+        Assertions.assertEquals("Withdraw", log[0].note)
     }
 
     @Test
@@ -174,7 +196,7 @@ class BankServiceTest {
         val player = server.addPlayer("Alice")
         val uuid = player.uniqueId
         val res = service.withdraw(uuid, 100.toBigDecimal(), "Withdraw", null)
-        assertEquals(ResultCode.INSUFFICIENT_FUNDS, res.code)
+        Assertions.assertEquals(ResultCode.INSUFFICIENT_FUNDS, res.code)
     }
 
     @Test
@@ -184,8 +206,17 @@ class BankServiceTest {
         val uuid = player.uniqueId
         val res0 = service.withdraw(uuid, 0.toBigDecimal(), "Withdraw", null)
         val resNeg = service.withdraw(uuid, (-10).toBigDecimal(), "Withdraw", null)
-        assertEquals(ResultCode.INVALID_AMOUNT, res0.code)
-        assertEquals(ResultCode.INVALID_AMOUNT, resNeg.code)
+        Assertions.assertEquals(ResultCode.INVALID_AMOUNT, res0.code)
+        Assertions.assertEquals(ResultCode.INVALID_AMOUNT, resNeg.code)
+    }
+
+    @Test
+    @DisplayName("withdraw: DBダウン時はFAILUREを返す")
+    fun withdraw_whenDbDown_returnsFailure() = runBlocking {
+        val s = failingService
+        val uuid = server.addPlayer("DbDownUser2").uniqueId
+        val res = s.withdraw(uuid, 50.toBigDecimal(), "Withdraw", null)
+        Assertions.assertEquals(ResultCode.FAILURE, res.code)
     }
 
     @Test
@@ -196,21 +227,21 @@ class BankServiceTest {
         val fromId = from.uniqueId
         val toId = to.uniqueId
 
-        val dep = service.deposit(fromId, 1000.toBigDecimal(),  "Deposit", null)
-        assertEquals(ResultCode.SUCCESS, dep.code)
+        val dep = service.deposit(fromId, 1000.toBigDecimal(), "Deposit", null)
+        Assertions.assertEquals(ResultCode.SUCCESS, dep.code)
 
         val res = service.transfer(fromId, toId, 300.toBigDecimal())
-        assertEquals(ResultCode.SUCCESS, res.code)
+        Assertions.assertEquals(ResultCode.SUCCESS, res.code)
 
         val fromBal = service.getBalance(fromId)
         val toBal = service.getBalance(toId)
-        assertEquals(700.toBigDecimal(), fromBal)
-        assertEquals(300.toBigDecimal(), toBal)
+        Assertions.assertEquals(700.toBigDecimal(), fromBal)
+        Assertions.assertEquals(300.toBigDecimal(), toBal)
 
         val fromLog = service.getLog(fromId, 1, 0)
         val toLog = service.getLog(toId, 1, 0)
-        assertEquals("Transfer to ${to.name}", fromLog[0].note)
-        assertEquals("Transfer from ${from.name}", toLog[0].note)
+        Assertions.assertEquals("Transfer to ${to.name}", fromLog[0].note)
+        Assertions.assertEquals("Transfer from ${from.name}", toLog[0].note)
     }
 
     @Test
@@ -222,8 +253,8 @@ class BankServiceTest {
         val to = player2.uniqueId
         val res0 = service.transfer(from, to, 0.toBigDecimal())
         val resNeg = service.transfer(from, to, (-20).toBigDecimal())
-        assertEquals(ResultCode.INVALID_AMOUNT, res0.code)
-        assertEquals(ResultCode.INVALID_AMOUNT, resNeg.code)
+        Assertions.assertEquals(ResultCode.INVALID_AMOUNT, res0.code)
+        Assertions.assertEquals(ResultCode.INVALID_AMOUNT, resNeg.code)
     }
 
     @Test
@@ -234,6 +265,16 @@ class BankServiceTest {
         val from = player1.uniqueId
         val to = player2.uniqueId
         val res = service.transfer(from, to, 100.toBigDecimal())
-        assertEquals(ResultCode.INSUFFICIENT_FUNDS, res.code)
+        Assertions.assertEquals(ResultCode.INSUFFICIENT_FUNDS, res.code)
+    }
+
+    @Test
+    @DisplayName("transfer: DBダウン時はFAILUREを返す")
+    fun transfer_whenDbDown_returnsFailure() = runBlocking {
+        val s = failingService
+        val from = server.addPlayer("FromUserDB").uniqueId
+        val to = server.addPlayer("ToUserDB").uniqueId
+        val res = s.transfer(from, to, 100.toBigDecimal())
+        Assertions.assertEquals(ResultCode.FAILURE, res.code)
     }
 }
