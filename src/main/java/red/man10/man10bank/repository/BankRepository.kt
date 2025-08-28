@@ -111,44 +111,5 @@ class BankRepository(private val db: Database, private val serverName: String) {
         }
     }
 
-    fun transferBetweenUsers(
-        fromUuid: String,
-        fromPlayer: String,
-        toUuid: String,
-        toPlayer: String,
-        amount: BigDecimal,
-    ) {
-        require(amount > BigDecimal.ZERO) { "amount は 0 より大きい必要があります" }
-        db.useTransaction {
-            val fromCurrent = getBalanceByUuid(fromUuid) ?: BigDecimal.ZERO
-            if (fromCurrent < amount) error("INSUFFICIENT_FUNDS")
-
-            val nextFrom = fromCurrent.subtract(amount).setScale(0, RoundingMode.DOWN)
-            setBalance(fromUuid, fromPlayer, nextFrom)
-            logMoney(
-                uuid = fromUuid,
-                player = fromPlayer,
-                amount = amount.setScale(0, RoundingMode.DOWN).negate(),
-                deposit = false,
-                pluginName = "Transfer",
-                note = "Transfer to $toPlayer",
-                displayNote = "送金: $toPlayer",
-                server = serverName,
-            )
-
-            val toCurrent = getBalanceByUuid(toUuid) ?: BigDecimal.ZERO
-            val nextTo = toCurrent.add(amount).setScale(0, RoundingMode.DOWN)
-            setBalance(toUuid, toPlayer, nextTo)
-            logMoney(
-                uuid = toUuid,
-                player = toPlayer,
-                amount = amount.setScale(0, RoundingMode.DOWN),
-                deposit = true,
-                pluginName = "Transfer",
-                note = "Transfer from $fromPlayer",
-                displayNote = "受取: $fromPlayer",
-                server = serverName,
-            )
-        }
-    }
+    
 }

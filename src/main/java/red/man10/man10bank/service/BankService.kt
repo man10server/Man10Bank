@@ -247,14 +247,43 @@ class BankService(db: Database, serverName: String = Bukkit.getServer().name) {
                 return
             }
 
-            repository.transferBetweenUsers(
-                fromUuid = fromUuidStr,
-                fromPlayer = fromPlayer,
-                toUuid = toUuidStr,
-                toPlayer = toPlayer,
-                amount = amount
+            // 送金: まず出金、次に入金（入金失敗時は補償で戻す）
+            val fromAfter = repository.decreaseBalance(
+                uuid = fromUuidStr,
+                player = fromPlayer,
+                amount = amount,
+                log = LogParams(
+                    pluginName = "Transfer",
+                    note = "Transfer to $toPlayer",
+                    displayNote = "送金: $toPlayer",
+                )
             )
-            val fromAfter = repository.getBalanceByUuid(fromUuidStr)
+            try {
+                repository.increaseBalance(
+                    uuid = toUuidStr,
+                    player = toPlayer,
+                    amount = amount,
+                    log = LogParams(
+                        pluginName = "Transfer",
+                        note = "Transfer from $fromPlayer",
+                        displayNote = "受取: $fromPlayer",
+                    )
+                )
+            } catch (e: Throwable) {
+                // 補償: 出金を戻す
+                repository.increaseBalance(
+                    uuid = fromUuidStr,
+                    player = fromPlayer,
+                    amount = amount,
+                    log = LogParams(
+                        pluginName = "Transfer",
+                        note = "Rollback transfer to $toPlayer",
+                        displayNote = "送金失敗の返金: $toPlayer",
+                    )
+                )
+                result.complete(OperationResult(ResultCode.FAILURE))
+                return
+            }
             result.complete(OperationResult(ResultCode.SUCCESS, fromAfter))
         } catch (t: Throwable) {
             result.complete(OperationResult(ResultCode.FAILURE))
