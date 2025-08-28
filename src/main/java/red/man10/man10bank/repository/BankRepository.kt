@@ -41,7 +41,8 @@ class BankRepository(private val db: Database, private val serverName: String) {
             .select()
             .where { MoneyLog.uuid eq uuid }
             .orderBy(MoneyLog.id.desc())
-            .limit(limit, offset)
+            .limit(limit)
+            .offset(offset)
             .map { row ->
                 LogParams(
                     amount = row[MoneyLog.amount],

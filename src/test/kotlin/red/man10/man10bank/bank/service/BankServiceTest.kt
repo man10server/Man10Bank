@@ -137,6 +137,8 @@ class BankServiceTest {
         assertEquals(150.toBigDecimal(), res.balance)
         val bal = service.getBalance(uuid)
         assertEquals(150.toBigDecimal(), bal)
+        val log = service.getLog(uuid, 1, 0)
+        assertEquals("Deposit", log[0].note)
     }
 
     @Test
@@ -162,6 +164,8 @@ class BankServiceTest {
         assertEquals(300.toBigDecimal(), res.balance)
         val bal = service.getBalance(uuid)
         assertEquals(300.toBigDecimal(), bal)
+        val log = service.getLog(uuid, 1, 0)
+        assertEquals("Withdraw", log[0].note)
     }
 
     @Test
@@ -202,6 +206,11 @@ class BankServiceTest {
         val toBal = service.getBalance(toId)
         assertEquals(700.toBigDecimal(), fromBal)
         assertEquals(300.toBigDecimal(), toBal)
+
+        val fromLog = service.getLog(fromId, 1, 0)
+        val toLog = service.getLog(toId, 1, 0)
+        assertEquals("Transfer to ${to.name}", fromLog[0].note)
+        assertEquals("Transfer from ${from.name}", toLog[0].note)
     }
 
     @Test
