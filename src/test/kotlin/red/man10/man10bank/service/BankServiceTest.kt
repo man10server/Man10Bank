@@ -19,48 +19,9 @@ class BankServiceTest {
     fun setUp() {
         server = MockBukkit.mock()
 
-        db = Database.connect(
-            url = "jdbc:h2:mem:bank;MODE=MySQL;DB_CLOSE_DELAY=-1",
-            driver = "org.h2.Driver",
-        )
-
-        failingDb = Database.connect(
-            url = "jdbc:h2:mem:failing;MODE=MySQL;DB_CLOSE_DELAY=-1",
-            driver = "org.h2.Driver",
-        )
-
-        // 最小限のテーブルを作成
-        db.useConnection { c ->
-            val st = c.createStatement()
-            st.addBatch(
-                """
-                CREATE TABLE user_bank (
-                  id INT AUTO_INCREMENT PRIMARY KEY,
-                  player VARCHAR(16),
-                  uuid VARCHAR(36),
-                  balance DECIMAL
-                );
-                """.trimIndent()
-            )
-            st.addBatch(
-                """
-                CREATE TABLE money_log (
-                  id INT AUTO_INCREMENT PRIMARY KEY,
-                  player VARCHAR(16),
-                  uuid VARCHAR(36),
-                  plugin_name VARCHAR(16),
-                  amount DECIMAL,
-                  note VARCHAR(64),
-                  display_note VARCHAR(64),
-                  server VARCHAR(16),
-                  deposit BOOLEAN,
-                  date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
-                """.trimIndent()
-            )
-            st.executeBatch()
-            st.close()
-        }
+        db = red.man10.man10bank.testutils.TestDatabase.create("bank", withSchema = true)
+        // failingDb はスキーマを作成しないことで失敗を誘発する
+        failingDb = red.man10.man10bank.testutils.TestDatabase.create("failing", withSchema = false)
         service = BankService(db, "TestBank", serverName = "test")
         failingService = BankService(failingDb, "FailingBank", serverName = "test")
     }

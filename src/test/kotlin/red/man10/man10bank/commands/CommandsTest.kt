@@ -25,41 +25,7 @@ class CommandsTest {
         server = MockBukkit.mock()
         plugin = MockBukkit.load(Man10Bank::class.java)
         // Inject services
-        val db = Database.connect(
-            url = "jdbc:h2:mem:cmdtest;MODE=MySQL;DB_CLOSE_DELAY=-1",
-            driver = "org.h2.Driver",
-        )
-        db.useConnection { c ->
-            c.createStatement().use { st ->
-                st.addBatch(
-                    """
-                    CREATE TABLE IF NOT EXISTS user_bank (
-                      id INT AUTO_INCREMENT PRIMARY KEY,
-                      player VARCHAR(16),
-                      uuid VARCHAR(36),
-                      balance DECIMAL
-                    );
-                    """.trimIndent()
-                )
-                st.addBatch(
-                    """
-                    CREATE TABLE IF NOT EXISTS money_log (
-                      id INT AUTO_INCREMENT PRIMARY KEY,
-                      player VARCHAR(16),
-                      uuid VARCHAR(36),
-                      plugin_name VARCHAR(16),
-                      amount DECIMAL,
-                      note VARCHAR(64),
-                      display_note VARCHAR(64),
-                      server VARCHAR(16),
-                      deposit BOOLEAN,
-                      date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    );
-                    """.trimIndent()
-                )
-                st.executeBatch()
-            }
-        }
+        val db = red.man10.man10bank.testutils.TestDatabase.create("cmdtest", withSchema = true)
         plugin.appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         plugin.bankService = BankService(db, "TestBank")
         // Inject fake Vault economy (plugin.vault is set only when Vault is present)
