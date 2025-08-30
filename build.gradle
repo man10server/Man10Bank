@@ -28,7 +28,9 @@ repositories {
 dependencies {
     // Server-provided APIs
     compileOnly 'io.papermc.paper:paper-api:1.21.8-R0.1-SNAPSHOT'
-    compileOnly "com.github.MilkBowl:VaultAPI:1.7"
+    compileOnly ("com.github.MilkBowl:VaultAPI:1.7") {
+        exclude group: 'org.bukkit', module: 'bukkit'
+    }
     compileOnly fileTree(dir: 'libs', include: '*.jar')
 
     // Kotlin stdlib (shade to jar)
