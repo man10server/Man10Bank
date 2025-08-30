@@ -1,6 +1,6 @@
 plugins {
     id 'java'
-    id 'org.jetbrains.kotlin.jvm' version '2.0.20'
+id 'org.jetbrains.kotlin.jvm' version '2.0.20'
     id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
 
@@ -27,7 +27,7 @@ repositories {
 
 dependencies {
     // Server-provided APIs
-    compileOnly 'io.papermc.paper:paper-api:1.20.4-R0.1-SNAPSHOT'
+    compileOnly 'io.papermc.paper:paper-api:1.21.8-R0.1-SNAPSHOT'
     compileOnly "com.github.MilkBowl:VaultAPI:1.7"
     compileOnly fileTree(dir: 'libs', include: '*.jar')
 
@@ -50,7 +50,7 @@ dependencies {
     testImplementation("ch.qos.logback:logback-classic:1.4.14")
 }
 
-def targetJavaVersion = 17
+def targetJavaVersion = 21
 java {
     def javaVersion = JavaVersion.toVersion(targetJavaVersion)
     sourceCompatibility = javaVersion
@@ -76,12 +76,12 @@ processResources {
 }
 compileKotlin {
     kotlinOptions {
-        jvmTarget = "17"
+        jvmTarget = "21"
     }
 }
 compileTestKotlin {
     kotlinOptions {
-        jvmTarget = "17"
+        jvmTarget = "21"
     }
 }
 
@@ -93,6 +93,21 @@ build.dependsOn shadowJar
 
 test {
     useJUnitPlatform()
+}
+
+// KotlinとJavaのツールチェーンをJDK 21に統一
+kotlin {
+    jvmToolchain(21)
+}
+
+// Kotlinファイルを src/main/java 配下も対象にする
+sourceSets {
+    main {
+        kotlin.srcDirs += 'src/main/java'
+    }
+    test {
+        kotlin.srcDirs += 'src/test/kotlin'
+    }
 }
 
 // =========================
