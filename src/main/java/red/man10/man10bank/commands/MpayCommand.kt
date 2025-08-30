@@ -10,6 +10,7 @@ import org.bukkit.entity.Player
 import red.man10.man10bank.Man10Bank
 import red.man10.man10bank.model.ResultCode
 import red.man10.man10bank.util.StringFormat
+import red.man10.man10bank.util.BigDecimalConverter
 import java.math.BigDecimal
 
 class MpayCommand(private val plugin: Man10Bank) : CommandExecutor {
@@ -23,7 +24,7 @@ class MpayCommand(private val plugin: Man10Bank) : CommandExecutor {
             return true
         }
         val targetName = args[0]
-        val amount = args[1].toBigDecimalOrNull()
+        val amount = BigDecimalConverter.parseOrNull(args[1])
         if (amount == null || amount.signum() <= 0) {
             sender.sendMessage("金額は正の数で指定してください。")
             return true

@@ -9,6 +9,7 @@ import org.bukkit.entity.Player
 import red.man10.man10bank.Man10Bank
 import red.man10.man10bank.model.ResultCode
 import red.man10.man10bank.util.StringFormat
+import red.man10.man10bank.util.BigDecimalConverter
 
 class WithdrawCommand(private val plugin: Man10Bank) : CommandExecutor {
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
@@ -20,7 +21,7 @@ class WithdrawCommand(private val plugin: Man10Bank) : CommandExecutor {
             sender.sendMessage("使用方法: /withdraw <金額>")
             return true
         }
-        val amount = args[0].toBigDecimalOrNull()
+        val amount = BigDecimalConverter.parseOrNull(args[0])
         if (amount == null || amount.signum() <= 0) {
             sender.sendMessage("金額は正の数で指定してください。")
             return true

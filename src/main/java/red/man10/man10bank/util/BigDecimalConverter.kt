@@ -13,4 +13,10 @@ object BigDecimalConverter {
         return value.setScale(0, RoundingMode.DOWN).toDouble()
     }
 
+    fun parseOrNull(text: String): BigDecimal? = try {
+        BigDecimal(text)
+    } catch (_: Exception) {
+        null
+    }
+
 }
