@@ -23,6 +23,7 @@ class Man10Bank : JavaPlugin(), Listener {
 
     // サービス
     private lateinit var healthService: HealthService
+    private lateinit var vaultManager: red.man10.man10bank.service.VaultManager
 
     override fun onEnable() {
         // 初期化フロー
@@ -58,6 +59,13 @@ class Man10Bank : JavaPlugin(), Listener {
 
     private fun initServices() {
         healthService = HealthService(HealthApiClient(httpClient))
+        vaultManager = red.man10.man10bank.service.VaultManager(this)
+        val hooked = vaultManager.hook()
+        if (!hooked) {
+            logger.warning("Vault(Economy) が見つかりません。経済連携機能は無効です。")
+        } else {
+            logger.info("Vault(Economy) に接続しました: ${vaultManager.provider()?.name}")
+        }
     }
 
     private fun runStartupHealthCheck() {
