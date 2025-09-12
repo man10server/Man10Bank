@@ -17,6 +17,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import red.man10.man10bank.api.model.DepositRequest
 import red.man10.man10bank.api.model.WithdrawRequest
+import red.man10.man10bank.api.model.MoneyLog
 import java.util.UUID
 
 /**
@@ -45,36 +46,33 @@ class BankApiClient(private val client: HttpClient) {
         }
     }
 
-    /**
-     * 取引ログ取得。レスポンススキーマ未定義のため未加工JSON文字列を返します。
-     */
-    suspend fun getLogs(uuid: UUID, limit: Int = 100, offset: Int = 0): Result<String> = runCatching {
+    /** 取引ログ取得。MoneyLogの配列を返します。 */
+    suspend fun getLogs(uuid: UUID, limit: Int = 100, offset: Int = 0): Result<List<MoneyLog>> = runCatching {
         client.get("/api/Bank/${uuid}/logs") {
             if (limit >= 0) parameter("limit", limit)
             if (offset >= 0) parameter("offset", offset)
-        }.bodyAsText()
+        }.body()
     }
 
-    /** 入金（成功時は 2xx を前提に Unit 成功）。*/
-    suspend fun deposit(body: DepositRequest): Result<Unit> = runCatching {
+    /** 入金。成功時は新しい残高（Double）が返ります。 */
+    suspend fun deposit(body: DepositRequest): Result<Double> = runCatching {
         client.post("/api/Bank/deposit") {
             contentType(ContentType.Application.Json)
             setBody(body)
-        }
-        Unit
+        }.body()
     }
 
     /**
      * 出金。残高不足などで 409 Conflict を受け取った場合は
      * InsufficientBalanceException を失敗として返します。
      */
-    suspend fun withdraw(body: WithdrawRequest): Result<Unit> {
+    suspend fun withdraw(body: WithdrawRequest): Result<Double> {
         return try {
-            client.post("/api/Bank/withdraw") {
+            val newBalance: Double = client.post("/api/Bank/withdraw") {
                 contentType(ContentType.Application.Json)
                 setBody(body)
-            }
-            Result.success(Unit)
+            }.body()
+            Result.success(newBalance)
         } catch (e: ClientRequestException) {
             if (e.response.status == HttpStatusCode.Conflict) {
                 Result.failure(red.man10.man10bank.api.error.InsufficientBalanceException())
