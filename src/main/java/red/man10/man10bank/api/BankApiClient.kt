@@ -1,4 +1,4 @@
-package red.man10.man10bank.api.bank
+package red.man10.man10bank.api
 
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -9,11 +9,12 @@ import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import red.man10.man10bank.api.model.DepositRequest
+import red.man10.man10bank.api.model.WithdrawRequest
 import java.util.UUID
 
 /**
@@ -70,24 +71,3 @@ class BankApiClient(private val client: HttpClient) {
         Unit
     }
 }
-
-@Serializable
-data class DepositRequest(
-    val uuid: String,
-    val amount: Double,
-    val pluginName: String,
-    val note: String,
-    val displayNote: String,
-    val server: String,
-)
-
-@Serializable
-data class WithdrawRequest(
-    val uuid: String,
-    val amount: Double,
-    val pluginName: String,
-    val note: String,
-    val displayNote: String,
-    val server: String,
-)
-
