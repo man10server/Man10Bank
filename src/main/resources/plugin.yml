@@ -44,11 +44,17 @@ commands:
     default: op
     description: vault pay
   deposit:
-    default: op
-    description: vault to bank
+    description: VaultからBankへ入金
+    permission: man10bank.user
+    usage: /deposit <金額|all>
   withdraw:
-    default: op
-    description: bank to vault
+    description: BankからVaultへ出金
+    permission: man10bank.user
+    usage: /withdraw <金額|all>
+permissions:
+  man10bank.user:
+    description: Man10Bankのユーザー権限
+    default: true
   mchequeop:
     default: op
     description: issue money

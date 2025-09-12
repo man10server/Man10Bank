@@ -9,7 +9,10 @@ import kotlinx.coroutines.launch
 import org.bukkit.event.Listener
 import org.bukkit.plugin.java.JavaPlugin
 import red.man10.man10bank.api.HealthApiClient
+import red.man10.man10bank.api.BankApiClient
 import red.man10.man10bank.command.Man10BankCommand
+import red.man10.man10bank.command.DepositCommand
+import red.man10.man10bank.command.WithdrawCommand
 import red.man10.man10bank.config.ConfigManager
 import red.man10.man10bank.net.HttpClientFactory
 import red.man10.man10bank.service.HealthService
@@ -24,6 +27,7 @@ class Man10Bank : JavaPlugin(), Listener {
     // サービス
     private lateinit var healthService: HealthService
     private lateinit var vaultManager: red.man10.man10bank.service.VaultManager
+    private lateinit var bankApi: BankApiClient
 
     override fun onEnable() {
         // 初期化フロー
@@ -59,6 +63,7 @@ class Man10Bank : JavaPlugin(), Listener {
 
     private fun initServices() {
         healthService = HealthService(HealthApiClient(httpClient))
+        bankApi = BankApiClient(httpClient)
         vaultManager = red.man10.man10bank.service.VaultManager(this)
         val hooked = vaultManager.hook()
         if (!hooked) {
@@ -77,5 +82,7 @@ class Man10Bank : JavaPlugin(), Listener {
 
     private fun registerCommands() {
         getCommand("man10bank")?.setExecutor(Man10BankCommand(this, scope, healthService))
+        getCommand("deposit")?.setExecutor(DepositCommand(this, scope, vaultManager, bankApi))
+        getCommand("withdraw")?.setExecutor(WithdrawCommand(this, scope, vaultManager, bankApi))
     }
 }
