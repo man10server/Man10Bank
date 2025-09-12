@@ -28,13 +28,9 @@ class Man10BankCommand(
         scope.launch {
             try {
                 val msg = healthService.buildHealthMessage()
-                plugin.server.scheduler.runTask(plugin, Runnable {
-                    Messages.sendMultiline(sender, msg)
-                })
+                Messages.sendMultiline(plugin, sender, msg)
             } catch (e: Exception) {
-                plugin.server.scheduler.runTask(plugin, Runnable {
-                    Messages.error(sender, "ヘルスチェック失敗: ${e.message}")
-                })
+                Messages.error(plugin, sender, "ヘルスチェック失敗: ${e.message}")
             }
         }
         return true

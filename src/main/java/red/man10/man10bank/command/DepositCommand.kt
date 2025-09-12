@@ -53,7 +53,7 @@ class DepositCommand(
             // 1) Vault から引き落とし
             val withdrew = vault.withdraw(sender, amount)
             if (!withdrew) {
-                plugin.server.scheduler.runTask(plugin, Runnable { Messages.error(sender, "Vaultからの引き落としに失敗しました。") })
+                Messages.error(plugin, sender, "Vaultからの引き落としに失敗しました。")
                 return@launch
             }
             // 2) Bank へ入金
@@ -68,14 +68,12 @@ class DepositCommand(
             val result = bank.deposit(req)
             if (result.isSuccess) {
                 val newBank = result.getOrNull() ?: 0.0
-                plugin.server.scheduler.runTask(plugin, Runnable {
-                    Messages.send(sender, "入金に成功しました。金額: $amount 銀行残高: $newBank 所持金: ${vault.getBalance(sender)}")
-                })
+                Messages.send(plugin, sender, "入金に成功しました。金額: $amount 銀行残高: $newBank 所持金: ${vault.getBalance(sender)}")
             } else {
                 // 失敗したので Vault に返金
                 vault.deposit(sender, amount)
                 val msg = result.exceptionOrNull()?.message ?: "不明なエラー"
-                plugin.server.scheduler.runTask(plugin, Runnable { Messages.error(sender, "入金に失敗しました: $msg") })
+                Messages.error(plugin, sender, "入金に失敗しました: $msg")
             }
         }
         return true

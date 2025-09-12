@@ -43,7 +43,7 @@ class WithdrawCommand(
             } else arg.toDoubleOrNull() ?: -1.0
 
             if (amount <= 0.0) {
-                plugin.server.scheduler.runTask(plugin, Runnable { Messages.error(sender, "金額が不正です。正の数または all を指定してください。") })
+                Messages.error(plugin, sender, "金額が不正です。正の数または all を指定してください。")
                 return@launch
             }
 
@@ -61,20 +61,18 @@ class WithdrawCommand(
                 val newBank = result.getOrNull() ?: 0.0
                 // Vault に入金
                 val ok = vault.deposit(sender, amount)
-                plugin.server.scheduler.runTask(plugin, Runnable {
-                    if (ok) {
-                        Messages.send(sender, "出金に成功しました。金額: $amount 銀行残高: $newBank 所持金: ${vault.getBalance(sender)}")
-                    } else {
-                        Messages.warn(sender, "出金は成功しましたが、Vaultへの反映に失敗しました。管理者へ連絡してください。")
-                    }
-                })
+                if (ok) {
+                    Messages.send(plugin, sender, "出金に成功しました。金額: $amount 銀行残高: $newBank 所持金: ${vault.getBalance(sender)}")
+                } else {
+                    Messages.warn(plugin, sender, "出金は成功しましたが、Vaultへの反映に失敗しました。管理者へ連絡してください。")
+                }
             } else {
                 val ex = result.exceptionOrNull()
                 val msg = when (ex) {
                     is InsufficientBalanceException -> "銀行残高が不足しています。"
                     else -> ex?.message ?: "不明なエラー"
                 }
-                plugin.server.scheduler.runTask(plugin, Runnable { Messages.error(sender, "出金に失敗しました: $msg") })
+                Messages.error(plugin, sender, "出金に失敗しました: $msg")
             }
         }
         return true
