@@ -47,14 +47,13 @@ class WithdrawCommand(
                 return@launch
             }
 
-            val serverName = plugin.config.getString("serverName", "") ?: ""
             val req = WithdrawRequest(
                 uuid = sender.uniqueId.toString(),
                 amount = amount,
                 pluginName = plugin.name,
                 note = "Vaultへ出金",
                 displayNote = "出金: $amount",
-                server = serverName
+                server = plugin.serverName
             )
 
             val result = bank.withdraw(req)

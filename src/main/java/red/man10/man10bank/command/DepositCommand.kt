@@ -57,14 +57,13 @@ class DepositCommand(
                 return@launch
             }
             // 2) Bank へ入金
-            val serverName = plugin.config.getString("serverName", "") ?: ""
             val req = DepositRequest(
                 uuid = sender.uniqueId.toString(),
                 amount = amount,
                 pluginName = plugin.name,
                 note = "Vaultから入金",
                 displayNote = "入金: $amount",
-                server = serverName
+                server = plugin.serverName
             )
             val result = bank.deposit(req)
             if (result.isSuccess) {

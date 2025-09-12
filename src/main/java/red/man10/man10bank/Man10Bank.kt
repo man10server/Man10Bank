@@ -29,11 +29,16 @@ class Man10Bank : JavaPlugin(), Listener {
     private lateinit var vaultManager: red.man10.man10bank.service.VaultManager
     private lateinit var bankApi: BankApiClient
 
+    // サーバー識別名（configの serverName が空/未設定の場合はBukkitのサーバー名を使用）
+    lateinit var serverName: String
+        private set
+
     override fun onEnable() {
         // 初期化フロー
         configManager = ConfigManager(this)
         val apiConfig = loadApiConfigOrDisable() ?: return
         initRuntime(apiConfig)
+        initServerName()
         initServices()
         registerCommands()
         runStartupHealthCheck()
@@ -71,6 +76,12 @@ class Man10Bank : JavaPlugin(), Listener {
         } else {
             logger.info("Vault(Economy) に接続しました: ${vaultManager.provider()?.name}")
         }
+    }
+
+    private fun initServerName() {
+        val cfg = config.getString("serverName")?.trim().orEmpty()
+        serverName = if (cfg.isNotBlank()) cfg else server.name
+        logger.info("ServerName: ${serverName}")
     }
 
     private fun runStartupHealthCheck() {
