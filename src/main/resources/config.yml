@@ -8,6 +8,16 @@ mysql:
 # サーバー識別名（ログ記録に使用）。空の場合は未設定として扱います。
 serverName: ""
 
+# WebAPI クライアント設定
+api:
+  baseUrl: "http://localhost:8080"   # 例: http://localhost:8080 または https://api.example.com
+  apiKey: ""                           # 必要に応じて設定（未使用なら空）
+  timeout:
+    requestMs: 10000                   # リクエスト全体のタイムアウト
+    connectMs: 3000                    # 接続確立のタイムアウト
+    socketMs: 10000                    # ソケット読み書きのタイムアウト
+  retries: 2                           # 失敗時の自動リトライ回数（0で無効）
+
 mlendFee: 0.1
 mlendMax: 10000000.0
 mlendRate: 1.0
