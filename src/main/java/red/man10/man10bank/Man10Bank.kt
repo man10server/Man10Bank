@@ -24,40 +24,50 @@ class Man10Bank : JavaPlugin(), Listener {
     private lateinit var healthService: HealthService
 
     override fun onEnable() {
-        // 設定をロード
+        // 初期化フロー
         configManager = ConfigManager(this)
-        val apiConfig = try {
-            configManager.load()
-        } catch (e: Exception) {
-            logger.severe("config.yml の読み込みに失敗しました: ${e.message}")
-            // API設定なしでは動作できないため、無効化
-            server.pluginManager.disablePlugin(this)
-            return
-        }
-
-        // HttpClient と CoroutineScope を初期化
-        httpClient = HttpClientFactory.create(apiConfig)
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
-        // サービス初期化
-        healthService = HealthService(HealthApiClient(httpClient))
-
-        // 非同期でヘルスチェックを実行
-        scope.launch {
-            val result = healthService.getHealth()
-            result.onSuccess { h ->
-                logger.info(
-                    "ヘルスチェック成功: service=${h.service}, db=${h.database}, uptime=${h.uptimeSeconds}s"
-                )
-            }.onFailure { e ->
-                logger.warning("ヘルスチェック失敗: ${e.message}")
-            }
-        }
+        val apiConfig = loadApiConfigOrDisable() ?: return
+        initRuntime(apiConfig)
+        initServices()
+        runStartupHealthCheck()
     }
 
     override fun onDisable() {
         // スコープとクライアントをクリーンアップ
         if (this::scope.isInitialized) scope.cancel()
         if (this::httpClient.isInitialized) httpClient.close()
+    }
+
+    // ===============
+    // 初期化ヘルパー
+    // ===============
+    private fun loadApiConfigOrDisable(): ConfigManager.ApiConfig? {
+        return try {
+            configManager.load()
+        } catch (e: Exception) {
+            logger.severe("config.yml の読み込みに失敗しました: ${e.message}")
+            server.pluginManager.disablePlugin(this)
+            null
+        }
+    }
+
+    private fun initRuntime(apiConfig: ConfigManager.ApiConfig) {
+        httpClient = HttpClientFactory.create(apiConfig)
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    }
+
+    private fun initServices() {
+        healthService = HealthService(HealthApiClient(httpClient))
+    }
+
+    private fun runStartupHealthCheck() {
+        scope.launch {
+            val result = healthService.getHealth()
+            result.onSuccess { h ->
+                logger.info("ヘルスチェック成功: service=${h.service}, db=${h.database}, uptime=${h.uptimeSeconds}s")
+            }.onFailure { e ->
+                logger.warning("ヘルスチェック失敗: ${e.message}")
+            }
+        }
     }
 }
