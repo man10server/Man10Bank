@@ -7,7 +7,9 @@ import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
+import io.ktor.client.plugins.ClientRequestException
 import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.doubleOrNull
@@ -62,12 +64,25 @@ class BankApiClient(private val client: HttpClient) {
         Unit
     }
 
-    /** 出金（成功時は 2xx を前提に Unit 成功）。*/
-    suspend fun withdraw(body: WithdrawRequest): Result<Unit> = runCatching {
-        client.post("/api/Bank/withdraw") {
-            contentType(ContentType.Application.Json)
-            setBody(body)
+    /**
+     * 出金。残高不足などで 409 Conflict を受け取った場合は
+     * InsufficientBalanceException を失敗として返します。
+     */
+    suspend fun withdraw(body: WithdrawRequest): Result<Unit> {
+        return try {
+            client.post("/api/Bank/withdraw") {
+                contentType(ContentType.Application.Json)
+                setBody(body)
+            }
+            Result.success(Unit)
+        } catch (e: ClientRequestException) {
+            if (e.response.status == HttpStatusCode.Conflict) {
+                Result.failure(red.man10.man10bank.api.error.InsufficientBalanceException())
+            } else {
+                Result.failure(e)
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
         }
-        Unit
     }
 }
