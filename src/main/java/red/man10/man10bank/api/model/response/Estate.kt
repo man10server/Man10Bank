@@ -1,4 +1,4 @@
-package red.man10.man10bank.api.model
+package red.man10.man10bank.api.model.response
 
 import kotlinx.serialization.Serializable
 
@@ -33,4 +33,3 @@ data class EstateHistory(
     val crypto: Double? = null,
     val total: Double? = null,
 )
-

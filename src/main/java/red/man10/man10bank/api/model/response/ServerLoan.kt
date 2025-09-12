@@ -1,4 +1,4 @@
-package red.man10.man10bank.api.model
+package red.man10.man10bank.api.model.response
 
 import kotlinx.serialization.Serializable
 
@@ -24,4 +24,3 @@ data class ServerLoanLog(
     val amount: Double? = null,
     val date: String? = null,
 )
-

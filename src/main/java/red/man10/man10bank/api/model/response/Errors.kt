@@ -1,4 +1,4 @@
-package red.man10.man10bank.api.model
+package red.man10.man10bank.api.model.response
 
 import kotlinx.serialization.Serializable
 
@@ -20,4 +20,3 @@ data class ValidationProblemDetails(
     val instance: String? = null,
     val errors: Map<String, List<String>>? = null,
 )
-

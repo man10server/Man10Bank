@@ -1,4 +1,4 @@
-package red.man10.man10bank.api.model
+package red.man10.man10bank.api.model.response
 
 import kotlinx.serialization.Serializable
 
@@ -14,4 +14,3 @@ data class Cheque(
     val usePlayer: String? = null,
     val used: Boolean? = null,
 )
-

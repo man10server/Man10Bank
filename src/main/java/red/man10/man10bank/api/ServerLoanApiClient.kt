@@ -9,9 +9,9 @@ import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
-import red.man10.man10bank.api.model.ServerLoanBorrowBodyRequest
-import red.man10.man10bank.api.model.ServerLoan
-import red.man10.man10bank.api.model.ServerLoanLog
+import red.man10.man10bank.api.model.request.ServerLoanBorrowBodyRequest
+import red.man10.man10bank.api.model.response.ServerLoan
+import red.man10.man10bank.api.model.response.ServerLoanLog
 import java.util.UUID
 
 /** /api/ServerLoan 用のAPIクライアント */

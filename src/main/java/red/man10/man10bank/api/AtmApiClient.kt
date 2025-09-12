@@ -9,8 +9,8 @@ import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
-import red.man10.man10bank.api.model.AtmLogRequest
-import red.man10.man10bank.api.model.AtmLog
+import red.man10.man10bank.api.model.request.AtmLogRequest
+import red.man10.man10bank.api.model.response.AtmLog
 import java.util.UUID
 
 /** /api/Atm 用のAPIクライアント */

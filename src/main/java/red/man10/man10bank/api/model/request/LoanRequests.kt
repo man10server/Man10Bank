@@ -1,4 +1,4 @@
-package red.man10.man10bank.api.model
+package red.man10.man10bank.api.model.request
 
 import kotlinx.serialization.Serializable
 
@@ -10,4 +10,3 @@ data class LoanCreateRequest(
     val paybackDate: String, // ISO8601 date-time
     val collateralItem: String? = null,
 )
-

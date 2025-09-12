@@ -15,9 +15,9 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import red.man10.man10bank.api.model.DepositRequest
-import red.man10.man10bank.api.model.WithdrawRequest
-import red.man10.man10bank.api.model.MoneyLog
+import red.man10.man10bank.api.model.request.DepositRequest
+import red.man10.man10bank.api.model.request.WithdrawRequest
+import red.man10.man10bank.api.model.response.MoneyLog
 import java.util.UUID
 
 /**

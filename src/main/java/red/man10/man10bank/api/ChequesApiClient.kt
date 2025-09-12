@@ -9,9 +9,9 @@ import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
-import red.man10.man10bank.api.model.ChequeCreateRequest
-import red.man10.man10bank.api.model.ChequeUseRequest
-import red.man10.man10bank.api.model.Cheque
+import red.man10.man10bank.api.model.request.ChequeCreateRequest
+import red.man10.man10bank.api.model.request.ChequeUseRequest
+import red.man10.man10bank.api.model.response.Cheque
 
 /** /api/Cheques 用のAPIクライアント */
 class ChequesApiClient(private val client: HttpClient) {

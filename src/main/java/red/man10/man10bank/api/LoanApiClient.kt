@@ -9,8 +9,8 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.client.request.setBody
-import red.man10.man10bank.api.model.LoanCreateRequest
-import red.man10.man10bank.api.model.Loan
+import red.man10.man10bank.api.model.request.LoanCreateRequest
+import red.man10.man10bank.api.model.response.Loan
 import java.util.UUID
 
 /** /api/Loan 用のAPIクライアント */

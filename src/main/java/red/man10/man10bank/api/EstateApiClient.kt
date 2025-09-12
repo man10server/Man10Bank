@@ -9,9 +9,9 @@ import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
-import red.man10.man10bank.api.model.EstateUpdateRequest
-import red.man10.man10bank.api.model.Estate
-import red.man10.man10bank.api.model.EstateHistory
+import red.man10.man10bank.api.model.request.EstateUpdateRequest
+import red.man10.man10bank.api.model.response.Estate
+import red.man10.man10bank.api.model.response.EstateHistory
 import java.util.UUID
 
 /** /api/Estate 用のAPIクライアント */

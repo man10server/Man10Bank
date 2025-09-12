@@ -1,4 +1,4 @@
-package red.man10.man10bank.api.model
+package red.man10.man10bank.api.model.request
 
 import kotlinx.serialization.Serializable
 
@@ -9,4 +9,3 @@ data class EstateUpdateRequest(
     val estateAmount: Double? = null,
     val shop: Double? = null,
 )
-

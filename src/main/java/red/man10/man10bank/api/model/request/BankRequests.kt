@@ -1,4 +1,4 @@
-package red.man10.man10bank.api.model
+package red.man10.man10bank.api.model.request
 
 import kotlinx.serialization.Serializable
 
@@ -22,4 +22,3 @@ data class WithdrawRequest(
     val displayNote: String,
     val server: String,
 )
-
