@@ -62,16 +62,7 @@ class Man10Bank : JavaPlugin(), Listener {
         scope.launch {
             val result = healthService.getHealth()
             result.onSuccess { h ->
-                val msg = """
-                    ================== ヘルスチェック ==================
-                    サービス名   : ${h.service}
-                    DB接続       : ${if (h.database) "成功" else "失敗"}
-                    稼働時間     : ${h.uptimeSeconds} 秒
-                    サーバー時刻 : ${h.serverTimeUtc}
-                    起動時刻     : ${h.startedAtUtc}
-                    ====================================================
-                """.trimIndent()
-                logger.info(msg)
+                logger.info(healthService.formatHealthMessage(h))
             }.onFailure { e ->
                 logger.warning("ヘルスチェック失敗: ${e.message}")
             }
