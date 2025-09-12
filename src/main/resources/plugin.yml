@@ -8,7 +8,7 @@ softdepend:
   - Essentials
   - Man10Score
 main: red.man10.man10bank.Man10Bank
-api-version: 1.20
+api-version: 1.21
 commands:
   mbal:
     default: op

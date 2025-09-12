@@ -1,59 +1,42 @@
-# Repository Guidelines
+# リポジトリガイドライン
 
-## Project Structure & Module Organization
-- `src/main/java` or `src/main/kotlin`: Plugin source (Kotlin preferred). Current entry: `red.man10.man10bank.Man10Bank`.
-- `src/main/resources`: Plugin assets (`plugin.yml`, `config.yml`).
-- `src/main/sql`: SQL schema/migrations (e.g., `db.sql`).
-- `libs`: Optional external jars (compileOnly).
-- `build/`: Gradle outputs; shaded jar via Shadow.
-- `images/`: Screenshots used in `README.md`.
+## プロジェクト構成
+- ソース: `src/main/java`（Kotlinソース）。リソースは `src/main/resources`（`plugin.yml`, `config.yml`）。
+- テスト: `src/test/kotlin`（JUnit 5 / Kotlin Test）。パッケージは `red.man10.man10bank` 配下に作成。
+- 画像・資料: `images/`。ビルド成果物は `build/`。
 
-## Build, Test, and Development Commands
-- `java -version`: Ensure JDK 17.
-- `gradle clean build`: Compile + run resource processing.
-- `gradle shadowJar`: Produce shaded plugin jar in `build/libs/` (no classifier).
-- Local run: copy `build/libs/Man10Bank-<version>.jar` to your Paper server `plugins/`, start server, verify load.
-- Config: edit `src/main/resources/config.yml` (or server-generated `plugins/Man10Bank/config.yml`).
- - 配布補助: `local-deploy.sh` または `gradle deploy` を利用できます。
-   - .env で `DEPLOY_DIR=/path/to/paper/plugins` を設定（`.env.example` 参照）。環境変数での上書きも可。
-   - シェル: `sh ./local-deploy.sh`（ビルド＋コピーを実行）
-   - Gradle: `gradle deploy`（内部でシェルを呼び出し、既存Jar削除→コピーを実行）
-   - ビルドと同時に配布: `gradle clean build -Pdeploy`（または `DEPLOY_ON_BUILD=true gradle clean build`）
+## ビルド・テスト・開発コマンド
+- シェードJarビルド: `gradle clean build`（`build/libs/Man10Bank-<version>.jar` を生成）。
+- テスト実行: `gradle test`（JUnit Platform）。
+- ローカル配布: `sh ./local-deploy.sh`（Paper サーバーの `plugins/` へコピー）。
+- Gradle配布タスク: `gradle deploy`（ビルド後にスクリプト呼び出し）。
+- 補足: ツールチェーンは JDK 21。自動配布は `-Pdeploy` または `DEPLOY_ON_BUILD=true` を使用。
 
-## Coding Style & Naming Conventions
-- **Language**: Kotlin (preferred) targeting JVM 17; follow Official Kotlin Coding Conventions.
-- **Indentation**: 4 spaces; UTF‑8 files; Unix line endings.
-- **Names**: `UpperCamelCase` for classes, `lowerCamelCase` for functions/props, `UPPER_SNAKE_CASE` for constants.
-- **Packages**: `red.man10.man10bank.*`.
-- **Resources**: Keep `plugin.yml` commands/permissions in sync with code.
-- **コメント**: 原則ソースコードのコメントは記述しないでください。
-- Linting/formatting: if using ktlint/Spotless locally, run before pushing.
+## コーディング規約・命名
+- 言語: Kotlin。4スペースインデント、同一行に開き波括弧。
+- パッケージ: 小文字（例: `red.man10.man10bank`）。
+- クラス/オブジェクト: パスカルケース（例: `Man10Bank`）。
+- 関数/プロパティ: キャメルケース、定数は `UPPER_SNAKE_CASE`（`const val`）。
+- 配置: Kotlinファイルは本リポジトリでは `src/main/java` に配置（Gradle設定済み）。
 
-## Testing Guidelines
-- Framework: JUnit 5 with MockBukkit is recommended for new tests.
-- Location: `src/test/kotlin/**` mirroring package paths.
-- Naming: `ClassNameTest.kt`, methods `fun doesThing_whenX_returnsY()`.
-- Run: `gradle test`. Aim to cover business logic off the main thread.
+## テスト方針
+- 使用: JUnit 5 + Kotlin Test。隔離用に H2 / MockBukkit を使用可能。
+- 位置/命名: `src/test/kotlin/...` に `*Test.kt`。必要に応じて `@DisplayName`（日本語）を付与。
+- 実行: `gradle test`。外部依存を避け、サービス/コマンドの振る舞いを重点的に検証。
 
-## Commit & Pull Request Guidelines
-- Commits: small, focused, imperative mood. Prefer Conventional Commits (e.g., `feat: add cheque memo parsing`).
-- PRs: include purpose, scope, screenshots for GUI/UX, and reproduction/testing steps. Link issues, call out config/DB changes and migration notes (`src/main/sql`).
-- CI/readiness: ensure builds pass and the plugin loads on Paper 1.20.4 with Vault present.
+## コミット・PR運用
+- コミットは簡潔な常態述語で日本語記述。接頭辞例: `feat:`, `fix:`, `refactor:`, `test:`, `build:`（任意スコープ: `refactor(service): ...`）。
+- PR要件:
+  - 変更概要と目的（日本語）、関連Issueのリンク。
+  - `gradle build` がグリーン、必要なテストを追加/更新。
+  - `config.yml`/DB 挙動変更時は設定差分や影響範囲を明記。UI/出力変更はスクリーンショット/ログを添付。
 
-## Security & Configuration Tips
-- Do not commit real database credentials; use placeholders in `config.yml`.
-- Avoid blocking the main server thread for DB operations; use async tasks.
-- Maintain DB compatibility and provide safe migrations in `src/main/sql`.
+## コミュニケーションルール（日本語徹底）
+- Gitのコミットメッセージ、ソースコードのコメント、ログ/GUI/チャット等の表示メッセージは原則すべて日本語で記述してください。
+- 例（コミット）: `fix: 送金額が負数の場合に拒否する`
+- 例（コメント）: `// 口座残高を更新し、失敗時は補償で戻す`
+- 例（表示）: `player.sendMessage("残高が不足しています")`
 
-## Language Policy / 言語ポリシー
-- Codexの回答、PR/Issueでの議論は日本語で記述してください。
-- 本プロジェクトの開発者およびプロダクト利用者はいずれも日本人であることを前提とします。必要に応じて外部公開向けに英語を併記してください。
-- 命名は英語（変数・メソッド・クラス）、コメントとユーザー向け文言は自然な日本語を推奨します。
-
-## Git Workflow / Git運用
-- Codexは編集を行った後、必ずGitにコミットを作成してください（小さな論理単位で分割）。
-- 軽微な修正（例: タイポ、コメント、空白調整など）は直前のコミットを`git commit --amend`で更新してください。メッセージを変えない場合は`git commit --amend --no-edit`を使用します。
-- Commitメッセージは必ず日本語で記述してください。
-- すでにリモートへ公開した履歴の書き換えは原則避けてください。やむを得ず`--amend`後にプッシュする場合は`git push --force-with-lease`を用い、PR上で明記してください。
-- コミットメッセージはConventional Commitsに準拠し、変更意図を明確に記述してください。
-- コミット前に必ずビルドを実行し、コンパイルエラーがないことを確認してください。例: `gradle clean build`（必要に応じて `gradle shadowJar`）。エラーがある場合は修正してからコミットします。
+## セキュリティ・設定
+- 秘密情報をコミットしないこと。.env を使用（例: `DEPLOY_DIR=/path/to/paper/plugins`）。
+- DB認証情報は `config.yml` から読み込み。初期値や変更点はPRで説明すること。
