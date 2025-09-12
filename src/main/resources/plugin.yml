@@ -61,3 +61,7 @@ commands:
   ballog:
     default: op
     description: bank log
+  man10bank:
+    default: op
+    description: ヘルスチェックを表示
+    usage: /man10bank

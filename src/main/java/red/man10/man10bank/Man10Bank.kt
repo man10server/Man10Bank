@@ -9,6 +9,7 @@ import kotlinx.coroutines.launch
 import org.bukkit.event.Listener
 import org.bukkit.plugin.java.JavaPlugin
 import red.man10.man10bank.api.HealthApiClient
+import red.man10.man10bank.command.Man10BankCommand
 import red.man10.man10bank.config.ConfigManager
 import red.man10.man10bank.net.HttpClientFactory
 import red.man10.man10bank.service.HealthService
@@ -29,6 +30,7 @@ class Man10Bank : JavaPlugin(), Listener {
         val apiConfig = loadApiConfigOrDisable() ?: return
         initRuntime(apiConfig)
         initServices()
+        registerCommands()
         runStartupHealthCheck()
     }
 
@@ -63,5 +65,9 @@ class Man10Bank : JavaPlugin(), Listener {
             val msg = healthService.buildHealthMessage()
             logger.info(msg)
         }
+    }
+
+    private fun registerCommands() {
+        getCommand("man10bank")?.setExecutor(Man10BankCommand(this, scope, healthService))
     }
 }
