@@ -17,6 +17,16 @@ object Messages {
         sender.sendMessage(prefixed(message))
     }
 
+    /** エラー（§c） */
+    fun error(sender: CommandSender, message: String) {
+        sender.sendMessage(prefixed("§c${message}§r"))
+    }
+
+    /** 警告（§6） */
+    fun warn(sender: CommandSender, message: String) {
+        sender.sendMessage(prefixed("§6${message}§r"))
+    }
+
     /** 複数行メッセージを行ごとにプレフィックス付きで送信します。 */
     fun sendMultiline(sender: CommandSender, message: String) {
         message.split('\n').forEach { line ->
@@ -24,4 +34,3 @@ object Messages {
         }
     }
 }
-

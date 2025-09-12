@@ -21,7 +21,7 @@ class Man10BankCommand(
         // OP もしくはコンソールのみ
         val isConsole = sender is ConsoleCommandSender
         if (!isConsole && !sender.isOp) {
-            Messages.send(sender, "このコマンドはOPのみ使用できます。")
+            Messages.error(sender, "このコマンドはOPのみ使用できます。")
             return true
         }
 
@@ -33,7 +33,7 @@ class Man10BankCommand(
                 })
             } catch (e: Exception) {
                 plugin.server.scheduler.runTask(plugin, Runnable {
-                    Messages.send(sender, "ヘルスチェック失敗: ${e.message}")
+                    Messages.error(sender, "ヘルスチェック失敗: ${e.message}")
                 })
             }
         }

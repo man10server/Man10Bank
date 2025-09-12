@@ -23,15 +23,15 @@ class WithdrawCommand(
 
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
         if (!sender.hasPermission("man10bank.user")) {
-            Messages.send(sender, "このコマンドを実行する権限がありません。")
+            Messages.error(sender, "このコマンドを実行する権限がありません。")
             return true
         }
         if (sender !is Player) {
-            Messages.send(sender, "このコマンドはプレイヤーのみ使用できます。")
+            Messages.error(sender, "このコマンドはプレイヤーのみ使用できます。")
             return true
         }
         if (args.size != 1) {
-            Messages.send(sender, "使い方: /withdraw <金額/all>")
+            Messages.warn(sender, "使い方: /withdraw <金額/all>")
             return true
         }
         val arg = args[0]
@@ -43,7 +43,7 @@ class WithdrawCommand(
             } else arg.toDoubleOrNull() ?: -1.0
 
             if (amount <= 0.0) {
-                plugin.server.scheduler.runTask(plugin, Runnable { Messages.send(sender, "金額が不正です。正の数または all を指定してください。") })
+                plugin.server.scheduler.runTask(plugin, Runnable { Messages.error(sender, "金額が不正です。正の数または all を指定してください。") })
                 return@launch
             }
 
@@ -66,7 +66,7 @@ class WithdrawCommand(
                     if (ok) {
                         Messages.send(sender, "出金に成功しました。金額: $amount 銀行残高: $newBank 所持金: ${vault.getBalance(sender)}")
                     } else {
-                        Messages.send(sender, "出金は成功しましたが、Vaultへの反映に失敗しました。管理者へ連絡してください。")
+                        Messages.warn(sender, "出金は成功しましたが、Vaultへの反映に失敗しました。管理者へ連絡してください。")
                     }
                 })
             } else {
@@ -75,7 +75,7 @@ class WithdrawCommand(
                     is InsufficientBalanceException -> "銀行残高が不足しています。"
                     else -> ex?.message ?: "不明なエラー"
                 }
-                plugin.server.scheduler.runTask(plugin, Runnable { Messages.send(sender, "出金に失敗しました: $msg") })
+                plugin.server.scheduler.runTask(plugin, Runnable { Messages.error(sender, "出金に失敗しました: $msg") })
             }
         }
         return true
