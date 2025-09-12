@@ -12,7 +12,6 @@ import red.man10.man10bank.api.HealthApiClient
 import red.man10.man10bank.config.ConfigManager
 import red.man10.man10bank.net.HttpClientFactory
 import red.man10.man10bank.service.HealthService
-import red.man10.man10bank.service.impl.HealthServiceApi
 
 class Man10Bank : JavaPlugin(), Listener {
 
@@ -41,7 +40,7 @@ class Man10Bank : JavaPlugin(), Listener {
         scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
         // サービス初期化
-        healthService = HealthServiceApi(HealthApiClient(httpClient))
+        healthService = HealthService(HealthApiClient(httpClient))
 
         // 非同期でヘルスチェックを実行
         scope.launch {
