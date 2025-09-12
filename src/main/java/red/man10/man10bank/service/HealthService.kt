@@ -16,14 +16,23 @@ class HealthService(
     /**
      * ヘルス情報を取得し、カラー付きの複数行メッセージに整形して返します。
      */
-    suspend fun buildHealthMessage(): Result<String> = client.get().map { h ->
-        """
-            [HealthCheck]
-            service: ${h.service}
-            db: ${h.database}
-            uptime: ${h.uptimeSeconds}s
-            serverTimeUtc: ${h.serverTimeUtc}
-            startedAtUtc: ${h.startedAtUtc}
-        """.trimIndent()
+    suspend fun buildHealthMessage(): String {
+        val result = getHealth()
+        val h = result.getOrNull()
+        if (h == null) {
+            val errorMessage = result.exceptionOrNull()?.message ?: "不明なエラー"
+            return "§c[ヘルスチェック] エラー: $errorMessage"
+        } else {
+            val dbStatus = if (h.database) "§aOK" else "§cFAIL"
+            return """
+                
+                §6[ヘルスチェック]
+                §eサービス: §a${h.service}
+                §eデータベース: $dbStatus
+                §e稼働時間: §a${h.uptimeSeconds}秒
+                §eサーバー時間Utc: §a${h.serverTimeUtc}
+                §e起動時間Utc: §a${h.startedAtUtc}
+            """.trimIndent()
+        }
     }
 }

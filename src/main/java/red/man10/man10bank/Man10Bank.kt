@@ -60,12 +60,8 @@ class Man10Bank : JavaPlugin(), Listener {
 
     private fun runStartupHealthCheck() {
         scope.launch {
-            val result = healthService.buildHealthMessage()
-            result.onSuccess { msg ->
-                logger.info(msg)
-            }.onFailure { e ->
-                logger.warning("ヘルスチェック失敗: ${e.message}")
-            }
+            val msg = healthService.buildHealthMessage()
+            logger.info(msg)
         }
     }
 }
