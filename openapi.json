@@ -45,7 +45,37 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AtmLog"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -62,11 +92,6 @@
                 "$ref": "#/components/schemas/AtmLogRequest"
               }
             },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AtmLogRequest"
-              }
-            },
             "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/AtmLogRequest"
@@ -77,7 +102,34 @@
         },
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AtmLog"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -99,7 +151,25 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "number",
+                  "format": "double"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -139,7 +209,37 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MoneyLog"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -156,11 +256,6 @@
                 "$ref": "#/components/schemas/DepositRequest"
               }
             },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DepositRequest"
-              }
-            },
             "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/DepositRequest"
@@ -171,7 +266,35 @@
         },
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "number",
+                  "format": "double"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -188,11 +311,6 @@
                 "$ref": "#/components/schemas/WithdrawRequest"
               }
             },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/WithdrawRequest"
-              }
-            },
             "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/WithdrawRequest"
@@ -203,7 +321,45 @@
         },
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "number",
+                  "format": "double"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -220,11 +376,6 @@
                 "$ref": "#/components/schemas/ChequeCreateRequest"
               }
             },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ChequeCreateRequest"
-              }
-            },
             "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/ChequeCreateRequest"
@@ -235,7 +386,34 @@
         },
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Cheque"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -258,7 +436,34 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Cheque"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -286,11 +491,6 @@
                 "$ref": "#/components/schemas/ChequeUseRequest"
               }
             },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ChequeUseRequest"
-              }
-            },
             "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/ChequeUseRequest"
@@ -301,7 +501,54 @@
         },
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Cheque"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -323,7 +570,34 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Estate"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -363,7 +637,37 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EstateHistory"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -390,11 +694,6 @@
                 "$ref": "#/components/schemas/EstateUpdateRequest"
               }
             },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/EstateUpdateRequest"
-              }
-            },
             "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/EstateUpdateRequest"
@@ -405,7 +704,115 @@
         },
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Estate/ranking": {
+      "get": {
+        "tags": [
+          "Estate"
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 100
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Estate"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthPayload"
+                }
+              }
+            }
           }
         }
       }
@@ -445,7 +852,37 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Loan"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -462,11 +899,6 @@
                 "$ref": "#/components/schemas/LoanCreateRequest"
               }
             },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LoanCreateRequest"
-              }
-            },
             "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/LoanCreateRequest"
@@ -477,7 +909,34 @@
         },
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Loan"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -500,7 +959,34 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Loan"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -530,7 +1016,54 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Loan"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -560,7 +1093,106 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Loan"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ServerEstate/history": {
+      "get": {
+        "tags": [
+          "ServerEstate"
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 100
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ServerEstateHistory"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -582,7 +1214,34 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerLoan"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -609,11 +1268,6 @@
                 "$ref": "#/components/schemas/ServerLoanBorrowBodyRequest"
               }
             },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ServerLoanBorrowBodyRequest"
-              }
-            },
             "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/ServerLoanBorrowBodyRequest"
@@ -624,7 +1278,44 @@
         },
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerLoan"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -654,7 +1345,54 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerLoan"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -684,7 +1422,44 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerLoan"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -706,7 +1481,25 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "number",
+                  "format": "double"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -746,7 +1539,37 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ServerLoanLog"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -754,6 +1577,40 @@
   },
   "components": {
     "schemas": {
+      "AtmLog": {
+        "required": [
+          "player",
+          "uuid"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "player": {
+            "maxLength": 16,
+            "minLength": 0,
+            "type": "string"
+          },
+          "uuid": {
+            "maxLength": 36,
+            "minLength": 0,
+            "type": "string"
+          },
+          "amount": {
+            "type": "number",
+            "format": "double"
+          },
+          "deposit": {
+            "type": "boolean"
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "AtmLogRequest": {
         "required": [
           "uuid",
@@ -773,6 +1630,54 @@
             "format": "double"
           },
           "deposit": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Cheque": {
+        "required": [
+          "player",
+          "uuid"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "player": {
+            "maxLength": 16,
+            "minLength": 0,
+            "type": "string"
+          },
+          "uuid": {
+            "maxLength": 36,
+            "minLength": 0,
+            "type": "string"
+          },
+          "amount": {
+            "type": "number",
+            "format": "double"
+          },
+          "note": {
+            "maxLength": 128,
+            "minLength": 0,
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "useDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "usePlayer": {
+            "maxLength": 16,
+            "minLength": 0,
+            "type": "string"
+          },
+          "used": {
             "type": "boolean"
           }
         }
@@ -858,6 +1763,124 @@
           }
         }
       },
+      "Estate": {
+        "required": [
+          "player",
+          "uuid"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "player": {
+            "maxLength": 16,
+            "minLength": 0,
+            "type": "string"
+          },
+          "uuid": {
+            "maxLength": 36,
+            "minLength": 0,
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "vault": {
+            "type": "number",
+            "format": "double"
+          },
+          "bank": {
+            "type": "number",
+            "format": "double"
+          },
+          "cash": {
+            "type": "number",
+            "format": "double"
+          },
+          "estateAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "loan": {
+            "type": "number",
+            "format": "double"
+          },
+          "shop": {
+            "type": "number",
+            "format": "double"
+          },
+          "crypto": {
+            "type": "number",
+            "format": "double"
+          },
+          "total": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "EstateHistory": {
+        "required": [
+          "player",
+          "uuid"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "player": {
+            "maxLength": 16,
+            "minLength": 0,
+            "type": "string"
+          },
+          "uuid": {
+            "maxLength": 36,
+            "minLength": 0,
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "vault": {
+            "type": "number",
+            "format": "double"
+          },
+          "bank": {
+            "type": "number",
+            "format": "double"
+          },
+          "cash": {
+            "type": "number",
+            "format": "double"
+          },
+          "estateAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "loan": {
+            "type": "number",
+            "format": "double"
+          },
+          "shop": {
+            "type": "number",
+            "format": "double"
+          },
+          "crypto": {
+            "type": "number",
+            "format": "double"
+          },
+          "total": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
       "EstateUpdateRequest": {
         "type": "object",
         "properties": {
@@ -879,6 +1902,89 @@
           "shop": {
             "type": "number",
             "format": "double",
+            "nullable": true
+          }
+        }
+      },
+      "HealthPayload": {
+        "required": [
+          "service",
+          "serverTimeUtc",
+          "startedAtUtc",
+          "uptimeSeconds",
+          "database"
+        ],
+        "type": "object",
+        "properties": {
+          "service": {
+            "type": "string"
+          },
+          "serverTimeUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "startedAtUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "uptimeSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "database": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Loan": {
+        "required": [
+          "lendPlayer",
+          "lendUuid",
+          "borrowPlayer",
+          "borrowUuid"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "lendPlayer": {
+            "maxLength": 16,
+            "minLength": 0,
+            "type": "string"
+          },
+          "lendUuid": {
+            "maxLength": 36,
+            "minLength": 0,
+            "type": "string"
+          },
+          "borrowPlayer": {
+            "maxLength": 16,
+            "minLength": 0,
+            "type": "string"
+          },
+          "borrowUuid": {
+            "maxLength": 36,
+            "minLength": 0,
+            "type": "string"
+          },
+          "borrowDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "paybackDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "amount": {
+            "type": "number",
+            "format": "double"
+          },
+          "collateralItem": {
+            "maxLength": 128,
+            "minLength": 0,
+            "type": "string",
             "nullable": true
           }
         }
@@ -919,6 +2025,197 @@
           }
         }
       },
+      "MoneyLog": {
+        "required": [
+          "player",
+          "uuid",
+          "pluginName",
+          "note",
+          "displayNote",
+          "server"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "player": {
+            "maxLength": 16,
+            "minLength": 0,
+            "type": "string"
+          },
+          "uuid": {
+            "maxLength": 36,
+            "minLength": 0,
+            "type": "string"
+          },
+          "pluginName": {
+            "maxLength": 32,
+            "minLength": 0,
+            "type": "string"
+          },
+          "amount": {
+            "type": "number",
+            "format": "double"
+          },
+          "note": {
+            "maxLength": 128,
+            "minLength": 0,
+            "type": "string"
+          },
+          "displayNote": {
+            "maxLength": 128,
+            "minLength": 0,
+            "type": "string"
+          },
+          "server": {
+            "maxLength": 16,
+            "minLength": 0,
+            "type": "string"
+          },
+          "deposit": {
+            "type": "boolean"
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "detail": {
+            "type": "string",
+            "nullable": true
+          },
+          "instance": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ServerEstateHistory": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "vault": {
+            "type": "number",
+            "format": "double"
+          },
+          "bank": {
+            "type": "number",
+            "format": "double"
+          },
+          "cash": {
+            "type": "number",
+            "format": "double"
+          },
+          "estateAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "loan": {
+            "type": "number",
+            "format": "double"
+          },
+          "crypto": {
+            "type": "number",
+            "format": "double"
+          },
+          "shop": {
+            "type": "number",
+            "format": "double"
+          },
+          "total": {
+            "type": "number",
+            "format": "double"
+          },
+          "year": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "month": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "day": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "hour": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ServerLoan": {
+        "required": [
+          "player",
+          "uuid"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "player": {
+            "maxLength": 16,
+            "minLength": 0,
+            "type": "string"
+          },
+          "uuid": {
+            "maxLength": 36,
+            "minLength": 0,
+            "type": "string"
+          },
+          "borrowDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastPayDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "borrowAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "paymentAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "failedPayment": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "stopInterest": {
+            "type": "boolean"
+          }
+        }
+      },
       "ServerLoanBorrowBodyRequest": {
         "required": [
           "amount"
@@ -928,6 +2225,78 @@
           "amount": {
             "type": "number",
             "format": "double"
+          }
+        }
+      },
+      "ServerLoanLog": {
+        "required": [
+          "player",
+          "uuid",
+          "action"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "player": {
+            "maxLength": 16,
+            "minLength": 0,
+            "type": "string"
+          },
+          "uuid": {
+            "maxLength": 36,
+            "minLength": 0,
+            "type": "string"
+          },
+          "action": {
+            "maxLength": 16,
+            "minLength": 0,
+            "type": "string"
+          },
+          "amount": {
+            "type": "number",
+            "format": "double"
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ValidationProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "detail": {
+            "type": "string",
+            "nullable": true
+          },
+          "instance": {
+            "type": "string",
+            "nullable": true
+          },
+          "errors": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         }
       },
@@ -990,7 +2359,13 @@
       "name": "Estate"
     },
     {
+      "name": "Health"
+    },
+    {
       "name": "Loan"
+    },
+    {
+      "name": "ServerEstate"
     },
     {
       "name": "ServerLoan"
