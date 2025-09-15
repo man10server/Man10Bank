@@ -14,6 +14,8 @@ import red.man10.man10bank.command.Man10BankCommand
 import red.man10.man10bank.command.transaction.DepositCommand
 import red.man10.man10bank.command.transaction.WithdrawCommand
 import red.man10.man10bank.command.transaction.PayCommand
+import red.man10.man10bank.command.balance.BalanceCommand
+import red.man10.man10bank.command.balance.BalanceRegistry
 import red.man10.man10bank.config.ConfigManager
 import red.man10.man10bank.net.HttpClientFactory
 import red.man10.man10bank.service.HealthService
@@ -97,5 +99,23 @@ class Man10Bank : JavaPlugin(), Listener {
         getCommand("deposit")?.setExecutor(DepositCommand(this, scope, vaultManager, bankApi))
         getCommand("withdraw")?.setExecutor(WithdrawCommand(this, scope, vaultManager, bankApi))
         getCommand("mpay")?.setExecutor(PayCommand(this, scope, bankApi))
+
+        // 残高系（/bal, /balance ほか別名にも割り当て）
+        val balanceExecutor = BalanceCommand(this, scope, vaultManager, bankApi)
+        listOf("bal", "balance", "money", "bank", "atm").forEach { cmd ->
+            getCommand(cmd)?.setExecutor(balanceExecutor)
+        }
+
+        // デフォルトの表示セクション（外部から register で追加可能）
+        // 銀行残高
+        BalanceRegistry.register(id = "bank", order = 10) { player, ctx ->
+            val bal = ctx.bank.getBalance(player.uniqueId).getOrElse { 0.0 }
+            listOf("§f銀行残高: §e§l${red.man10.man10bank.util.BalanceFormats.amount(bal)}§r")
+        }
+        // 電子マネー（Vault）
+        BalanceRegistry.register(id = "vault", order = 20) { player, ctx ->
+            val cash = ctx.vault.getBalance(player)
+            listOf("§f電子マネー: §e§l${red.man10.man10bank.util.BalanceFormats.amount(cash)}§r")
+        }
     }
 }
