@@ -32,7 +32,7 @@ abstract class TransactionCommand(
     /** トランザクションの実処理。ここで入出金・返金などを行う。 */
     protected abstract suspend fun process(player: Player, amount: Double)
 
-    open override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
+    override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
         if (!sender.hasPermission("man10bank.user")) {
             Messages.error(sender, "このコマンドを実行する権限がありません。")
             return true

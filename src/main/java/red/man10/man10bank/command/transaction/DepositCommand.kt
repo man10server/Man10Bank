@@ -7,7 +7,7 @@ import red.man10.man10bank.api.BankApiClient
 import red.man10.man10bank.api.model.request.DepositRequest
 import red.man10.man10bank.service.VaultManager
 import red.man10.man10bank.util.Messages
-import red.man10.man10bank.util.Formats
+import red.man10.man10bank.util.BalanceFormats
 
 /** /deposit <金額|all> : Vault -> Bank */
 class DepositCommand(
@@ -29,8 +29,8 @@ class DepositCommand(
         if (amount <= 0.0) return null
         if (amount > vaultBal) {
             Messages.error(plugin, player, "所持金が不足しています。" +
-                    "保有: ${Formats.coloredBalance(vaultBal)} " +
-                    "要求: ${Formats.coloredBalance(amount)}")
+                    "保有: ${BalanceFormats.colored(vaultBal)} " +
+                    "要求: ${BalanceFormats.colored(amount)}")
             return null
         }
         return amount
@@ -51,16 +51,16 @@ class DepositCommand(
                 plugin,
                 player,
                 "入金に成功しました。" +
-                        "金額: ${Formats.coloredBalance(amount)} " +
-                        "銀行残高: ${Formats.coloredBalance(newBank)} " +
-                        "電子マネー: ${Formats.coloredBalance(vault.getBalance(player))}"
+                        "金額: ${BalanceFormats.colored(amount)} " +
+                        "銀行残高: ${BalanceFormats.colored(newBank)} " +
+                        "電子マネー: ${BalanceFormats.colored(vault.getBalance(player))}"
             )
             return
         }
         // 失敗したので Vault に返金
         vault.deposit(player, amount)
         val msg = result.exceptionOrNull()?.message ?: "不明なエラー"
-        Messages.error(plugin, player, "入金に失敗しました: $msg 金額: ${Formats.coloredBalance(amount)}")
+        Messages.error(plugin, player, "入金に失敗しました: $msg 金額: ${BalanceFormats.colored(amount)}")
     }
 
     private fun depositRequest(sender: Player, amount: Double): DepositRequest {

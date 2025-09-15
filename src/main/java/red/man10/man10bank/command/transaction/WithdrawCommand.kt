@@ -9,7 +9,7 @@ import red.man10.man10bank.api.model.request.DepositRequest
 import red.man10.man10bank.api.model.request.WithdrawRequest
 import red.man10.man10bank.service.VaultManager
 import red.man10.man10bank.util.Messages
-import red.man10.man10bank.util.Formats
+import red.man10.man10bank.util.BalanceFormats
 
 /** /withdraw <金額|all> : Bank -> Vault */
 class WithdrawCommand(
@@ -54,9 +54,9 @@ class WithdrawCommand(
                 plugin,
                 player,
                 "出金に成功しました。" +
-                        "金額: ${Formats.coloredBalance(amount)} " +
-                        "銀行残高: ${Formats.coloredBalance(newBank)} " +
-                        "電子マネー: ${Formats.coloredBalance(vault.getBalance(player))}"
+                        "金額: ${BalanceFormats.colored(amount)} " +
+                        "銀行残高: ${BalanceFormats.colored(newBank)} " +
+                        "電子マネー: ${BalanceFormats.colored(vault.getBalance(player))}"
             )
             return
         }
@@ -65,9 +65,9 @@ class WithdrawCommand(
         Messages.error(plugin, player, "出金は成功しましたが、Vaultへの反映に失敗しました。銀行に返金します")
         val refundResult = bank.deposit(refundRequest(player, amount))
         if (refundResult.isSuccess) {
-            Messages.send(plugin, player, "返金に成功しました。銀行残高: ${Formats.coloredBalance(refundResult.getOrNull() ?: 0.0)}")
+            Messages.send(plugin, player, "返金に成功しました。銀行残高: ${BalanceFormats.colored(refundResult.getOrNull() ?: 0.0)}")
         } else {
-            Messages.error(plugin, player, "${Formats.coloredBalance(amount)}円の返金に失敗しました。至急管理者に連絡してください！")
+            Messages.error(plugin, player, "${BalanceFormats.colored(amount)}円の返金に失敗しました。至急管理者に連絡してください！")
         }
 
     }

@@ -12,7 +12,7 @@ import red.man10.man10bank.api.BankApiClient
 import red.man10.man10bank.api.error.InsufficientBalanceException
 import red.man10.man10bank.api.model.request.DepositRequest
 import red.man10.man10bank.api.model.request.WithdrawRequest
-import red.man10.man10bank.util.Formats
+import red.man10.man10bank.util.BalanceFormats
 import red.man10.man10bank.util.Messages
 import java.util.UUID
 
@@ -82,10 +82,10 @@ class PayCommand(
         if (pending == null || !pending.matches(targetUuid, amount) || pending.isExpired(now)) {
             confirmations[confirmKey] = Pending(targetUuid, targetName, amount, now + CONFIRM_WINDOW_MS)
             Messages.sendMultiline(sender,"""
-                "以下の内容で送金します。
-                - 相手: $targetName 
-                - 金額: ${Formats.amount(amount)}
-                もう一度同じコマンドを${CONFIRM_WINDOW_MS / 1000}秒以内に実行して確認してください
+                §l以下の内容で送金します
+                §7- 送金相手: §e§l$targetName 
+                §7- 送金金額: ${BalanceFormats.colored(amount)}
+                §l§nもう一度同じコマンドを${CONFIRM_WINDOW_MS / 1000}秒以内に実行して確認してください
             """.trimIndent())
             return true
         }
@@ -128,14 +128,12 @@ class PayCommand(
             )
 
             if (deposit.isSuccess) {
-                Messages.send(
-                    plugin,
-                    sender,
-                    "送金に成功しました。送金先: $targetName 金額: ${Formats.amount(amount)}"
+                Messages.send(plugin, sender,
+                    "送金に成功しました。送金先: $targetName 金額: ${BalanceFormats.colored(amount)}"
                 )
                 // オンラインなら受取通知（銀行残高は省略）
                 plugin.server.getPlayer(targetUuid)?.let {
-                    Messages.send(plugin, it, "${sender.name} さんから ${Formats.amount(amount)} 円の送金を受け取りました。")
+                    Messages.send(plugin, it, "${sender.name} さんから ${BalanceFormats.colored(amount)} 円の送金を受け取りました。")
                 }
                 return@launch
             }
@@ -153,16 +151,12 @@ class PayCommand(
             )
 
             if (refund.isSuccess) {
-                Messages.error(
-                    plugin,
-                    sender,
+                Messages.error(plugin, sender,
                     "送金に失敗しました(入金失敗)。金額は返金されました。返金後残高は銀行でご確認ください。"
                 )
             } else {
-                Messages.error(
-                    plugin,
-                    sender,
-                    "${Formats.coloredBalance(amount)}円の返金に失敗しました。至急管理者に連絡してください！"
+                Messages.error(plugin, sender,
+                    "${BalanceFormats.colored(amount)}円の返金に失敗しました。至急管理者に連絡してください！"
                 )
             }
         }
