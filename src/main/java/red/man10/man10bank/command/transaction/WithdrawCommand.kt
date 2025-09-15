@@ -9,6 +9,7 @@ import red.man10.man10bank.api.model.request.DepositRequest
 import red.man10.man10bank.api.model.request.WithdrawRequest
 import red.man10.man10bank.service.VaultManager
 import red.man10.man10bank.util.Messages
+import red.man10.man10bank.util.Formats
 
 /** /withdraw <金額|all> : Bank -> Vault */
 class WithdrawCommand(
@@ -49,7 +50,11 @@ class WithdrawCommand(
         // Vault に入金
         val ok = vault.deposit(player, amount)
         if (ok) {
-            Messages.send(plugin, player, "出金に成功しました。金額: $amount 銀行残高: $newBank 電子マネー: ${vault.getBalance(player)}")
+            Messages.send(
+                plugin,
+                player,
+                "出金に成功しました。金額: ${Formats.amount(amount)} 銀行残高: ${Formats.amount(newBank)} 電子マネー: ${Formats.amount(vault.getBalance(player))}"
+            )
             return
         }
 
@@ -57,9 +62,9 @@ class WithdrawCommand(
         Messages.error(plugin, player, "出金は成功しましたが、Vaultへの反映に失敗しました。銀行に返金します")
         val refundResult = bank.deposit(refundRequest(player, amount))
         if (refundResult.isSuccess) {
-            Messages.send(plugin, player, "返金に成功しました。銀行残高: ${refundResult.getOrNull() ?: 0.0}")
+            Messages.send(plugin, player, "返金に成功しました。銀行残高: ${Formats.amount(refundResult.getOrNull() ?: 0.0)}")
         } else {
-            Messages.error(plugin, player, "${amount}円の返金に失敗しました。至急管理者に連絡してください！")
+            Messages.error(plugin, player, "${Formats.amount(amount)}円の返金に失敗しました。至急管理者に連絡してください！")
         }
 
     }
