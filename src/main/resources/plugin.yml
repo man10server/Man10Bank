@@ -29,8 +29,9 @@ commands:
     default: op
     description: /bal
   mpay:
-    default: op
-    description: bank pay
+    description: 銀行からプレイヤーへ送金
+    permission: man10bank.user
+    usage: /mpay <player> <amount>
   mbaltop:
     default: op
     description: serverBalanceTop
