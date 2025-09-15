@@ -50,22 +50,15 @@ class DepositCommand(
         }
 
         scope.launch {
-            // 1) Vault から引き落とし
+            // Vault から引き落とし
             val withdrew = vault.withdraw(sender, amount)
             if (!withdrew) {
                 Messages.error(plugin, sender, "Vaultからの引き落としに失敗しました。")
                 return@launch
             }
-            // 2) Bank へ入金
-            val req = DepositRequest(
-                uuid = sender.uniqueId.toString(),
-                amount = amount,
-                pluginName = plugin.name,
-                note = "Vaultから入金",
-                displayNote = "入金: $amount",
-                server = plugin.serverName
-            )
-            val result = bank.deposit(req)
+
+            // Bank へ入金
+            val result = bank.deposit(depositRequest(sender, amount))
             if (result.isSuccess) {
                 val newBank = result.getOrNull() ?: 0.0
                 Messages.send(plugin, sender, "入金に成功しました。金額: $amount 銀行残高: $newBank 所持金: ${vault.getBalance(sender)}")
@@ -77,5 +70,16 @@ class DepositCommand(
             }
         }
         return true
+    }
+
+    private fun depositRequest(sender: Player, amount: Double): DepositRequest {
+        return DepositRequest(
+            uuid = sender.uniqueId.toString(),
+            amount = amount,
+            pluginName = plugin.name,
+            note = "PlayerDepositOnCommand",
+            displayNote = "/depositによる入金",
+            server = plugin.serverName
+        )
     }
 }
