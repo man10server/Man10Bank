@@ -11,8 +11,8 @@ import org.bukkit.plugin.java.JavaPlugin
 import red.man10.man10bank.api.HealthApiClient
 import red.man10.man10bank.api.BankApiClient
 import red.man10.man10bank.command.Man10BankCommand
-import red.man10.man10bank.command.DepositCommand
-import red.man10.man10bank.command.WithdrawCommand
+import red.man10.man10bank.command.transaction.DepositCommand
+import red.man10.man10bank.command.transaction.WithdrawCommand
 import red.man10.man10bank.config.ConfigManager
 import red.man10.man10bank.net.HttpClientFactory
 import red.man10.man10bank.service.HealthService
