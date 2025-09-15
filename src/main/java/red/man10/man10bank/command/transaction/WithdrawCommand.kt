@@ -53,7 +53,10 @@ class WithdrawCommand(
             Messages.send(
                 plugin,
                 player,
-                "出金に成功しました。金額: ${Formats.amount(amount)} 銀行残高: ${Formats.amount(newBank)} 電子マネー: ${Formats.amount(vault.getBalance(player))}"
+                "出金に成功しました。" +
+                        "金額: ${Formats.coloredBalance(amount)} " +
+                        "銀行残高: ${Formats.coloredBalance(newBank)} " +
+                        "電子マネー: ${Formats.coloredBalance(vault.getBalance(player))}"
             )
             return
         }
@@ -62,9 +65,9 @@ class WithdrawCommand(
         Messages.error(plugin, player, "出金は成功しましたが、Vaultへの反映に失敗しました。銀行に返金します")
         val refundResult = bank.deposit(refundRequest(player, amount))
         if (refundResult.isSuccess) {
-            Messages.send(plugin, player, "返金に成功しました。銀行残高: ${Formats.amount(refundResult.getOrNull() ?: 0.0)}")
+            Messages.send(plugin, player, "返金に成功しました。銀行残高: ${Formats.coloredBalance(refundResult.getOrNull() ?: 0.0)}")
         } else {
-            Messages.error(plugin, player, "${Formats.amount(amount)}円の返金に失敗しました。至急管理者に連絡してください！")
+            Messages.error(plugin, player, "${Formats.coloredBalance(amount)}円の返金に失敗しました。至急管理者に連絡してください！")
         }
 
     }
