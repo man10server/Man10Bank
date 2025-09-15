@@ -1,10 +1,6 @@
 package red.man10.man10bank.command.transaction
 
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
-import org.bukkit.command.Command
-import org.bukkit.command.CommandExecutor
-import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 import red.man10.man10bank.Man10Bank
 import red.man10.man10bank.api.BankApiClient
@@ -14,62 +10,48 @@ import red.man10.man10bank.util.Messages
 
 /** /deposit <金額|all> : Vault -> Bank */
 class DepositCommand(
-    private val plugin: Man10Bank,
-    private val scope: CoroutineScope,
-    private val vault: VaultManager,
-    private val bank: BankApiClient,
-) : CommandExecutor {
+    plugin: Man10Bank,
+    scope: CoroutineScope,
+    vault: VaultManager,
+    bank: BankApiClient,
+) : TransactionCommand(plugin, scope, vault, bank) {
 
-    override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
-        if (!sender.hasPermission("man10bank.user")) {
-            Messages.error(sender, "このコマンドを実行する権限がありません。")
-            return true
-        }
-        if (sender !is Player) {
-            Messages.error(sender, "このコマンドはプレイヤーのみ使用できます。")
-            return true
-        }
-        if (args.size != 1) {
-            Messages.warn(sender, "使い方: /deposit <金額/all>")
-            return true
-        }
-        val arg = args[0]
-        val vaultBal = vault.getBalance(sender)
-        val amount = if (arg.equals("all", ignoreCase = true)) vaultBal else arg.toDoubleOrNull() ?: -1.0
-        if (amount <= 0.0) {
-            Messages.error(sender, "金額が不正です。正の数または all を指定してください。")
-            return true
-        }
-        if (amount > vaultBal) {
-            Messages.error(sender, "所持金が不足しています。保有: $vaultBal 要求: $amount")
-            return true
-        }
+    override val usage: String = "/deposit <金額/all>"
+
+    override suspend fun resolveAmount(player: Player, arg: String): Double? {
         if (!vault.isAvailable()) {
-            Messages.error(sender, "Vaultが利用できません。")
-            return true
+            Messages.error(plugin, player, "Vaultが利用できません。")
+            return null
+        }
+        val vaultBal = vault.getBalance(player)
+        val amount = if (arg.equals("all", ignoreCase = true)) vaultBal else arg.toDoubleOrNull() ?: -1.0
+        if (amount <= 0.0) return null
+        if (amount > vaultBal) {
+            Messages.error(plugin, player, "所持金が不足しています。保有: $vaultBal 要求: $amount")
+            return null
+        }
+        return amount
+    }
+
+    override suspend fun process(player: Player, amount: Double) {
+        // Vault から引き落とし
+        val withdrew = vault.withdraw(player, amount)
+        if (!withdrew) {
+            Messages.error(plugin, player, "Vaultからの引き落としに失敗しました。")
+            return
         }
 
-        scope.launch {
-            // Vault から引き落とし
-            val withdrew = vault.withdraw(sender, amount)
-            if (!withdrew) {
-                Messages.error(plugin, sender, "Vaultからの引き落としに失敗しました。")
-                return@launch
-            }
-
-            // Bank へ入金
-            val result = bank.deposit(depositRequest(sender, amount))
-            if (result.isSuccess) {
-                val newBank = result.getOrNull() ?: 0.0
-                Messages.send(plugin, sender, "入金に成功しました。金額: $amount 銀行残高: $newBank 所持金: ${vault.getBalance(sender)}")
-            } else {
-                // 失敗したので Vault に返金
-                vault.deposit(sender, amount)
-                val msg = result.exceptionOrNull()?.message ?: "不明なエラー"
-                Messages.error(plugin, sender, "入金に失敗しました: $msg")
-            }
+        // Bank へ入金
+        val result = bank.deposit(depositRequest(player, amount))
+        if (result.isSuccess) {
+            val newBank = result.getOrNull() ?: 0.0
+            Messages.send(plugin, player, "入金に成功しました。金額: $amount 銀行残高: $newBank 所持金: ${vault.getBalance(player)}")
+        } else {
+            // 失敗したので Vault に返金
+            vault.deposit(player, amount)
+            val msg = result.exceptionOrNull()?.message ?: "不明なエラー"
+            Messages.error(plugin, player, "入金に失敗しました: $msg")
         }
-        return true
     }
 
     private fun depositRequest(sender: Player, amount: Double): DepositRequest {
