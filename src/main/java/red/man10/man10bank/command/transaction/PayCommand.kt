@@ -30,6 +30,21 @@ class PayCommand(
     private val bank: BankApiClient,
 ) : CommandExecutor {
 
+    companion object {
+        private const val CONFIRM_WINDOW_MS = 30_000L
+        private val confirmations: MutableMap<UUID, Pending> = mutableMapOf()
+    }
+
+    private data class Pending(
+        val target: UUID,
+        val targetName: String,
+        val amount: Double,
+        val expiresAt: Long,
+    ) {
+        fun isExpired(now: Long): Boolean = now > expiresAt
+        fun matches(target: UUID, amount: Double): Boolean = this.target == target && this.amount == amount
+    }
+
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
         if (!sender.hasPermission("man10bank.user")) {
             Messages.error(sender, "このコマンドを実行する権限がありません。")
@@ -66,14 +81,14 @@ class PayCommand(
 
         if (pending == null || !pending.matches(targetUuid, amount) || pending.isExpired(now)) {
             confirmations[confirmKey] = Pending(targetUuid, targetName, amount, now + CONFIRM_WINDOW_MS)
-            Messages.warn(
-                sender,
-                "以下の内容で送金します。もう一度同じコマンドを30秒以内に実行して確認してください。\n" +
-                        "送金先: ${targetName} 金額: ${Formats.amount(amount)}"
-            )
+            Messages.sendMultiline(sender,"""
+                "以下の内容で送金します。
+                - 相手: $targetName 
+                - 金額: ${Formats.amount(amount)}
+                もう一度同じコマンドを${CONFIRM_WINDOW_MS / 1000}秒以内に実行して確認してください
+            """.trimIndent())
             return true
         }
-
         // 確認済み: 一度で削除してから実処理へ
         confirmations.remove(confirmKey)
 
@@ -84,8 +99,8 @@ class PayCommand(
                     uuid = sender.uniqueId.toString(),
                     amount = amount,
                     pluginName = plugin.name,
-                    note = "PlayerTransferByCommand", // 暫定
-                    displayNote = "/mpayによる送金 -> ${targetName}", // 暫定
+                    note = "TransferTo${targetName}",
+                    displayNote = "${targetName}へ送金",
                     server = plugin.serverName
                 )
             )
@@ -106,8 +121,8 @@ class PayCommand(
                     uuid = targetUuid.toString(),
                     amount = amount,
                     pluginName = plugin.name,
-                    note = "PlayerTransferReceive", // 暫定
-                    displayNote = "/mpayによる受取 <- ${sender.name}", // 暫定
+                    note = "TransferFrom${sender.name}",
+                    displayNote = "${sender.name}からの送金",
                     server = plugin.serverName
                 )
             )
@@ -116,7 +131,7 @@ class PayCommand(
                 Messages.send(
                     plugin,
                     sender,
-                    "送金に成功しました。送金先: ${targetName} 金額: ${Formats.amount(amount)}"
+                    "送金に成功しました。送金先: $targetName 金額: ${Formats.amount(amount)}"
                 )
                 // オンラインなら受取通知（銀行残高は省略）
                 plugin.server.getPlayer(targetUuid)?.let {
@@ -147,25 +162,10 @@ class PayCommand(
                 Messages.error(
                     plugin,
                     sender,
-                    "重大なエラー: 送金失敗後の返金にも失敗しました。至急管理者に連絡してください。"
+                    "${Formats.coloredBalance(amount)}円の返金に失敗しました。至急管理者に連絡してください！"
                 )
             }
         }
         return true
-    }
-
-    private data class Pending(
-        val target: UUID,
-        val targetName: String,
-        val amount: Double,
-        val expiresAt: Long,
-    ) {
-        fun isExpired(now: Long): Boolean = now > expiresAt
-        fun matches(target: UUID, amount: Double): Boolean = this.target == target && this.amount == amount
-    }
-
-    companion object {
-        private const val CONFIRM_WINDOW_MS = 30_000L
-        private val confirmations: MutableMap<UUID, Pending> = mutableMapOf()
     }
 }
