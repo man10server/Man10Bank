@@ -55,7 +55,7 @@ class PayCommand(
         val targetOffline: OfflinePlayer = plugin.server.getOfflinePlayer(targetName)
         val targetUuid: UUID = targetOffline.uniqueId
 
-        if (sender.uniqueId == targetUuid) {
+        if (sender.uniqueId == targetUuid && !sender.isOp) {
             Messages.error(sender, "自分自身へは送金できません。")
             return true
         }
