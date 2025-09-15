@@ -40,18 +40,17 @@ class DepositCommand(
             Messages.error(plugin, player, "Vaultからの引き落としに失敗しました。")
             return
         }
-
         // Bank へ入金
         val result = bank.deposit(depositRequest(player, amount))
         if (result.isSuccess) {
             val newBank = result.getOrNull() ?: 0.0
-            Messages.send(plugin, player, "入金に成功しました。金額: $amount 銀行残高: $newBank 所持金: ${vault.getBalance(player)}")
-        } else {
-            // 失敗したので Vault に返金
-            vault.deposit(player, amount)
-            val msg = result.exceptionOrNull()?.message ?: "不明なエラー"
-            Messages.error(plugin, player, "入金に失敗しました: $msg")
+            Messages.send(plugin, player, "入金に成功しました。金額: $amount 銀行残高: $newBank 電子マネー: ${vault.getBalance(player)}")
+            return
         }
+        // 失敗したので Vault に返金
+        vault.deposit(player, amount)
+        val msg = result.exceptionOrNull()?.message ?: "不明なエラー"
+        Messages.error(plugin, player, "入金に失敗しました: $msg")
     }
 
     private fun depositRequest(sender: Player, amount: Double): DepositRequest {

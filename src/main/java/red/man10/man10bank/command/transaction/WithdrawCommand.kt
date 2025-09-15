@@ -31,24 +31,9 @@ class WithdrawCommand(
     override suspend fun process(player: Player, amount: Double) {
         // 銀行から出金
         val result = bank.withdraw(withdrawRequest(player, amount))
-        if (result.isSuccess) {
-            val newBank = result.getOrNull() ?: 0.0
-            // Vault に入金
-            val ok = vault.deposit(player, amount)
-            if (ok) {
-                Messages.send(plugin, player, "出金に成功しました。金額: $amount 銀行残高: $newBank 電子マネー: ${vault.getBalance(player)}")
-            } else {
-                // Vault への入金に失敗したら銀行に返金
-                Messages.error(plugin, player, "出金は成功しましたが、Vaultへの反映に失敗しました。銀行に返金します")
 
-                val refundResult = bank.deposit(refundRequest(player, amount))
-                if (refundResult.isSuccess) {
-                    Messages.send(plugin, player, "返金に成功しました。銀行残高: ${refundResult.getOrNull() ?: 0.0}")
-                } else {
-                    Messages.error(plugin, player, "${amount}円の返金に失敗しました。至急管理者に連絡してください！")
-                }
-            }
-        } else {
+        // APIエラー処理
+        if (!result.isSuccess) {
             val ex = result.exceptionOrNull()
             if (ex is InsufficientBalanceException) {
                 // 銀行残高不足は特別扱い
@@ -56,7 +41,27 @@ class WithdrawCommand(
             } else {
                 Messages.error(plugin, player, "出金に失敗しました: ${ex?.message?:"不明なエラー"}")
             }
+            return
         }
+
+        val newBank = result.getOrNull() ?: 0.0
+
+        // Vault に入金
+        val ok = vault.deposit(player, amount)
+        if (ok) {
+            Messages.send(plugin, player, "出金に成功しました。金額: $amount 銀行残高: $newBank 電子マネー: ${vault.getBalance(player)}")
+            return
+        }
+
+        // Vault への入金に失敗したら銀行に返金
+        Messages.error(plugin, player, "出金は成功しましたが、Vaultへの反映に失敗しました。銀行に返金します")
+        val refundResult = bank.deposit(refundRequest(player, amount))
+        if (refundResult.isSuccess) {
+            Messages.send(plugin, player, "返金に成功しました。銀行残高: ${refundResult.getOrNull() ?: 0.0}")
+        } else {
+            Messages.error(plugin, player, "${amount}円の返金に失敗しました。至急管理者に連絡してください！")
+        }
+
     }
 
     private fun withdrawRequest(sender: Player, amount: Double): WithdrawRequest =
