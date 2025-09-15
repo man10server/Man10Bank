@@ -4,6 +4,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.bukkit.OfflinePlayer
 import org.bukkit.command.Command
+import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 import red.man10.man10bank.Man10Bank
@@ -11,7 +12,6 @@ import red.man10.man10bank.api.BankApiClient
 import red.man10.man10bank.api.error.InsufficientBalanceException
 import red.man10.man10bank.api.model.request.DepositRequest
 import red.man10.man10bank.api.model.request.WithdrawRequest
-import red.man10.man10bank.service.VaultManager
 import red.man10.man10bank.util.Formats
 import red.man10.man10bank.util.Messages
 import java.util.UUID
@@ -24,16 +24,12 @@ import java.util.UUID
  * - 送金先はオフラインでも可
  * - note/displayNote は暫定メッセージ
  */
-class MpayCommand(
-    plugin: Man10Bank,
-    scope: CoroutineScope,
-    vault: VaultManager,
-    bank: BankApiClient,
-) : TransactionCommand(plugin, scope, vault, bank) {
+class PayCommand(
+    private val plugin: Man10Bank,
+    private val scope: CoroutineScope,
+    private val bank: BankApiClient,
+) : CommandExecutor {
 
-    override val usage: String = "/mpay <player> <amount>"
-
-    // TransactionCommand の 1引数前提と合わないため onCommand を上書き
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
         if (!sender.hasPermission("man10bank.user")) {
             Messages.error(sender, "このコマンドを実行する権限がありません。")
@@ -44,7 +40,7 @@ class MpayCommand(
             return true
         }
         if (args.size != 2) {
-            Messages.warn(sender, "使い方: $usage")
+            Messages.warn(sender, "使い方: /mpay <player> <amount>")
             return true
         }
 
@@ -173,4 +169,3 @@ class MpayCommand(
         private val confirmations: MutableMap<UUID, Pending> = mutableMapOf()
     }
 }
-
