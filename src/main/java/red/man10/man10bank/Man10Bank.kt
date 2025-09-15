@@ -80,8 +80,8 @@ class Man10Bank : JavaPlugin(), Listener {
 
     private fun initServerName() {
         val cfg = config.getString("serverName")?.trim().orEmpty()
-        serverName = if (cfg.isNotBlank()) cfg else server.name
-        logger.info("ServerName: ${serverName}")
+        serverName = cfg.ifBlank { server.name }
+        logger.info("ServerName: $serverName")
     }
 
     private fun runStartupHealthCheck() {
