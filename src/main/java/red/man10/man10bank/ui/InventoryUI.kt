@@ -3,6 +3,7 @@ package red.man10.man10bank.ui
 import org.bukkit.Bukkit
 import org.bukkit.entity.Player
 import org.bukkit.event.inventory.InventoryClickEvent
+import org.bukkit.event.inventory.InventoryCloseEvent
 import org.bukkit.inventory.Inventory
 import org.bukkit.inventory.InventoryHolder
 import red.man10.man10bank.Man10Bank
@@ -10,13 +11,21 @@ import red.man10.man10bank.Man10Bank
 /**
  * カスタムインベントリ（InventoryHolder）。
  * - スロットIDにUIButtonを配置
+ * - クリック/クローズのフック（OnClick/OnClose）をコンストラクタで受け付け
  * - クリックイベントは UIService から委譲される
  */
 class InventoryUI(
     private val plugin: Man10Bank,
     private val title: String,
     size: Int,
+    private val onClick: OnClick? = null,
+    private val onClose: OnClose? = null,
 ) : InventoryHolder {
+
+    /** クリック時フック（拡張用） */
+    abstract class OnClick { abstract fun onClick(ui: InventoryUI, event: InventoryClickEvent) }
+    /** クローズ時フック（拡張用） */
+    abstract class OnClose { abstract fun onClose(ui: InventoryUI, event: InventoryCloseEvent) }
 
     private val invSize: Int = normalizeSize(size)
     private val inventory: Inventory = Bukkit.createInventory(this, invSize, title)
@@ -42,9 +51,7 @@ class InventoryUI(
     /**
      * プレイヤーにGUIを開く。
      */
-    fun open(player: Player) {
-        player.openInventory(inventory)
-    }
+    fun open(player: Player) { player.openInventory(inventory) }
 
     /**
      * UIService側からのクリック委譲。
@@ -59,14 +66,23 @@ class InventoryUI(
         val raw = event.rawSlot
         if (raw !in 0 until invSize) return false
 
-        val button = buttons[raw] ?: return false
-        // デフォルト挙動: キャンセル
-        if (button.cancelOnClick) event.isCancelled = true
-
-        if (who is Player) {
-            button.trigger(who, event)
+        val button = buttons[raw]
+        if (button != null) {
+            // デフォルト挙動: キャンセル
+            if (button.cancelOnClick) event.isCancelled = true
+            if (who is Player) button.trigger(who, event)
         }
+
+        // ボタンの有無に関わらず最終的に onClick フックへ
+        onClick?.onClick(this, event)
         return true
+    }
+
+    /**
+     * UIService側からのクローズ委譲。
+     */
+    internal fun handleClose(event: InventoryCloseEvent) {
+        onClose?.onClose(this, event)
     }
 
     private fun normalizeSize(input: Int): Int {
@@ -77,4 +93,3 @@ class InventoryUI(
         return normalized.coerceAtMost(54)
     }
 }
-

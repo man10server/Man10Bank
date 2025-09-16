@@ -18,18 +18,15 @@ class UIService(
     fun onInventoryClick(event: InventoryClickEvent) {
         val holder = event.view.topInventory.holder
         if (holder is InventoryUI) {
-            val handled = holder.handleClick(event)
-            // 追加で何か必要ならここで
+            holder.handleClick(event)
         }
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     fun onInventoryClose(event: InventoryCloseEvent) {
-        // ここでは特別な処理は行わないが、将来の拡張フック用に残す
         val holder = event.view.topInventory.holder
         if (holder is InventoryUI) {
-            // onClose フック等が必要になればここで呼ぶ
+            holder.handleClose(event)
         }
     }
 }
-
