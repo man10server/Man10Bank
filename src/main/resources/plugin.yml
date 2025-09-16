@@ -52,6 +52,9 @@ commands:
     description: BankからVaultへ出金
     permission: man10bank.user
     usage: /withdraw <金額|all>
+  bankop:
+    default: op
+    description: 管理用コマンド（現金アイテム設定）
 permissions:
   man10bank.user:
     description: Man10Bankのユーザー権限

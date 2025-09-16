@@ -19,6 +19,8 @@ import red.man10.man10bank.command.balance.BalanceProviders
 import red.man10.man10bank.config.ConfigManager
 import red.man10.man10bank.net.HttpClientFactory
 import red.man10.man10bank.service.HealthService
+import red.man10.man10bank.service.CashItemManager
+import red.man10.man10bank.command.op.BankOpCommand
 
 class Man10Bank : JavaPlugin(), Listener {
 
@@ -31,6 +33,7 @@ class Man10Bank : JavaPlugin(), Listener {
     private lateinit var healthService: HealthService
     private lateinit var vaultManager: red.man10.man10bank.service.VaultManager
     private lateinit var bankApi: BankApiClient
+    private lateinit var cashItemManager: CashItemManager
 
     // サーバー識別名（configの serverName が空/未設定の場合はBukkitのサーバー名を使用）
     lateinit var serverName: String
@@ -75,6 +78,12 @@ class Man10Bank : JavaPlugin(), Listener {
         healthService = HealthService(HealthApiClient(httpClient))
         bankApi = BankApiClient(httpClient)
         vaultManager = red.man10.man10bank.service.VaultManager(this)
+        cashItemManager = CashItemManager(this)
+        // 起動時に現金アイテム設定を読み込む
+        val loadedCash = cashItemManager.load()
+        if (loadedCash.isNotEmpty()) {
+            logger.info("現金アイテム設定を ${loadedCash.size} 件読み込みました。")
+        }
         val hooked = vaultManager.hook()
         if (!hooked) {
             logger.warning("Vault(Economy) が見つかりません。経済連携機能は無効です。")
@@ -101,6 +110,7 @@ class Man10Bank : JavaPlugin(), Listener {
         getCommand("deposit")?.setExecutor(DepositCommand(this, scope, vaultManager, bankApi))
         getCommand("withdraw")?.setExecutor(WithdrawCommand(this, scope, vaultManager, bankApi))
         getCommand("mpay")?.setExecutor(PayCommand(this, scope, bankApi))
+        getCommand("bankop")?.setExecutor(BankOpCommand(this, cashItemManager))
 
         // 残高系（/bal, /balance ほか別名にも割り当て）
         val balanceExecutor = BalanceCommand(this, scope, vaultManager, bankApi)
