@@ -20,12 +20,18 @@ class InventoryUI(
     size: Int,
     private val onClick: OnClick? = null,
     private val onClose: OnClose? = null,
+    private val onGuiClick: OnGuiClick? = null,
+    private val onPlayerClick: OnPlayerClick? = null,
 ) : InventoryHolder {
 
-    /** クリック時フック（拡張用） */
+    /** クリック時フック（拡張用・全域） */
     abstract class OnClick { abstract fun onClick(ui: InventoryUI, event: InventoryClickEvent) }
     /** クローズ時フック（拡張用） */
     abstract class OnClose { abstract fun onClose(ui: InventoryUI, event: InventoryCloseEvent) }
+    /** GUIインベントリ領域クリックのフック */
+    abstract class OnGuiClick { abstract fun onGuiClick(ui: InventoryUI, event: InventoryClickEvent, button: UIButton?) }
+    /** プレイヤーインベントリ領域クリックのフック */
+    abstract class OnPlayerClick { abstract fun onPlayerClick(ui: InventoryUI, event: InventoryClickEvent) }
 
     private val invSize: Int = normalizeSize(size)
     private val inventory: Inventory = Bukkit.createInventory(this, invSize, title)
@@ -58,22 +64,31 @@ class InventoryUI(
      * 戻り値: true = 処理した/キャンセル、false = 未処理
      */
     internal fun handleClick(event: InventoryClickEvent): Boolean {
-        val who = event.whoClicked
         val top = event.view.topInventory
-        if (event.clickedInventory == null || top.holder !== this) return false
+        if (top.holder !== this) return false
 
-        // トップインベントリ領域のみ扱う
         val raw = event.rawSlot
-        if (raw !in 0 until invSize) return false
+        val clicked = event.clickedInventory
 
-        val button = buttons[raw]
-        if (button != null) {
-            // デフォルト挙動: キャンセル
-            if (button.cancelOnClick) event.isCancelled = true
-            if (who is Player) button.trigger(who, event)
+        val inTop = raw in 0 until invSize && clicked != null && clicked === top
+        val inPlayer = clicked != null && clicked === event.view.bottomInventory
+
+        if (inTop) {
+            val button = buttons[raw]
+            if (button != null) {
+                if (button.cancelOnClick) event.isCancelled = true
+                val who = event.whoClicked
+                if (who is Player) button.trigger(who, event)
+            }
+            onGuiClick?.onGuiClick(this, event, button)
+        } else if (inPlayer) {
+            onPlayerClick?.onPlayerClick(this, event)
+        } else {
+            // それ以外はこのUIでは未処理
+            return false
         }
 
-        // ボタンの有無に関わらず最終的に onClick フックへ
+        // 全域フック（最後に）
         onClick?.onClick(this, event)
         return true
     }
