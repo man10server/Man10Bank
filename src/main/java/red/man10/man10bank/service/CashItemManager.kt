@@ -71,6 +71,16 @@ class CashItemManager(plugin: JavaPlugin) {
         return entry?.key?.toDoubleOrNull()
     }
 
+    /** 登録済みの現金アイテム一覧を金額→アイテムで取得。 */
+    fun getRegisteredCashItems(): Map<Double, ItemStack> {
+        val result = mutableMapOf<Double, ItemStack>()
+        for ((key, stack) in items) {
+            val amount = key.toDoubleOrNull() ?: continue
+            result[amount] = stack.clone().asOne()
+        }
+        return result
+    }
+
     private fun amountKey(amount: Double): String =
         BigDecimal.valueOf(amount).stripTrailingZeros().toPlainString()
 }

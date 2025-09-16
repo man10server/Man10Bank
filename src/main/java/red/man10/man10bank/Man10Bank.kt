@@ -19,6 +19,7 @@ import red.man10.man10bank.config.ConfigManager
 import red.man10.man10bank.net.HttpClientFactory
 import red.man10.man10bank.service.HealthService
 import red.man10.man10bank.service.CashItemManager
+import red.man10.man10bank.service.CashExchangeService
 import red.man10.man10bank.command.op.BankOpCommand
 import red.man10.man10bank.command.atm.AtmCommand
 import red.man10.man10bank.ui.UIService
@@ -35,6 +36,8 @@ class Man10Bank : JavaPlugin(), Listener {
     private lateinit var vaultManager: red.man10.man10bank.service.VaultManager
     private lateinit var bankApi: BankApiClient
     private lateinit var cashItemManager: CashItemManager
+    lateinit var cashExchangeService: CashExchangeService
+        private set
     private lateinit var uiService: UIService
 
     // サーバー識別名（configの serverName が空/未設定の場合はBukkitのサーバー名を使用）
@@ -92,6 +95,7 @@ class Man10Bank : JavaPlugin(), Listener {
         } else {
             logger.info("Vault(Economy) に接続しました: ${vaultManager.provider()?.name}")
         }
+        cashExchangeService = CashExchangeService(vaultManager, cashItemManager)
     }
 
     private fun initServerName() {
