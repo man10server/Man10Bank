@@ -21,6 +21,7 @@ class InventoryUI(
     private val onClose: OnClose? = null,
     private val onGuiClick: OnGuiClick? = null,
     private val onPlayerClick: OnPlayerClick? = null,
+    private val previousUI: InventoryUI? = null,
 ) : InventoryHolder {
 
     /** クリック時フック（拡張用・全域） */
@@ -95,6 +96,10 @@ class InventoryUI(
      */
     internal fun handleClose(event: InventoryCloseEvent) {
         onClose?.onClose(this, event)
+        if (event.reason == InventoryCloseEvent.Reason.PLAYER) {
+            val player = event.player as? Player ?: return
+            previousUI?.open(player)
+        }
     }
 
     private fun normalizeSize(input: Int): Int {
