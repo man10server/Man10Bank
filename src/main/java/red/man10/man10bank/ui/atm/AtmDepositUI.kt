@@ -35,7 +35,9 @@ class AtmDepositUI(
             if (button == null && inTopArea) {
                 val cursor = event.cursor
                 val current = event.currentItem
-                if (!isCash(cursor) && !isCash(current)) {
+                val cursorIsCash = cursor != null && !cursor.type.isAir && cashItems.getAmountForItem(cursor) != null
+                val currentIsCash = current != null && !current.type.isAir && cashItems.getAmountForItem(current) != null
+                if (!cursorIsCash && !currentIsCash) {
                     event.isCancelled = true
                 }
             }
@@ -46,7 +48,9 @@ class AtmDepositUI(
             // プレイヤーインベントリ側は、現金アイテムの操作のみ許可
             val cursor = event.cursor
             val current = event.currentItem
-            if (!isCash(cursor) && !isCash(current)) {
+            val cursorIsCash = cursor != null && !cursor.type.isAir && cashItems.getAmountForItem(cursor) != null
+            val currentIsCash = current != null && !current.type.isAir && cashItems.getAmountForItem(current) != null
+            if (!cursorIsCash && !currentIsCash) {
                 event.isCancelled = true
             }
         }
@@ -63,11 +67,6 @@ class AtmDepositUI(
         }
         // 中央に「入金して閉じる」ボタンを設置
         setButton(49, createDepositButton())
-    }
-
-    private fun isCash(item: ItemStack?): Boolean {
-        if (item == null || item.type.isAir) return false
-        return cashItems.getAmountForItem(item) != null
     }
 
     private fun createDepositButton(): UIButton {
@@ -98,4 +97,3 @@ class AtmDepositUI(
         }
     }
 }
-
