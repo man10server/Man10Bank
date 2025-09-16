@@ -7,6 +7,7 @@ import org.bukkit.event.inventory.InventoryClickEvent
 import org.bukkit.event.inventory.InventoryCloseEvent
 import org.bukkit.inventory.Inventory
 import org.bukkit.inventory.InventoryHolder
+import org.bukkit.inventory.ItemStack
 
 /**
  * カスタムインベントリ（InventoryHolder）。
@@ -14,7 +15,7 @@ import org.bukkit.inventory.InventoryHolder
  * - クリック/クローズのフック（OnClick/OnClose）をコンストラクタで受け付け
  * - クリックイベントは UIService から委譲される
  */
-class InventoryUI(
+open class InventoryUI(
     title: String,
     size: Int,
     private val onClick: OnClick? = null,
@@ -56,6 +57,16 @@ class InventoryUI(
     fun addButton(button: UIButton): InventoryUI = setButton(inventory.firstEmpty(), button)
 
     /**
+     * インベントリ全体を指定アイテムで埋める。
+     */
+    fun fillBackground(item: ItemStack): InventoryUI {
+        for (slot in 0 until invSize) {
+            setButton(slot, UIButton(item.clone()))
+        }
+        return this
+    }
+
+    /**
      * プレイヤーにGUIを開く。
      */
     fun open(player: Player) { player.openInventory(inventory) }
@@ -77,7 +88,7 @@ class InventoryUI(
         if (inTop) {
             val button = buttons[raw]
             if (button != null) {
-                if (button.cancelOnClick) event.isCancelled = true
+                event.isCancelled = true
                 val who = event.whoClicked
                 if (who is Player) button.trigger(who, event)
             }
