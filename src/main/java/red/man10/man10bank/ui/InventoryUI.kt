@@ -1,12 +1,12 @@
 package red.man10.man10bank.ui
 
+import net.kyori.adventure.text.Component
 import org.bukkit.Bukkit
 import org.bukkit.entity.Player
 import org.bukkit.event.inventory.InventoryClickEvent
 import org.bukkit.event.inventory.InventoryCloseEvent
 import org.bukkit.inventory.Inventory
 import org.bukkit.inventory.InventoryHolder
-import red.man10.man10bank.Man10Bank
 
 /**
  * カスタムインベントリ（InventoryHolder）。
@@ -15,8 +15,7 @@ import red.man10.man10bank.Man10Bank
  * - クリックイベントは UIService から委譲される
  */
 class InventoryUI(
-    private val plugin: Man10Bank,
-    private val title: String,
+    title: String,
     size: Int,
     private val onClick: OnClick? = null,
     private val onClose: OnClose? = null,
@@ -25,7 +24,7 @@ class InventoryUI(
 ) : InventoryHolder {
 
     /** クリック時フック（拡張用・全域） */
-    abstract class OnClick { abstract fun onClick(ui: InventoryUI, event: InventoryClickEvent) }
+    abstract class OnClick { abstract fun onButtonClick(ui: InventoryUI, event: InventoryClickEvent) }
     /** クローズ時フック（拡張用） */
     abstract class OnClose { abstract fun onClose(ui: InventoryUI, event: InventoryCloseEvent) }
     /** GUIインベントリ領域クリックのフック */
@@ -34,7 +33,7 @@ class InventoryUI(
     abstract class OnPlayerClick { abstract fun onPlayerClick(ui: InventoryUI, event: InventoryClickEvent) }
 
     private val invSize: Int = normalizeSize(size)
-    private val inventory: Inventory = Bukkit.createInventory(this, invSize, title)
+    private val inventory: Inventory = Bukkit.createInventory(this, invSize, Component.text(title))
     private val buttons: MutableMap<Int, UIButton> = mutableMapOf()
 
     override fun getInventory(): Inventory = inventory
@@ -50,9 +49,10 @@ class InventoryUI(
     }
 
     /**
-     * エイリアス: setButton
+     * インベントリの空きスロットに順番にボタンを追加。
+     * Inventory#addItem と同様、配置できなかったボタン（キー: 引数インデックス）が返る。
      */
-    fun addButton(slot: Int, button: UIButton): InventoryUI = setButton(slot, button)
+    fun addButton(button: UIButton): InventoryUI = setButton(inventory.firstEmpty(), button)
 
     /**
      * プレイヤーにGUIを開く。
@@ -83,13 +83,10 @@ class InventoryUI(
             onGuiClick?.onGuiClick(this, event, button)
         } else if (inPlayer) {
             onPlayerClick?.onPlayerClick(this, event)
-        } else {
-            // それ以外はこのUIでは未処理
-            return false
         }
 
         // 全域フック（最後に）
-        onClick?.onClick(this, event)
+        onClick?.onButtonClick(this, event)
         return true
     }
 
