@@ -20,6 +20,7 @@ import red.man10.man10bank.net.HttpClientFactory
 import red.man10.man10bank.service.HealthService
 import red.man10.man10bank.service.CashItemManager
 import red.man10.man10bank.command.op.BankOpCommand
+import red.man10.man10bank.ui.UIService
 
 class Man10Bank : JavaPlugin(), Listener {
 
@@ -33,6 +34,7 @@ class Man10Bank : JavaPlugin(), Listener {
     private lateinit var vaultManager: red.man10.man10bank.service.VaultManager
     private lateinit var bankApi: BankApiClient
     private lateinit var cashItemManager: CashItemManager
+    private lateinit var uiService: UIService
 
     // サーバー識別名（configの serverName が空/未設定の場合はBukkitのサーバー名を使用）
     lateinit var serverName: String
@@ -118,6 +120,9 @@ class Man10Bank : JavaPlugin(), Listener {
     }
 
     private fun registerEvents() {
+        // GUIのイベントをハンドル
+        uiService = UIService(this)
+        server.pluginManager.registerEvents(uiService, this)
     }
 
     private fun registerProviders() {
