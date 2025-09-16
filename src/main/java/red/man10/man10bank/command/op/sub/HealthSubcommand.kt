@@ -1,30 +1,26 @@
-package red.man10.man10bank.command
+package red.man10.man10bank.command.op.sub
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import org.bukkit.command.Command
-import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
 import org.bukkit.command.ConsoleCommandSender
 import red.man10.man10bank.Man10Bank
+import red.man10.man10bank.command.op.BankOpSubcommand
 import red.man10.man10bank.service.HealthService
 import red.man10.man10bank.util.Messages
 
-/** /man10bank コマンド: ヘルスチェックを表示（OP/コンソール限定） */
-class Man10BankCommand(
+/**
+ * /bankop health - ヘルスチェックを表示
+ */
+class HealthSubcommand(
     private val plugin: Man10Bank,
     private val scope: CoroutineScope,
     private val healthService: HealthService,
-) : CommandExecutor {
+) : BankOpSubcommand {
+    override val name: String = "health"
+    override val usage: String = "/bankop health - ヘルスチェックを表示"
 
-    override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
-        // OP もしくはコンソールのみ
-        val isConsole = sender is ConsoleCommandSender
-        if (!isConsole && !sender.isOp) {
-            Messages.error(sender, "このコマンドはOPのみ使用できます。")
-            return true
-        }
-
+    override fun handle(sender: CommandSender, args: List<String>): Boolean {
         scope.launch {
             try {
                 val msg = healthService.buildHealthMessage()
@@ -36,3 +32,4 @@ class Man10BankCommand(
         return true
     }
 }
+

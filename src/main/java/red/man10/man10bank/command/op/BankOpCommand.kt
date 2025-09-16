@@ -1,22 +1,30 @@
 package red.man10.man10bank.command.op
 
+import kotlinx.coroutines.CoroutineScope
 import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
 import red.man10.man10bank.Man10Bank
+import red.man10.man10bank.command.op.sub.HealthSubcommand
 import red.man10.man10bank.command.op.sub.SetCashSubcommand
 import red.man10.man10bank.service.CashItemManager
+import red.man10.man10bank.service.HealthService
 import red.man10.man10bank.util.Messages
 
 /**
  * /bankop コマンド（OP専用）: サブコマンドにディスパッチ
  */
 class BankOpCommand(
-    plugin: Man10Bank,
+    private val plugin: Man10Bank,
+    private val scope: CoroutineScope,
+    private val healthService: HealthService,
     cashItemManager: CashItemManager,
 ) : CommandExecutor {
 
     private val subcommands: Map<String, BankOpSubcommand> = listOf(
+        // ヘルスチェック
+        HealthSubcommand(plugin, scope, healthService),
+        // 現金アイテム設定
         SetCashSubcommand(cashItemManager),
     ).associateBy { it.name }
 

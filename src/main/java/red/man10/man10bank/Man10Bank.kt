@@ -10,7 +10,6 @@ import org.bukkit.event.Listener
 import org.bukkit.plugin.java.JavaPlugin
 import red.man10.man10bank.api.HealthApiClient
 import red.man10.man10bank.api.BankApiClient
-import red.man10.man10bank.command.Man10BankCommand
 import red.man10.man10bank.command.transaction.DepositCommand
 import red.man10.man10bank.command.transaction.WithdrawCommand
 import red.man10.man10bank.command.transaction.PayCommand
@@ -106,11 +105,10 @@ class Man10Bank : JavaPlugin(), Listener {
     }
 
     private fun registerCommands() {
-        getCommand("man10bank")?.setExecutor(Man10BankCommand(this, scope, healthService))
         getCommand("deposit")?.setExecutor(DepositCommand(this, scope, vaultManager, bankApi))
         getCommand("withdraw")?.setExecutor(WithdrawCommand(this, scope, vaultManager, bankApi))
         getCommand("mpay")?.setExecutor(PayCommand(this, scope, bankApi))
-        getCommand("bankop")?.setExecutor(BankOpCommand(this, cashItemManager))
+        getCommand("bankop")?.setExecutor(BankOpCommand(this, scope, healthService, cashItemManager))
 
         // 残高系（/bal, /balance ほか別名にも割り当て）
         val balanceExecutor = BalanceCommand(this, scope, vaultManager, bankApi)
