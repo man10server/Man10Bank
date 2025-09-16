@@ -20,6 +20,7 @@ import red.man10.man10bank.net.HttpClientFactory
 import red.man10.man10bank.service.HealthService
 import red.man10.man10bank.service.CashItemManager
 import red.man10.man10bank.command.op.BankOpCommand
+import red.man10.man10bank.command.atm.AtmCommand
 import red.man10.man10bank.ui.UIService
 
 class Man10Bank : JavaPlugin(), Listener {
@@ -114,9 +115,10 @@ class Man10Bank : JavaPlugin(), Listener {
 
         // 残高系（/bal, /balance ほか別名にも割り当て）
         val balanceExecutor = BalanceCommand(this, scope, vaultManager, bankApi)
-        listOf("bal", "balance", "money", "bank", "atm").forEach { cmd ->
+        listOf("bal", "balance", "money", "bank").forEach { cmd ->
             getCommand(cmd)?.setExecutor(balanceExecutor)
         }
+        getCommand("atm")?.setExecutor(AtmCommand(vaultManager))
     }
 
     private fun registerEvents() {

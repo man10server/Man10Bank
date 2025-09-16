@@ -26,8 +26,9 @@ commands:
     default: op
     description: /bal
   atm:
-    default: op
-    description: /bal
+    description: ATMメニューを開く
+    permission: man10bank.user
+    usage: /atm
   mpay:
     description: 銀行からプレイヤーへ送金
     permission: man10bank.user

@@ -12,10 +12,10 @@ import red.man10.man10bank.util.BalanceFormats
 import red.man10.man10bank.util.Messages
 
 class AtmMainUI(
-    player: Player,
+    private val player: Player,
     vaultManager: VaultManager,
 ) : InventoryUI(
-    title = "ATM",
+    title = "§6§lATM",
     size = 27,
 ) {
 
@@ -31,6 +31,10 @@ class AtmMainUI(
         return ItemStack(Material.GRAY_STAINED_GLASS_PANE).apply {
             editMeta { meta -> meta.displayName(Component.text("")) }
         }
+    }
+
+    fun open(){
+        super.open(player)
     }
 
     private fun createDepositButton(): UIButton {
