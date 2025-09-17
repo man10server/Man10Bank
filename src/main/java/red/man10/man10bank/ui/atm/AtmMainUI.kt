@@ -46,7 +46,7 @@ class AtmMainUI(
         }
         val button = UIButton(item)
         button.onClick { player, _ ->
-            Messages.send(player,"§c§l入金機能は現在メンテナンス中です。しばらくお待ちください。")
+            player.performCommand("atm deposit")
         }
         return button
     }
@@ -60,7 +60,7 @@ class AtmMainUI(
         }
         val button = UIButton(item)
         button.onClick { player, _ ->
-            Messages.send(player,"§c§l出金機能は現在メンテナンス中です。しばらくお待ちください。")
+            player.performCommand("atm withdraw")
         }
         return button
     }

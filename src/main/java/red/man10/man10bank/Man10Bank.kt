@@ -36,8 +36,7 @@ class Man10Bank : JavaPlugin(), Listener {
     private lateinit var vaultManager: red.man10.man10bank.service.VaultManager
     private lateinit var bankApi: BankApiClient
     private lateinit var cashItemManager: CashItemManager
-    lateinit var cashExchangeService: CashExchangeService
-        private set
+    private lateinit var cashExchangeService: CashExchangeService
     private lateinit var uiService: UIService
 
     // サーバー識別名（configの serverName が空/未設定の場合はBukkitのサーバー名を使用）
@@ -95,7 +94,7 @@ class Man10Bank : JavaPlugin(), Listener {
         } else {
             logger.info("Vault(Economy) に接続しました: ${vaultManager.provider()?.name}")
         }
-        cashExchangeService = CashExchangeService(vaultManager, cashItemManager)
+        cashExchangeService = CashExchangeService(this, vaultManager, cashItemManager,)
     }
 
     private fun initServerName() {
@@ -116,13 +115,12 @@ class Man10Bank : JavaPlugin(), Listener {
         getCommand("withdraw")?.setExecutor(WithdrawCommand(this, scope, vaultManager, bankApi))
         getCommand("mpay")?.setExecutor(PayCommand(this, scope, bankApi))
         getCommand("bankop")?.setExecutor(BankOpCommand(this, scope, healthService, cashItemManager))
+        getCommand("atm")?.setExecutor(AtmCommand(vaultManager, cashItemManager, cashExchangeService))
 
         // 残高系（/bal, /balance ほか別名にも割り当て）
-        val balanceExecutor = BalanceCommand(this, scope, vaultManager, bankApi)
         listOf("bal", "balance", "money", "bank").forEach { cmd ->
-            getCommand(cmd)?.setExecutor(balanceExecutor)
+            getCommand(cmd)?.setExecutor(BalanceCommand(this, scope, vaultManager, bankApi))
         }
-        getCommand("atm")?.setExecutor(AtmCommand(vaultManager))
     }
 
     private fun registerEvents() {

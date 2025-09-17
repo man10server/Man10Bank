@@ -16,6 +16,8 @@ class CashExchangeService(
     private val cashItemManager: CashItemManager,
 ) {
 
+    //TODO: ログ記録
+
     /** 現金アイテムをVaultへ換金し、入金額を返す。 */
     fun depositCashToVault(player: Player, stacks: Array<ItemStack>): Double {
         if (!vault.isAvailable()) return 0.0
