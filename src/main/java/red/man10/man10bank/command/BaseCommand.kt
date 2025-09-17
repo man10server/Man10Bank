@@ -1,12 +1,13 @@
 package red.man10.man10bank.command
 
+import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.event.ClickEvent
 import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
 import org.bukkit.command.TabCompleter
 import org.bukkit.command.CommandSender
 import org.bukkit.command.ConsoleCommandSender
 import org.bukkit.entity.Player
-import org.bukkit.plugin.java.JavaPlugin
 import red.man10.man10bank.util.Messages
 
 /**
@@ -47,8 +48,8 @@ abstract class BaseCommand(
     }
 
     /**実行時の処理（必要に応じて実装）。*/
-    protected open fun execute(player: CommandSender, label: String, args: Array<out String>): Boolean {
-        Messages.error(player, "このコマンドの実装がありません。")
+    protected open fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean {
+        Messages.error(sender, "このコマンドの実装がありません。")
         return true
     }
 
@@ -75,4 +76,37 @@ abstract class BaseCommand(
 
     /** Tab補完（必要に応じて実装）。*/
     protected open fun tabComplete(sender: CommandSender, label: String, args: Array<out String>): List<String> = emptyList()
+
+    // -----------------
+    // ページネーション表示ヘルパー
+    // -----------------
+    protected fun showPaged(
+        player: Player,
+        allLines: List<String>,
+        page: Int,
+        pageSize: Int,
+        commandBase: String,
+    ) {
+        val start = (page * pageSize).coerceAtLeast(0)
+        val end = (start + pageSize).coerceAtMost(allLines.size)
+        val pageLines = if (start >= end) emptyList() else allLines.subList(start, end)
+        val body = if (pageLines.isEmpty()) "履歴がありません" else pageLines.joinToString("\n")
+        Messages.sendMultiline(player, body)
+
+        val hasPrev = page > 0
+        val hasNext = end < allLines.size
+        if (!hasPrev && !hasNext) return
+
+        var comp: Component = Component.text(Messages.PREFIX)
+        if (hasPrev) {
+            comp = comp.append(Component.text("§b§l§n[前のページ]")
+                .clickEvent(ClickEvent.runCommand("/$commandBase ${page - 1}")))
+        }
+        if (hasNext) {
+            if (hasPrev) comp = comp.append(Component.text(" "))
+            comp = comp.append(Component.text("§b§l§n[次のページ]")
+                .clickEvent(ClickEvent.runCommand("/$commandBase ${page + 1}")))
+        }
+        player.sendMessage(comp)
+    }
 }
