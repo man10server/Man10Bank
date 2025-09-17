@@ -92,6 +92,9 @@ class Man10Bank : JavaPlugin(), Listener {
         chequesApi = ChequesApiClient(httpClient)
         vaultManager = red.man10.man10bank.service.VaultManager(this)
         cashItemManager = CashItemManager(this)
+        chequeService = ChequeService(this, scope, chequesApi)
+        uiService = UIService(this)
+
         // 起動時に現金アイテム設定を読み込む
         val loadedCash = cashItemManager.load()
         if (loadedCash.isNotEmpty()) {
@@ -136,9 +139,7 @@ class Man10Bank : JavaPlugin(), Listener {
 
     private fun registerEvents() {
         // GUIのイベントをハンドル
-        uiService = UIService(this)
         server.pluginManager.registerEvents(uiService, this)
-        chequeService = ChequeService(this, scope, chequesApi)
         server.pluginManager.registerEvents(chequeService, this)
     }
 
