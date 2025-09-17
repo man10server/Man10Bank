@@ -1,5 +1,8 @@
 package red.man10.man10bank.service
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import net.kyori.adventure.text.Component
 import org.bukkit.Bukkit
 import org.bukkit.Material
@@ -18,6 +21,7 @@ import red.man10.man10bank.api.model.request.ChequeCreateRequest
 import red.man10.man10bank.api.model.response.Cheque
 import red.man10.man10bank.api.model.request.ChequeUseRequest
 import red.man10.man10bank.util.BalanceFormats
+import red.man10.man10bank.util.Messages
 
 /**
  * 小切手(cheque)関連のイベントハンドラ。
@@ -25,6 +29,7 @@ import red.man10.man10bank.util.BalanceFormats
  */
 class ChequeService(
     private val plugin: JavaPlugin,
+    private val scope: CoroutineScope,
     private val chequesApi: ChequesApiClient,
 ) : Listener {
 
@@ -34,8 +39,20 @@ class ChequeService(
 
     @EventHandler
     fun onPlayerInteract(event: PlayerInteractEvent) {
-        // TODO: 小切手アイテムの右クリック使用などの処理をここに実装
-        // 現状は土台のみで処理は行わない
+        val player = event.player
+        val item = event.item ?: return
+        val meta = item.itemMeta ?: return
+        val pdc = meta.persistentDataContainer
+        val hasId = pdc.has(idKey, PersistentDataType.INTEGER) || pdc.has(oldChequeKey, PersistentDataType.INTEGER)
+        if (!hasId) return
+
+        event.isCancelled = true
+        scope.launch(Dispatchers.IO) {
+            val amount = useCheque(player, item)
+            plugin.server.scheduler.runTask(plugin, Runnable {
+                Messages.send(player, "小切手を使用しました。金額: ${BalanceFormats.colored(amount)}")
+            })
+        }
     }
 
     /**
@@ -65,26 +82,24 @@ class ChequeService(
      * - 成功、または既に使用済みなら使用済みの見た目の小切手に置き換えたItemStackを返す
      * - そうでなければ null
      */
-    suspend fun useCheque(user: Player, item: ItemStack): Boolean {
-        val meta = item.itemMeta ?: return false
+    suspend fun useCheque(user: Player, item: ItemStack): Double {
+        val meta = item.itemMeta ?: return 0.0
         val pdc = meta.persistentDataContainer
         val id = pdc.get(idKey, PersistentDataType.INTEGER)
             ?: pdc.get(oldChequeKey, PersistentDataType.INTEGER)
-            ?: return false
+            ?: return 0.0
 
         val result = chequesApi.use(id, ChequeUseRequest(user.uniqueId.toString()))
 
         if (result.isSuccess) {
-            val detail = result.getOrNull()
-            if (detail != null) {
-                Bukkit.getScheduler().runTask(plugin, Runnable {
-                    item.amount = 0
-                    user.inventory.addItem(buildChequeItem(cheque = detail, isUsed = true))
-                })
-            }
-            return true
+            val detail = result.getOrNull()?:return 0.0
+            Bukkit.getScheduler().runTask(plugin, Runnable {
+                item.amount = 0
+                user.inventory.addItem(buildChequeItem(cheque = detail, isUsed = true))
+            })
+            return detail.amount!!
         }
-        return false
+        return 0.0
     }
 
     private fun buildChequeItem(cheque: Cheque, isUsed: Boolean = false): ItemStack {

@@ -126,8 +126,8 @@ class Man10Bank : JavaPlugin(), Listener {
         getCommand("mpay")?.setExecutor(PayCommand(this, scope, bankApi))
         getCommand("bankop")?.setExecutor(BankOpCommand(this, scope, healthService, cashItemManager))
         getCommand("atm")?.setExecutor(AtmCommand(this, scope, atmApi, vaultManager, cashItemManager, cashExchangeService))
-        getCommand("mcheque")?.setExecutor(ChequeCommand())
-        getCommand("mchequeop")?.setExecutor(ChequeOpCommand())
+        getCommand("mcheque")?.setExecutor(ChequeCommand(this, scope, chequeService))
+        getCommand("mchequeop")?.setExecutor(ChequeOpCommand(this, scope, chequeService))
 
         // 残高系（/bal, /balance ほか別名にも割り当て）
         listOf("bal", "balance", "money", "bank").forEach { cmd ->
@@ -139,7 +139,7 @@ class Man10Bank : JavaPlugin(), Listener {
         // GUIのイベントをハンドル
         uiService = UIService(this)
         server.pluginManager.registerEvents(uiService, this)
-        chequeService = ChequeService(this, chequesApi)
+        chequeService = ChequeService(this, scope, chequesApi)
         server.pluginManager.registerEvents(chequeService, this)
     }
 
