@@ -81,6 +81,7 @@ class AtmCommand(
                 "§7[$date] §e$kind§r: $amt"
             }
             plugin.server.scheduler.runTask(plugin, Runnable {
+                Messages.send(player, "§6===== ${player.name}のATM履歴 =====")
                 showPaged(player, lines, page, LOG_PAGE_SIZE, "atm log")
             })
         }
@@ -103,6 +104,7 @@ class AtmCommand(
                 "§7[$date] §e$kind§r: $amt"
             }
             plugin.server.scheduler.runTask(plugin, Runnable {
+                Messages.send(viewer, "§6===== ${targetName}のATM履歴 =====")
                 showPaged(viewer, lines, page, LOG_PAGE_SIZE, "atm logop $targetName")
             })
         }
