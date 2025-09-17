@@ -6,7 +6,7 @@ import red.man10.man10bank.command.BaseCommand
 import red.man10.man10bank.util.Messages
 
 /** /mcheque - 小切手関連（ユーザー向け） */
-class MchequeCommand : BaseCommand(
+class ChequeCommand : BaseCommand(
     allowPlayer = true,
     allowConsole = false,
     allowGeneralUser = true,

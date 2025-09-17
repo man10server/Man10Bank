@@ -37,10 +37,10 @@ commands:
     description: 小切手（ユーザー向け）
     permission: man10bank.user
     usage: /mcheque
-  mcheuqeop:
+  mchequeop:
     description: 小切手（運営向け）
     permission: mchequeop
-    usage: /mcheuqeop
+    usage: /mchequeop
   mbaltop:
     default: op
     description: serverBalanceTop
