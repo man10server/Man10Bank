@@ -118,7 +118,7 @@ class Man10Bank : JavaPlugin(), Listener {
         getCommand("withdraw")?.setExecutor(WithdrawCommand(this, scope, vaultManager, bankApi))
         getCommand("mpay")?.setExecutor(PayCommand(this, scope, bankApi))
         getCommand("bankop")?.setExecutor(BankOpCommand(this, scope, healthService, cashItemManager))
-        getCommand("atm")?.setExecutor(AtmCommand(vaultManager, cashItemManager, cashExchangeService))
+        getCommand("atm")?.setExecutor(AtmCommand(this, scope, atmApi, vaultManager, cashItemManager, cashExchangeService))
 
         // 残高系（/bal, /balance ほか別名にも割り当て）
         listOf("bal", "balance", "money", "bank").forEach { cmd ->
