@@ -36,11 +36,16 @@ class VaultManager(private val plugin: JavaPlugin) {
     fun deposit(player: OfflinePlayer, amount: Double): Boolean =
         economy?.depositPlayer(player, amount)?.transactionSuccess() == true
 
-    /** 出金（成功時 true）。*/
-    fun withdraw(player: OfflinePlayer, amount: Double): Boolean =
-        economy?.withdrawPlayer(player, amount)?.transactionSuccess() == true
-
-    /** 金額のフォーマット（プロバイダ未設定時は null）。*/
-    fun format(amount: Double): String? = economy?.format(amount)
+    /**
+     * 出金（成功時 true）。
+     * - プレイヤー残高が不足している場合は出金しないで false を返す
+     * - 0 以下の金額は拒否
+     */
+    fun withdraw(player: OfflinePlayer, amount: Double): Boolean {
+        val econ = economy ?: return false
+        if (amount <= 0.0) return false
+        val bal = econ.getBalance(player)
+        if (bal + 1e-6 < amount) return false
+        return econ.withdrawPlayer(player, amount).transactionSuccess()
+    }
 }
-
