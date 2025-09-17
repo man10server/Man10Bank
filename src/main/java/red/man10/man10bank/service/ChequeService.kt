@@ -14,6 +14,7 @@ import org.bukkit.persistence.PersistentDataType
 import org.bukkit.plugin.java.JavaPlugin
 import red.man10.man10bank.api.ChequesApiClient
 import red.man10.man10bank.api.model.request.ChequeCreateRequest
+import red.man10.man10bank.api.model.response.Cheque
 import red.man10.man10bank.util.BalanceFormats
 
 /**
@@ -42,21 +43,24 @@ class ChequeService(
      * - note が20文字以上の場合は失敗
      * - APIで作成し、返ってきたIDと金額をPDCに埋め込み
      */
-    suspend fun createCheque(p: Player, amount: Double, note: String?, isOP: Boolean): Result<ItemStack> {
+    suspend fun createCheque(p: Player, amount: Double, note: String?, isOP: Boolean): ItemStack? {
         if (note != null && note.length >= 20) {
-            return Result.failure(IllegalArgumentException("メモは20文字未満で指定してください。"))
+            return null
         }
         val req = ChequeCreateRequest(
             uuid = p.uniqueId.toString(),
             amount = amount,
-            note = note
+            note = note,
+            op = isOP
         )
         val created = chequesApi.create(req)
-        if (created.isFailure) return Result.failure(created.exceptionOrNull()!!)
-        val cheque = created.getOrNull()
-        val id = cheque?.id ?: return Result.failure(IllegalStateException("小切手IDの取得に失敗しました"))
+        if (created.isFailure) return null
+        val cheque = created.getOrNull()?:return null
+        return buildChequeItem(cheque)
+    }
 
-        val chequeItem = ItemStack(Material.PAPER).apply {
+    private fun buildChequeItem(cheque: Cheque, isUsed: Boolean = false): ItemStack {
+        return ItemStack(Material.PAPER).apply {
             editMeta { meta ->
                 val cmd = meta.customModelDataComponent
                 cmd.floats.add(1.0F)
@@ -67,20 +71,21 @@ class ChequeService(
                 val lore = mutableListOf(
                     Component.text("§e====[Man10Bank]===="),
                     Component.text(""),
-                    Component.text("§a§l発行者: ${if (isOP) "§c§l" else "§d§l"}${p.name}"),
-                    Component.text("§a§l金額: ${BalanceFormats.amount(amount)}円"),
-                    Component.text("§d§lメモ: ${note ?: "なし"}"),
-                    Component.text(""),
+                    Component.text("§a§l発行者: ${if (cheque.op) "§c§l" else "§d§l"}${cheque.player}"),
+                    Component.text("§a§l金額: ${BalanceFormats.amount(cheque.amount?:0.0)}円"),
+                    Component.text("§d§lメモ: ${cheque.note ?: "なし"}"),
+                    if (isUsed) Component.text("§c§o[使用済み]") else Component.text(""),
                     Component.text("§e==================")
                 )
                 meta.lore(lore)
                 meta.addEnchant(Enchantment.FORTUNE, 0, true)
                 meta.addItemFlags(ItemFlag.HIDE_ENCHANTS, ItemFlag.HIDE_UNBREAKABLE)
 
-                meta.persistentDataContainer.set(idKey, PersistentDataType.INTEGER, id)
-                meta.persistentDataContainer.set(amountKey, PersistentDataType.DOUBLE, amount)
+                if (isUsed) return@editMeta
+
+                meta.persistentDataContainer.set(idKey, PersistentDataType.INTEGER, cheque.id?:-1)
+                meta.persistentDataContainer.set(amountKey, PersistentDataType.DOUBLE, cheque.amount?:0.0)
             }
         }
-        return Result.success(chequeItem)
     }
 }

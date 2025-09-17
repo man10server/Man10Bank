@@ -13,4 +13,5 @@ data class Cheque(
     val useDate: String? = null,
     val usePlayer: String? = null,
     val used: Boolean? = null,
+    val op: Boolean = false,
 )

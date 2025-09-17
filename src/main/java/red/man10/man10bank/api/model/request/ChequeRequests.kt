@@ -7,6 +7,7 @@ data class ChequeCreateRequest(
     val uuid: String,
     val amount: Double,
     val note: String? = null,
+    val op: Boolean = false,
 )
 
 @Serializable
