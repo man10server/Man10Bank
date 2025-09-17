@@ -14,6 +14,7 @@ import org.bukkit.entity.Player
 import red.man10.man10bank.Man10Bank
 import red.man10.man10bank.api.AtmApiClient
 import red.man10.man10bank.util.BalanceFormats
+import red.man10.man10bank.util.DateFormats
 import red.man10.man10bank.service.CashExchangeService
 import red.man10.man10bank.service.CashItemManager
 import red.man10.man10bank.service.VaultManager
@@ -30,6 +31,10 @@ class AtmCommand(
     private val cashItemManager: CashItemManager,
     private val cashExchangeService: CashExchangeService
 ) : CommandExecutor {
+
+    companion object {
+        private const val LOG_PAGE_SIZE = 10
+    }
 
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
         if (!sender.hasPermission("man10bank.user")) {
@@ -52,47 +57,49 @@ class AtmCommand(
                 return true
             }
             else -> AtmMainUI(sender, vault).open()
-
         }
 
         return true
     }
 
     private fun showLogs(player: Player, page: Int) {
-        val limit = 10
-        val offset = page * limit
+        val offset = page * LOG_PAGE_SIZE
         scope.launch(Dispatchers.IO) {
-            val result = atmApi.getLogs(player.uniqueId, limit = limit, offset = offset)
+            val result = atmApi.getLogs(player.uniqueId, limit = LOG_PAGE_SIZE, offset = offset)
             if (result.isFailure) {
                 Messages.error(plugin, player, "ATM履歴の取得に失敗しました。")
                 return@launch
             }
             val logs = result.getOrNull().orEmpty()
-            val lines = if (logs.isEmpty()) listOf("履歴がありません。") else logs.map { log ->
-                val kind = if (log.deposit == true) "入金" else "出金"
-                val amt = BalanceFormats.colored(log.amount ?: 0.0)
-                val date = log.date ?: ""
-                "§7[$date] §e$kind§r: $amt"
-            }
-            // 本文はMessages経由（スレッドセーフ）で出力
-            Messages.sendMultiline(plugin, player, lines.joinToString("\n"))
 
-            // ページナビはComponentでクリック実行。メインスレッドへディスパッチ
+            val lines = mutableListOf("§6===== ${player.name}のATM履歴 (ページ ${page + 1}) =====")
+
+            if (logs.isEmpty()) {
+                lines.add("履歴がありません")
+            } else logs.forEach { log ->
+                val kind = if (log.deposit == true) "§a§l入金" else "§c§l出金"
+                val amt = BalanceFormats.colored(log.amount ?: 0.0)
+                val date = log.date?.let { DateFormats.fromIsoString(it) } ?: ""
+                lines.add("§7[$date] §e$kind§r: $amt")
+            }
+
             plugin.server.scheduler.runTask(plugin, Runnable {
-                val comps = mutableListOf<Component>()
+                Messages.sendMultiline(player, lines.joinToString("\n"))
+
+                // ページャー
+                val compos = Component.text(Messages.PREFIX)
                 if (page > 0) {
-                    val prev = Component.text("[前のページ]", NamedTextColor.AQUA, TextDecoration.BOLD)
+                    val prev = Component.text("§b§l§n[前のページ]")
                         .clickEvent(ClickEvent.runCommand("/atm log ${page - 1}"))
-                    comps.add(prev)
+                    compos.append(prev)
                 }
-                val hasNext = logs.size >= limit
+                val hasNext = logs.size >= LOG_PAGE_SIZE
                 if (hasNext) {
-                    if (comps.isNotEmpty()) comps.add(Component.text(" "))
-                    val next = Component.text("[次のページ]", NamedTextColor.GOLD, TextDecoration.BOLD)
+                    val next = Component.text("§b§l§n[次のページ]")
                         .clickEvent(ClickEvent.runCommand("/atm log ${page + 1}"))
-                    comps.add(next)
+                    compos.append(next)
                 }
-                if (comps.isNotEmpty()) player.sendMessage(Component.join(Component.text(" "), comps))
+                player.sendMessage(compos)
             })
         }
     }
