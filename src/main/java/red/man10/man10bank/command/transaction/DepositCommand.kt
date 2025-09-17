@@ -24,21 +24,38 @@ class DepositCommand(
     allowGeneralUser = true,
 ) {
 
-    private suspend fun resolveAmount(player: Player, arg: String): Double? {
+    override fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean {
+        sender as Player
+        if (args.size != 1) {
+            Messages.warn(sender, "使い方: /deposit <金額/all>")
+            return true
+        }
+        val arg = args[0]
+        scope.launch {
+            val amount = resolveAmount(sender, arg)
+            if (amount == null || amount <= 0.0) {
+                Messages.error(plugin, sender, "金額が不正です。正の数または all を指定してください。")
+                return@launch
+            }
+            process(sender, amount)
+        }
+        return true
+    }
+
+    private fun resolveAmount(player: Player, arg: String): Double? {
         if (!vault.isAvailable()) {
             Messages.error(plugin, player, "Vaultが利用できません。")
             return null
         }
         val vaultBal = vault.getBalance(player)
         val amount = if (arg.equals("all", ignoreCase = true)) vaultBal else arg.toDoubleOrNull() ?: -1.0
-        if (amount <= 0.0) return null
         if (amount > vaultBal) {
             Messages.error(plugin, player, "所持金が不足しています。" +
                     "保有: ${BalanceFormats.colored(vaultBal)} " +
                     "§c§l要求: ${BalanceFormats.colored(amount)}")
             return null
         }
-        return amount
+        return if (amount > 0.0) amount else null
     }
 
     private suspend fun process(player: Player, amount: Double) {
@@ -54,9 +71,9 @@ class DepositCommand(
             val newBank = result.getOrNull() ?: 0.0
             Messages.send(plugin, player,
                 "入金に成功しました。" +
-                        "金額: ${BalanceFormats.colored(amount)} " +
-                        "銀行残高: ${BalanceFormats.colored(newBank)} " +
-                        "電子マネー: ${BalanceFormats.colored(vault.getBalance(player))}"
+                        "§b金額: ${BalanceFormats.colored(amount)} " +
+                        "§b銀行残高: ${BalanceFormats.colored(newBank)} " +
+                        "§b電子マネー: ${BalanceFormats.colored(vault.getBalance(player))}"
             )
             return
         }
@@ -75,23 +92,5 @@ class DepositCommand(
             displayNote = "/depositによる入金",
             server = plugin.serverName
         )
-    }
-
-    override fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean {
-        sender as Player
-        if (args.size != 1) {
-            Messages.warn(sender, "使い方: /deposit <金額/all>")
-            return true
-        }
-        val arg = args[0]
-        scope.launch {
-            val amount = resolveAmount(sender, arg)
-            if (amount == null || amount <= 0.0) {
-                Messages.error(plugin, sender, "金額が不正です。正の数または all を指定してください。")
-                return@launch
-            }
-            process(sender, amount)
-        }
-        return true
     }
 }

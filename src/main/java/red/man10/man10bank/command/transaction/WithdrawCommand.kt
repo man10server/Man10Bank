@@ -26,11 +26,38 @@ class WithdrawCommand(
     allowGeneralUser = true,
 ) {
 
+    override fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean {
+        sender as Player
+        if (args.size != 1) {
+            Messages.warn(sender, "使い方: /withdraw <金額/all>")
+            return true
+        }
+        val arg = args[0]
+        scope.launch {
+            val amount = resolveAmount(sender, arg)
+            if (amount == null || amount <= 0.0) {
+                Messages.error(plugin, sender, "金額が不正です。正の数または all を指定してください。")
+                return@launch
+            }
+            process(sender, amount)
+        }
+        return true
+    }
+
     private suspend fun resolveAmount(player: Player, arg: String): Double? {
         // all の場合はAPIで銀行残高を取得
-        val amount: Double = if (arg.equals("all", ignoreCase = true)) {
-            bank.getBalance(player.uniqueId).getOrElse { 0.0 }
-        } else arg.toDoubleOrNull() ?: -1.0
+        val bankBal = bank.getBalance(player.uniqueId).getOrElse { -1.0 }
+        if (bankBal < 0.0) {
+            Messages.error(plugin, player, "銀行の残高が取得できません。")
+            return null
+        }
+        val amount = if (arg.equals("all", ignoreCase = true)) { bankBal } else arg.toDoubleOrNull() ?: -1.0
+        if (amount > bankBal) {
+            Messages.error(plugin, player, "銀行残高が不足しています。" +
+                    "銀行残高: ${BalanceFormats.colored(bankBal)} " +
+                    "§c§l要求: ${BalanceFormats.colored(amount)}")
+            return null
+        }
         return if (amount > 0.0) amount else null
     }
 
@@ -59,9 +86,9 @@ class WithdrawCommand(
                 plugin,
                 player,
                 "出金に成功しました。" +
-                        "金額: ${BalanceFormats.colored(amount)} " +
-                        "銀行残高: ${BalanceFormats.colored(newBank)} " +
-                        "電子マネー: ${BalanceFormats.colored(vault.getBalance(player))}"
+                        "§b金額: ${BalanceFormats.colored(amount)} " +
+                        "§b銀行残高: ${BalanceFormats.colored(newBank)} " +
+                        "§b電子マネー: ${BalanceFormats.colored(vault.getBalance(player))}"
             )
             return
         }
@@ -75,24 +102,6 @@ class WithdrawCommand(
             Messages.error(plugin, player, "${BalanceFormats.colored(amount)}円の返金に失敗しました。至急管理者に連絡してください！")
         }
 
-    }
-
-    override fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean {
-        sender as Player
-        if (args.size != 1) {
-            Messages.warn(sender, "使い方: /withdraw <金額/all>")
-            return true
-        }
-        val arg = args[0]
-        scope.launch {
-            val amount = resolveAmount(sender, arg)
-            if (amount == null || amount <= 0.0) {
-                Messages.error(plugin, sender, "金額が不正です。正の数または all を指定してください。")
-                return@launch
-            }
-            process(sender, amount)
-        }
-        return true
     }
 
     private fun withdrawRequest(sender: Player, amount: Double): WithdrawRequest =
