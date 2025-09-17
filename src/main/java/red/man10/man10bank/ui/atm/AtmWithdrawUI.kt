@@ -26,11 +26,6 @@ class AtmWithdrawUI(
     title = "電子マネーを現金にする",
     size = 27,
     previousUI = previousUI,
-    onGuiClick = object : OnGuiClick() {
-        override fun onGuiClick(ui: InventoryUI, event: InventoryClickEvent, button: UIButton?) {
-            // 背景クリックはキャンセルされるが、特別な処理は不要
-        }
-    }
 ) {
 
     private val slots = listOf(10, 11, 12, 14, 15, 16)
@@ -51,9 +46,13 @@ class AtmWithdrawUI(
         }
     }
 
+    fun open() {
+        super.open(player)
+    }
+
     private fun createWithdrawButton(amount: Double): UIButton {
         val base = cashItems.getItemForAmount(amount) ?: ItemStack(Material.PAPER).apply {
-            editMeta { it.displayName(Component.text("${BalanceFormats.colored(amount)}")) }
+            editMeta { it.displayName(Component.text(BalanceFormats.colored(amount))) }
         }
         val icon = base.clone()
         return UIButton(icon).onClick { p, _ ->

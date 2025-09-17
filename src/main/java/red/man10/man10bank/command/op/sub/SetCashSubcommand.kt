@@ -25,12 +25,7 @@ class SetCashSubcommand(
             Messages.error(sender, "金額を指定してください。例: /bankop setcash <金額> - 手持ちアイテムを現金として登録")
             return true
         }
-
-        val amount = args[1].toDoubleOrNull()
-        if (amount == null || amount <= 0.0) {
-            Messages.error(sender, "金額は正の数で指定してください（小数可）。")
-            return true
-        }
+        val amount = args[1]
 
         val hand = sender.inventory.itemInMainHand
         if (hand.type == Material.AIR || hand.amount <= 0) {
@@ -39,7 +34,7 @@ class SetCashSubcommand(
         }
 
         val saveCopy = hand.clone().asOne()
-        cashItemManager.save(saveCopy, amount)
+        cashItemManager.save(saveCopy, args[1])
         Messages.send(sender, "現金アイテムを登録しました。1個あたりの金額: ${amount}。アイテム: ${saveCopy.type}。")
         return true
     }

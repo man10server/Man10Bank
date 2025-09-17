@@ -9,6 +9,7 @@ import red.man10.man10bank.service.CashItemManager
 import red.man10.man10bank.service.VaultManager
 import red.man10.man10bank.ui.atm.AtmDepositUI
 import red.man10.man10bank.ui.atm.AtmMainUI
+import red.man10.man10bank.ui.atm.AtmWithdrawUI
 import red.man10.man10bank.util.Messages
 
 class AtmCommand(
@@ -31,6 +32,7 @@ class AtmCommand(
 
         when(arg) {
             "deposit" -> AtmDepositUI(sender, cashItemManager, cashExchangeService).open()
+            "withdraw" -> AtmWithdrawUI(sender, cashItemManager, cashExchangeService).open()
             else -> AtmMainUI(sender, vault).open()
 
         }

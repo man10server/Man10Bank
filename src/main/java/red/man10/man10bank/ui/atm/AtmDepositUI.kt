@@ -3,6 +3,7 @@ package red.man10.man10bank.ui.atm
 import net.kyori.adventure.text.Component
 import org.bukkit.Material
 import org.bukkit.entity.Player
+import org.bukkit.event.inventory.InventoryAction
 import org.bukkit.event.inventory.InventoryClickEvent
 import org.bukkit.inventory.ItemStack
 import red.man10.man10bank.service.CashExchangeService
@@ -29,20 +30,24 @@ class AtmDepositUI(
     previousUI = previousUI,
     onGuiClick = object : OnGuiClick() {
         override fun onGuiClick(ui: InventoryUI, event: InventoryClickEvent, button: UIButton?) {
-            val cursor = event.cursor
+            if (event.action == InventoryAction.HOTBAR_SWAP) {
+                event.isCancelled = true
+                return
+            }
             val current = event.currentItem?: return
-            if (cashItems.getAmountForItem(current) == null ||
-                cashItems.getAmountForItem(cursor) == null) {
+            if (cashItems.getAmountForItem(current) == null) {
                 event.isCancelled = true
             }
         }
     },
     onPlayerClick = object : OnPlayerClick() {
         override fun onPlayerClick(ui: InventoryUI, event: InventoryClickEvent) {
-            val cursor = event.cursor
+            if (event.action == InventoryAction.HOTBAR_SWAP) {
+                event.isCancelled = true
+                return
+            }
             val current = event.currentItem?: return
-            if (cashItems.getAmountForItem(current) == null ||
-                cashItems.getAmountForItem(cursor) == null) {
+            if (cashItems.getAmountForItem(current) == null) {
                 event.isCancelled = true
             }
         }

@@ -51,8 +51,7 @@ class CashItemManager(private val plugin: JavaPlugin) {
     }
 
     /** 設定へ保存（同額キーがあれば置き換え）。 */
-    fun save(item: ItemStack, amount: Double) {
-        val key = amountKey(amount)
+    fun save(item: ItemStack, key: String) {
         val normalized = item.apply {
             editMeta { meta ->
                 meta.persistentDataContainer.set(cashAmountKey, PersistentDataType.STRING, key)
@@ -73,7 +72,7 @@ class CashItemManager(private val plugin: JavaPlugin) {
 
     /** 指定金額の現金アイテム（1個）を取得。未登録なら null。 */
     fun getItemForAmount(amount: Double): ItemStack? =
-        items[amountKey(amount)]?.clone()?.asOne()
+        items[amount.toInt().toString()]?.clone()?.asOne()
 
     /** 指定のアイテムが現金なら金額を返す。未登録なら null。 */
     fun getAmountForItem(item: ItemStack): Double? {
@@ -92,7 +91,4 @@ class CashItemManager(private val plugin: JavaPlugin) {
         }
         return result
     }
-
-    private fun amountKey(amount: Double): String =
-        floor(amount).toString()
 }
