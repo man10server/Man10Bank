@@ -3,8 +3,6 @@ package red.man10.man10bank.command.transaction
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.bukkit.OfflinePlayer
-import org.bukkit.command.Command
-import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 import red.man10.man10bank.Man10Bank
@@ -12,6 +10,7 @@ import red.man10.man10bank.api.BankApiClient
 import red.man10.man10bank.api.error.InsufficientBalanceException
 import red.man10.man10bank.api.model.request.DepositRequest
 import red.man10.man10bank.api.model.request.WithdrawRequest
+import red.man10.man10bank.command.BaseCommand
 import red.man10.man10bank.util.BalanceFormats
 import red.man10.man10bank.util.Messages
 import java.util.UUID
@@ -28,7 +27,11 @@ class PayCommand(
     private val plugin: Man10Bank,
     private val scope: CoroutineScope,
     private val bank: BankApiClient,
-) : CommandExecutor {
+) : BaseCommand(
+    allowPlayer = true,
+    allowConsole = false,
+    allowGeneralUser = true,
+) {
 
     companion object {
         private const val CONFIRM_WINDOW_MS = 30_000L
@@ -45,15 +48,8 @@ class PayCommand(
         fun matches(target: UUID, amount: Double): Boolean = this.target == target && this.amount == amount
     }
 
-    override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
-        if (!sender.hasPermission("man10bank.user")) {
-            Messages.error(sender, "このコマンドを実行する権限がありません。")
-            return true
-        }
-        if (sender !is Player) {
-            Messages.error(sender, "このコマンドはプレイヤーのみ使用できます。")
-            return true
-        }
+    override fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean {
+        sender as Player
         if (args.size != 2) {
             Messages.warn(sender, "使い方: /mpay <player> <amount>")
             return true
