@@ -1,6 +1,5 @@
 package red.man10.man10bank.service
 
-import org.bukkit.Bukkit
 import org.bukkit.NamespacedKey
 import org.bukkit.configuration.file.YamlConfiguration
 import org.bukkit.inventory.ItemStack
@@ -8,7 +7,6 @@ import org.bukkit.persistence.PersistentDataType
 import org.bukkit.plugin.java.JavaPlugin
 import java.io.File
 import java.io.IOException
-import kotlin.math.floor
 
 /**
  * 現金アイテムの設定を管理するサービス。
@@ -80,15 +78,5 @@ class CashItemManager(private val plugin: JavaPlugin) {
         val pdc = meta.persistentDataContainer
         if (!pdc.has(cashAmountKey, PersistentDataType.STRING)) return null
         return pdc.get(cashAmountKey, PersistentDataType.STRING)?.toDoubleOrNull()
-    }
-
-    /** 登録済みの現金アイテム一覧を金額→アイテムで取得。 */
-    fun getRegisteredCashItems(): Map<Double, ItemStack> {
-        val result = mutableMapOf<Double, ItemStack>()
-        for ((key, stack) in items) {
-            val amount = key.toDoubleOrNull() ?: continue
-            result[amount] = stack.clone().asOne()
-        }
-        return result
     }
 }
