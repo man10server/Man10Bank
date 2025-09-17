@@ -22,6 +22,7 @@ import red.man10.man10bank.api.model.response.Cheque
 import red.man10.man10bank.api.model.request.ChequeUseRequest
 import red.man10.man10bank.util.BalanceFormats
 import red.man10.man10bank.util.Messages
+import kotlin.math.floor
 
 /**
  * 小切手(cheque)関連のイベントハンドラ。
@@ -66,7 +67,7 @@ class ChequeService(
         }
         val req = ChequeCreateRequest(
             uuid = p.uniqueId.toString(),
-            amount = amount,
+            amount = floor(amount),
             note = note,
             op = isOP
         )
@@ -82,7 +83,7 @@ class ChequeService(
      * - 成功、または既に使用済みなら使用済みの見た目の小切手に置き換えたItemStackを返す
      * - そうでなければ null
      */
-    suspend fun useCheque(user: Player, item: ItemStack): Double {
+    private suspend fun useCheque(user: Player, item: ItemStack): Double {
         val meta = item.itemMeta ?: return 0.0
         val pdc = meta.persistentDataContainer
         val id = pdc.get(idKey, PersistentDataType.INTEGER)
@@ -103,30 +104,35 @@ class ChequeService(
     }
 
     private fun buildChequeItem(cheque: Cheque, isUsed: Boolean = false): ItemStack {
-        return ItemStack(Material.PAPER).apply {
-            editMeta { meta ->
-                val cmd = meta.customModelDataComponent
-                cmd.floats.add(1.0F)
-                meta.setCustomModelDataComponent(cmd)
+        val item = ItemStack(Material.PAPER)
+        val meta = item.itemMeta
 
-                meta.displayName(Component.text("§b§l小切手§7§l(Cheque)"))
+        meta.setCustomModelData(1)
+        meta.displayName(Component.text("§b§l小切手§7§l(Cheque)"))
 
-                meta.lore(mutableListOf(
-                    Component.text("§e====[Man10Bank]===="),
-                    Component.text(""),
-                    Component.text("§a§l発行者: ${if (cheque.op) "§c§l" else "§d§l"}${cheque.player}"),
-                    Component.text("§a§l金額: ${BalanceFormats.amount(cheque.amount?:0.0)}円"),
-                    Component.text("§d§lメモ: ${cheque.note ?: "なし"}"),
-                    if (isUsed) Component.text("§c§o[使用済み]") else Component.text(""),
-                    Component.text("§e==================")
-                ))
-                meta.addEnchant(Enchantment.FORTUNE, 0, true)
-                meta.addItemFlags(ItemFlag.HIDE_ENCHANTS, ItemFlag.HIDE_UNBREAKABLE)
+        val lore = mutableListOf(
+            Component.text("§e====[Man10Bank]===="),
+            Component.text(""),
+            Component.text("§a§l発行者: ${if (cheque.op) "§c§l" else "§d§l"}${cheque.player}"),
+            Component.text("§a§l金額: ${BalanceFormats.amount(cheque.amount?:0.0)}円"),
+        )
 
-                if (isUsed) return@editMeta
+        if (!cheque.note.isNullOrBlank()) lore.add(Component.text("§d§lメモ: ${cheque.note}"))
+        if (isUsed) lore.add(Component.text("  §c§o[使用済み]  "))
+        lore.add(Component.text(""))
+        lore.add(Component.text("§e=================="))
 
-                meta.persistentDataContainer.set(idKey, PersistentDataType.INTEGER, cheque.id?:-1)
-            }
+        meta.lore(lore)
+
+        meta.addEnchant(Enchantment.FORTUNE, 1, true)
+        meta.addItemFlags(ItemFlag.HIDE_ENCHANTS, ItemFlag.HIDE_UNBREAKABLE)
+
+        if (isUsed){
+            item.itemMeta = meta
+            return item
         }
+        meta.persistentDataContainer.set(idKey, PersistentDataType.INTEGER, cheque.id?:-1)
+        item.itemMeta = meta
+        return item
     }
 }
