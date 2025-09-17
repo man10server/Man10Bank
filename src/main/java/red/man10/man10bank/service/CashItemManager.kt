@@ -1,5 +1,6 @@
 package red.man10.man10bank.service
 
+import org.bukkit.Bukkit
 import org.bukkit.NamespacedKey
 import org.bukkit.configuration.file.YamlConfiguration
 import org.bukkit.inventory.ItemStack
@@ -19,10 +20,7 @@ import kotlin.math.floor
  *   "1000": <ItemStack>
  *   "500.5": <ItemStack>
  */
-class CashItemManager(plugin: JavaPlugin) {
-
-    private val file: File = File(plugin.dataFolder, "cash.yml")
-    private var config: YamlConfiguration = YamlConfiguration()
+class CashItemManager(private val plugin: JavaPlugin) {
 
     // 金額キー（文字列化） -> アイテム
     private val items: MutableMap<String, ItemStack> = mutableMapOf()
@@ -34,22 +32,21 @@ class CashItemManager(plugin: JavaPlugin) {
     fun load(): Map<String, ItemStack> {
         items.clear()
 
-        if (!file.parentFile.exists()) file.parentFile.mkdirs()
+        val file = File(plugin.dataFolder, "cash.yml")
         if (!file.exists()) {
             file.createNewFile()
         }
 
-        config = YamlConfiguration()
-        try { config.load(file) } catch (_: Exception) { config = YamlConfiguration() }
+        val config = YamlConfiguration.loadConfiguration(file)
 
-        val sec = config.getConfigurationSection("cashItems")
-        if (sec != null) {
-            for (key in sec.getKeys(false)) {
-                val stack = sec.getItemStack(key) ?: continue
-                items[key] = stack.clone().asOne()
-            }
+        val sec = config.getConfigurationSection("cashItems")?: return emptyMap()
+        for (key in sec.getKeys(false)) {
+            val basePath = "cashItems.$key"
+            val stack = config.getItemStack(basePath)
+                ?: config.getItemStack("$basePath.0")
+                ?: continue
+            items[key] = stack.clone().asOne()
         }
-
         return items.toMap()
     }
 
@@ -64,6 +61,12 @@ class CashItemManager(plugin: JavaPlugin) {
         // メモリ更新
         items[key] = normalized.clone()
         // 設定へ反映
+        val file = File(plugin.dataFolder, "cash.yml")
+        if (!file.exists()) {
+            file.createNewFile()
+        }
+        val config = YamlConfiguration.loadConfiguration(file)
+
         config.set("cashItems.$key", normalized)
         try { config.save(file) } catch (_: IOException) { }
     }
