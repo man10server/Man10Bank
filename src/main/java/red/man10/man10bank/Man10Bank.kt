@@ -10,6 +10,7 @@ import org.bukkit.event.Listener
 import org.bukkit.plugin.java.JavaPlugin
 import red.man10.man10bank.api.HealthApiClient
 import red.man10.man10bank.api.BankApiClient
+import red.man10.man10bank.api.AtmApiClient
 import red.man10.man10bank.command.transaction.DepositCommand
 import red.man10.man10bank.command.transaction.WithdrawCommand
 import red.man10.man10bank.command.transaction.PayCommand
@@ -35,6 +36,7 @@ class Man10Bank : JavaPlugin(), Listener {
     private lateinit var healthService: HealthService
     private lateinit var vaultManager: red.man10.man10bank.service.VaultManager
     private lateinit var bankApi: BankApiClient
+    private lateinit var atmApi: AtmApiClient
     private lateinit var cashItemManager: CashItemManager
     private lateinit var cashExchangeService: CashExchangeService
     private lateinit var uiService: UIService
@@ -81,6 +83,7 @@ class Man10Bank : JavaPlugin(), Listener {
     private fun initServices() {
         healthService = HealthService(HealthApiClient(httpClient))
         bankApi = BankApiClient(httpClient)
+        atmApi = AtmApiClient(httpClient)
         vaultManager = red.man10.man10bank.service.VaultManager(this)
         cashItemManager = CashItemManager(this)
         // 起動時に現金アイテム設定を読み込む
@@ -94,7 +97,7 @@ class Man10Bank : JavaPlugin(), Listener {
         } else {
             logger.info("Vault(Economy) に接続しました: ${vaultManager.provider()?.name}")
         }
-        cashExchangeService = CashExchangeService(this, vaultManager, cashItemManager,)
+        cashExchangeService = CashExchangeService(this, scope, atmApi, vaultManager, cashItemManager)
     }
 
     private fun initServerName() {
