@@ -57,7 +57,7 @@ class AtmCommand(
                     return true
                 }
                 val page = args.getOrNull(2)?.toIntOrNull()?.coerceAtLeast(0) ?: 0
-                showLogsOp(sender, targetName, page)
+                showLogs(sender, targetName, page)
                 return true
             }
             else -> AtmMainUI(sender, vault).open()
@@ -65,29 +65,7 @@ class AtmCommand(
         return true
     }
 
-    private fun showLogs(player: Player, page: Int) {
-        val offset = page * LOG_PAGE_SIZE
-        scope.launch(Dispatchers.IO) {
-            val result = atmApi.getLogs(player.uniqueId, limit = LOG_PAGE_SIZE, offset = offset)
-            if (result.isFailure) {
-                Messages.error(plugin, player, "ATM履歴の取得に失敗しました。")
-                return@launch
-            }
-            val logs = result.getOrNull().orEmpty()
-            val lines = logs.map { log ->
-                val kind = if (log.deposit == true) "§a§l入金" else "§c§l出金"
-                val amt = BalanceFormats.colored(log.amount ?: 0.0)
-                val date = log.date?.let { DateFormats.fromIsoString(it) } ?: ""
-                "§7[$date] §e$kind§r: $amt"
-            }
-            plugin.server.scheduler.runTask(plugin, Runnable {
-                Messages.send(player, "§6===== ${player.name}のATM履歴 =====")
-                showPaged(player, lines, page, LOG_PAGE_SIZE, "atm log")
-            })
-        }
-    }
-
-    private fun showLogsOp(viewer: Player, targetName: String, page: Int) {
+    private fun showLogs(viewer: Player, targetName: String, page: Int) {
         val offset = page * LOG_PAGE_SIZE
         val target = plugin.server.getOfflinePlayer(targetName)
         scope.launch(Dispatchers.IO) {
@@ -105,8 +83,12 @@ class AtmCommand(
             }
             plugin.server.scheduler.runTask(plugin, Runnable {
                 Messages.send(viewer, "§6===== ${targetName}のATM履歴 =====")
-                showPaged(viewer, lines, page, LOG_PAGE_SIZE, "atm logop $targetName")
+                showPaged(viewer, lines, page, "atm logop $targetName")
             })
         }
+    }
+
+    private fun showLogs(player: Player, page: Int) {
+        showLogs(player, player.name, page)
     }
 }

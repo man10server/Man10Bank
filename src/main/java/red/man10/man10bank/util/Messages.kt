@@ -10,7 +10,7 @@ import org.bukkit.plugin.java.JavaPlugin
  * - 非メインスレッドから呼ばれてもメインスレッドへディスパッチ（Safe系）
  */
 object Messages {
-    private const val PREFIX: String = "§f§l[§e§lMan10Bank§f§l]§f "
+    internal const val PREFIX: String = "§f§l[§e§lMan10Bank§f§l]§f "
 
     // -----------------
     // 基本（メインスレッド前提）

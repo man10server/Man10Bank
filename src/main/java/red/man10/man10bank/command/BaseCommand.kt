@@ -82,28 +82,24 @@ abstract class BaseCommand(
     // -----------------
     protected fun showPaged(
         player: Player,
-        allLines: List<String>,
+        lines: List<String>,
         page: Int,
-        pageSize: Int,
-        commandBase: String,
+        commandBase: String
     ) {
-        val start = (page * pageSize).coerceAtLeast(0)
-        val end = (start + pageSize).coerceAtMost(allLines.size)
-        val pageLines = if (start >= end) emptyList() else allLines.subList(start, end)
-        val body = if (pageLines.isEmpty()) "履歴がありません" else pageLines.joinToString("\n")
+        val body = if (lines.isEmpty()) "履歴がありません" else lines.joinToString("\n")
         Messages.sendMultiline(player, body)
 
         val hasPrev = page > 0
-        val hasNext = end < allLines.size
-        if (!hasPrev && !hasNext) return
 
         var comp: Component = Component.text(Messages.PREFIX)
         if (hasPrev) {
             comp = comp.append(Component.text("§b§l§n[前のページ]")
                 .clickEvent(ClickEvent.runCommand("/$commandBase ${page - 1}")))
         }
-        if (hasNext) {
-            if (hasPrev) comp = comp.append(Component.text(" "))
+
+        if (hasPrev) comp = comp.append(Component.text(" "))
+
+        if (lines.isNotEmpty()) {
             comp = comp.append(Component.text("§b§l§n[次のページ]")
                 .clickEvent(ClickEvent.runCommand("/$commandBase ${page + 1}")))
         }
