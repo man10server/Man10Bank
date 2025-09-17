@@ -7,7 +7,7 @@ import org.bukkit.persistence.PersistentDataType
 import org.bukkit.plugin.java.JavaPlugin
 import java.io.File
 import java.io.IOException
-import java.math.BigDecimal
+import kotlin.math.floor
 
 /**
  * 現金アイテムの設定を管理するサービス。
@@ -19,7 +19,7 @@ import java.math.BigDecimal
  *   "1000": <ItemStack>
  *   "500.5": <ItemStack>
  */
-class CashItemManager(private val plugin: JavaPlugin) {
+class CashItemManager(plugin: JavaPlugin) {
 
     private val file: File = File(plugin.dataFolder, "cash.yml")
     private var config: YamlConfiguration = YamlConfiguration()
@@ -45,7 +45,6 @@ class CashItemManager(private val plugin: JavaPlugin) {
         val sec = config.getConfigurationSection("cashItems")
         if (sec != null) {
             for (key in sec.getKeys(false)) {
-                // key は金額表現（"1000" など）
                 val stack = sec.getItemStack(key) ?: continue
                 items[key] = stack.clone().asOne()
             }
@@ -56,15 +55,14 @@ class CashItemManager(private val plugin: JavaPlugin) {
 
     /** 設定へ保存（同額キーがあれば置き換え）。 */
     fun save(item: ItemStack, amount: Double) {
-        // 引数の ItemStack に金額タグを付与し、1個化したものを保存
-        val normalized = item.clone().asOne().apply {
+        val key = amountKey(amount)
+        val normalized = item.apply {
             editMeta { meta ->
-                meta.persistentDataContainer.set(cashAmountKey, PersistentDataType.DOUBLE, amount)
+                meta.persistentDataContainer.set(cashAmountKey, PersistentDataType.STRING, key)
             }
         }
-        val key = amountKey(amount)
         // メモリ更新
-        items[key] = normalized
+        items[key] = normalized.clone()
         // 設定へ反映
         config.set("cashItems.$key", normalized)
         try { config.save(file) } catch (_: IOException) { }
@@ -76,19 +74,10 @@ class CashItemManager(private val plugin: JavaPlugin) {
 
     /** 指定のアイテムが現金なら金額を返す。未登録なら null。 */
     fun getAmountForItem(item: ItemStack): Double? {
-        // PDC から直接金額を取得（優先）
-        val meta = item.itemMeta
-        if (meta != null) {
-            val pdc = meta.persistentDataContainer
-            if (pdc.has(cashAmountKey, PersistentDataType.DOUBLE)) {
-                val value = pdc.get(cashAmountKey, PersistentDataType.DOUBLE)
-                if (value != null) return value
-            }
-        }
-        // 互換性のため、登録済みのアイテムと類似判定で照合
-        val normalized = item.clone().asOne()
-        val entry = items.entries.firstOrNull { (_, v) -> v.isSimilar(normalized) }
-        return entry?.key?.toDoubleOrNull()
+        val meta = item.itemMeta?: return null
+        val pdc = meta.persistentDataContainer
+        if (!pdc.has(cashAmountKey, PersistentDataType.STRING)) return null
+        return pdc.get(cashAmountKey, PersistentDataType.STRING)?.toDoubleOrNull()
     }
 
     /** 登録済みの現金アイテム一覧を金額→アイテムで取得。 */
@@ -102,5 +91,5 @@ class CashItemManager(private val plugin: JavaPlugin) {
     }
 
     private fun amountKey(amount: Double): String =
-        BigDecimal.valueOf(amount).stripTrailingZeros().toPlainString()
+        floor(amount).toString()
 }
