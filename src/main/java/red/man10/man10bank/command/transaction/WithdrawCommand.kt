@@ -1,27 +1,32 @@
 package red.man10.man10bank.command.transaction
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
+import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 import red.man10.man10bank.Man10Bank
 import red.man10.man10bank.api.BankApiClient
 import red.man10.man10bank.api.error.InsufficientBalanceException
 import red.man10.man10bank.api.model.request.DepositRequest
 import red.man10.man10bank.api.model.request.WithdrawRequest
+import red.man10.man10bank.command.BaseCommand
 import red.man10.man10bank.service.VaultManager
 import red.man10.man10bank.util.Messages
 import red.man10.man10bank.util.BalanceFormats
 
 /** /withdraw <金額|all> : Bank -> Vault */
 class WithdrawCommand(
-    plugin: Man10Bank,
-    scope: CoroutineScope,
-    vault: VaultManager,
-    bank: BankApiClient,
-) : TransactionCommand(plugin, scope, vault, bank) {
+    private val plugin: Man10Bank,
+    private val scope: CoroutineScope,
+    private val vault: VaultManager,
+    private val bank: BankApiClient,
+) : BaseCommand(
+    allowPlayer = true,
+    allowConsole = false,
+    allowGeneralUser = true,
+) {
 
-    override val usage: String = "/withdraw <金額/all>"
-
-    override suspend fun resolveAmount(player: Player, arg: String): Double? {
+    private suspend fun resolveAmount(player: Player, arg: String): Double? {
         // all の場合はAPIで銀行残高を取得
         val amount: Double = if (arg.equals("all", ignoreCase = true)) {
             bank.getBalance(player.uniqueId).getOrElse { 0.0 }
@@ -29,7 +34,7 @@ class WithdrawCommand(
         return if (amount > 0.0) amount else null
     }
 
-    override suspend fun process(player: Player, amount: Double) {
+    private suspend fun process(player: Player, amount: Double) {
         // 銀行から出金
         val result = bank.withdraw(withdrawRequest(player, amount))
 
@@ -70,6 +75,24 @@ class WithdrawCommand(
             Messages.error(plugin, player, "${BalanceFormats.colored(amount)}円の返金に失敗しました。至急管理者に連絡してください！")
         }
 
+    }
+
+    override fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean {
+        sender as Player
+        if (args.size != 1) {
+            Messages.warn(sender, "使い方: /withdraw <金額/all>")
+            return true
+        }
+        val arg = args[0]
+        scope.launch {
+            val amount = resolveAmount(sender, arg)
+            if (amount == null || amount <= 0.0) {
+                Messages.error(plugin, sender, "金額が不正です。正の数または all を指定してください。")
+                return@launch
+            }
+            process(sender, amount)
+        }
+        return true
     }
 
     private fun withdrawRequest(sender: Player, amount: Double): WithdrawRequest =

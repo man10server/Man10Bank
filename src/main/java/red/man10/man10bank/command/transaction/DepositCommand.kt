@@ -1,25 +1,30 @@
 package red.man10.man10bank.command.transaction
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
+import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 import red.man10.man10bank.Man10Bank
 import red.man10.man10bank.api.BankApiClient
 import red.man10.man10bank.api.model.request.DepositRequest
+import red.man10.man10bank.command.BaseCommand
 import red.man10.man10bank.service.VaultManager
 import red.man10.man10bank.util.Messages
 import red.man10.man10bank.util.BalanceFormats
 
 /** /deposit <金額|all> : Vault -> Bank */
 class DepositCommand(
-    plugin: Man10Bank,
-    scope: CoroutineScope,
-    vault: VaultManager,
-    bank: BankApiClient,
-) : TransactionCommand(plugin, scope, vault, bank) {
+    private val plugin: Man10Bank,
+    private val scope: CoroutineScope,
+    private val vault: VaultManager,
+    private val bank: BankApiClient,
+) : BaseCommand(
+    allowPlayer = true,
+    allowConsole = false,
+    allowGeneralUser = true,
+) {
 
-    override val usage: String = "/deposit <金額/all>"
-
-    override suspend fun resolveAmount(player: Player, arg: String): Double? {
+    private suspend fun resolveAmount(player: Player, arg: String): Double? {
         if (!vault.isAvailable()) {
             Messages.error(plugin, player, "Vaultが利用できません。")
             return null
@@ -36,7 +41,7 @@ class DepositCommand(
         return amount
     }
 
-    override suspend fun process(player: Player, amount: Double) {
+    private suspend fun process(player: Player, amount: Double) {
         // Vault から引き落とし
         val withdrew = vault.withdraw(player, amount)
         if (!withdrew) {
@@ -70,5 +75,23 @@ class DepositCommand(
             displayNote = "/depositによる入金",
             server = plugin.serverName
         )
+    }
+
+    override fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean {
+        sender as Player
+        if (args.size != 1) {
+            Messages.warn(sender, "使い方: /deposit <金額/all>")
+            return true
+        }
+        val arg = args[0]
+        scope.launch {
+            val amount = resolveAmount(sender, arg)
+            if (amount == null || amount <= 0.0) {
+                Messages.error(plugin, sender, "金額が不正です。正の数または all を指定してください。")
+                return@launch
+            }
+            process(sender, amount)
+        }
+        return true
     }
 }
