@@ -1,10 +1,9 @@
 package red.man10.man10bank.command.op
 
 import kotlinx.coroutines.CoroutineScope
-import org.bukkit.command.Command
-import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
 import red.man10.man10bank.Man10Bank
+import red.man10.man10bank.command.BaseCommand
 import red.man10.man10bank.command.op.sub.HealthSubcommand
 import red.man10.man10bank.command.op.sub.SetCashSubcommand
 import red.man10.man10bank.service.CashItemManager
@@ -19,7 +18,11 @@ class BankOpCommand(
     private val scope: CoroutineScope,
     private val healthService: HealthService,
     cashItemManager: CashItemManager,
-) : CommandExecutor {
+) : BaseCommand(
+    allowPlayer = true,
+    allowConsole = true,
+    allowGeneralUser = false,
+) {
 
     private val subcommands: Map<String, BankOpSubcommand> = listOf(
         // ヘルスチェック
@@ -28,24 +31,17 @@ class BankOpCommand(
         SetCashSubcommand(cashItemManager),
     ).associateBy { it.name }
 
-    override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
-        if (!sender.isOp) {
-            Messages.error(sender, "このコマンドはOPのみ使用できます。")
-            return true
-        }
-
+    override fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean {
         if (args.isEmpty()) {
             printUsage(sender)
             return true
         }
-
         val sub = subcommands[args[0].lowercase()]
         if (sub == null) {
             Messages.error(sender, "不明なサブコマンドです: ${args[0]}")
             printUsage(sender)
             return true
         }
-
         return sub.handle(sender, args.toList())
     }
 
