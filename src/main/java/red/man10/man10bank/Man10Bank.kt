@@ -23,7 +23,10 @@ import red.man10.man10bank.service.CashItemManager
 import red.man10.man10bank.service.CashExchangeService
 import red.man10.man10bank.command.op.BankOpCommand
 import red.man10.man10bank.command.atm.AtmCommand
+import red.man10.man10bank.command.cheque.MchequeCommand
+import red.man10.man10bank.command.cheque.McheuqeopCommand
 import red.man10.man10bank.ui.UIService
+import red.man10.man10bank.service.ChequeService
 
 class Man10Bank : JavaPlugin(), Listener {
 
@@ -40,6 +43,7 @@ class Man10Bank : JavaPlugin(), Listener {
     private lateinit var cashItemManager: CashItemManager
     private lateinit var cashExchangeService: CashExchangeService
     private lateinit var uiService: UIService
+    private lateinit var chequeService: ChequeService
 
     // サーバー識別名（configの serverName が空/未設定の場合はBukkitのサーバー名を使用）
     lateinit var serverName: String
@@ -119,6 +123,8 @@ class Man10Bank : JavaPlugin(), Listener {
         getCommand("mpay")?.setExecutor(PayCommand(this, scope, bankApi))
         getCommand("bankop")?.setExecutor(BankOpCommand(this, scope, healthService, cashItemManager))
         getCommand("atm")?.setExecutor(AtmCommand(this, scope, atmApi, vaultManager, cashItemManager, cashExchangeService))
+        getCommand("mcheque")?.setExecutor(MchequeCommand())
+        getCommand("mcheuqeop")?.setExecutor(McheuqeopCommand())
 
         // 残高系（/bal, /balance ほか別名にも割り当て）
         listOf("bal", "balance", "money", "bank").forEach { cmd ->
@@ -130,6 +136,8 @@ class Man10Bank : JavaPlugin(), Listener {
         // GUIのイベントをハンドル
         uiService = UIService(this)
         server.pluginManager.registerEvents(uiService, this)
+        chequeService = ChequeService(this)
+        server.pluginManager.registerEvents(chequeService, this)
     }
 
     private fun registerProviders() {

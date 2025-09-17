@@ -33,6 +33,14 @@ commands:
     description: 銀行からプレイヤーへ送金
     permission: man10bank.user
     usage: /mpay <player> <amount>
+  mcheque:
+    description: 小切手（ユーザー向け）
+    permission: man10bank.user
+    usage: /mcheque
+  mcheuqeop:
+    description: 小切手（運営向け）
+    permission: mchequeop
+    usage: /mcheuqeop
   mbaltop:
     default: op
     description: serverBalanceTop
