@@ -1,7 +1,9 @@
 package red.man10.man10bank.service
 
+import org.bukkit.NamespacedKey
 import org.bukkit.configuration.file.YamlConfiguration
 import org.bukkit.inventory.ItemStack
+import org.bukkit.persistence.PersistentDataType
 import org.bukkit.plugin.java.JavaPlugin
 import java.io.File
 import java.io.IOException
@@ -17,13 +19,16 @@ import java.math.BigDecimal
  *   "1000": <ItemStack>
  *   "500.5": <ItemStack>
  */
-class CashItemManager(plugin: JavaPlugin) {
+class CashItemManager(private val plugin: JavaPlugin) {
 
     private val file: File = File(plugin.dataFolder, "cash.yml")
     private var config: YamlConfiguration = YamlConfiguration()
 
     // 金額キー（文字列化） -> アイテム
     private val items: MutableMap<String, ItemStack> = mutableMapOf()
+
+    // PDCキー: 現金アイテムの金額
+    private val cashAmountKey: NamespacedKey = NamespacedKey(plugin, "cash_amount")
 
     /** 起動時等に一度呼んで、設定から全現金アイテムを読み込みます。 */
     fun load(): Map<String, ItemStack> {
@@ -51,7 +56,12 @@ class CashItemManager(plugin: JavaPlugin) {
 
     /** 設定へ保存（同額キーがあれば置き換え）。 */
     fun save(item: ItemStack, amount: Double) {
-        val normalized = item.clone().asOne()
+        // 引数の ItemStack に金額タグを付与し、1個化したものを保存
+        val normalized = item.clone().asOne().apply {
+            editMeta { meta ->
+                meta.persistentDataContainer.set(cashAmountKey, PersistentDataType.DOUBLE, amount)
+            }
+        }
         val key = amountKey(amount)
         // メモリ更新
         items[key] = normalized
@@ -66,6 +76,16 @@ class CashItemManager(plugin: JavaPlugin) {
 
     /** 指定のアイテムが現金なら金額を返す。未登録なら null。 */
     fun getAmountForItem(item: ItemStack): Double? {
+        // PDC から直接金額を取得（優先）
+        val meta = item.itemMeta
+        if (meta != null) {
+            val pdc = meta.persistentDataContainer
+            if (pdc.has(cashAmountKey, PersistentDataType.DOUBLE)) {
+                val value = pdc.get(cashAmountKey, PersistentDataType.DOUBLE)
+                if (value != null) return value
+            }
+        }
+        // 互換性のため、登録済みのアイテムと類似判定で照合
         val normalized = item.clone().asOne()
         val entry = items.entries.firstOrNull { (_, v) -> v.isSimilar(normalized) }
         return entry?.key?.toDoubleOrNull()
