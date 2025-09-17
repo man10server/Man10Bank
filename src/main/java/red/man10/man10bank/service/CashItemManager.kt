@@ -26,6 +26,8 @@ class CashItemManager(private val plugin: JavaPlugin) {
     // PDCキー: 現金アイテムの金額
     private val cashAmountKey: NamespacedKey = NamespacedKey(plugin, "cash_amount")
 
+    private val oldCashKey = NamespacedKey.fromString("money")!!
+
     /** 起動時等に一度呼んで、設定から全現金アイテムを読み込みます。 */
     fun load(): Map<String, ItemStack> {
         items.clear()

@@ -15,7 +15,6 @@ import org.bukkit.plugin.java.JavaPlugin
 import red.man10.man10bank.api.ChequesApiClient
 import red.man10.man10bank.api.model.request.ChequeCreateRequest
 import red.man10.man10bank.util.BalanceFormats
-import red.man10.man10bank.util.Messages
 
 /**
  * 小切手(cheque)関連のイベントハンドラ。
@@ -25,6 +24,12 @@ class ChequeService(
     private val plugin: JavaPlugin,
     private val chequesApi: ChequesApiClient,
 ) : Listener {
+
+    private val idKey = NamespacedKey(plugin, "cheque_id")
+    private val amountKey = NamespacedKey(plugin, "cheque_amount")
+
+    private val oldChequeKey = NamespacedKey.fromString("cheque_id")!!
+    private val oldAmountKey = NamespacedKey.fromString("cheque_amount")!!
 
     @EventHandler
     fun onPlayerInteract(event: PlayerInteractEvent) {
@@ -53,24 +58,25 @@ class ChequeService(
 
         val chequeItem = ItemStack(Material.PAPER).apply {
             editMeta { meta ->
-                meta.setCustomModelData(1)
+                val cmd = meta.customModelDataComponent
+                cmd.floats.add(1.0F)
+                meta.setCustomModelDataComponent(cmd)
+
                 meta.displayName(Component.text("§b§l小切手§7§l(Cheque)"))
 
-                val lore = mutableListOf<Component>()
-                lore.add(Component.text("§e====[Man10Bank]===="))
-                lore.add(Component.text(""))
-                lore.add(Component.text("§a§l発行者: ${if (isOP) "§c§l" else "§d§l"}${p.name}"))
-                lore.add(Component.text("§a§l金額: ${BalanceFormats.amount(amount)}円"))
-                if (note != null) lore.add(Component.text("§d§lメモ: $note"))
-                lore.add(Component.text(""))
-                lore.add(Component.text("§e=================="))
+                val lore = mutableListOf(
+                    Component.text("§e====[Man10Bank]===="),
+                    Component.text(""),
+                    Component.text("§a§l発行者: ${if (isOP) "§c§l" else "§d§l"}${p.name}"),
+                    Component.text("§a§l金額: ${BalanceFormats.amount(amount)}円"),
+                    Component.text("§d§lメモ: ${note ?: "なし"}"),
+                    Component.text(""),
+                    Component.text("§e==================")
+                )
                 meta.lore(lore)
-
-                meta.addEnchant(Enchantment.DURABILITY, 1, true)
+                meta.addEnchant(Enchantment.FORTUNE, 0, true)
                 meta.addItemFlags(ItemFlag.HIDE_ENCHANTS, ItemFlag.HIDE_UNBREAKABLE)
 
-                val idKey = NamespacedKey(plugin, "cheque_id")
-                val amountKey = NamespacedKey(plugin, "cheque_amount")
                 meta.persistentDataContainer.set(idKey, PersistentDataType.INTEGER, id)
                 meta.persistentDataContainer.set(amountKey, PersistentDataType.DOUBLE, amount)
             }
