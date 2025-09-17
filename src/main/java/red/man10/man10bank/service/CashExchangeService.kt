@@ -28,7 +28,7 @@ class CashExchangeService(
         for (stack in stacks) {
             if (stack.amount <= 0 || stack.type.isAir) continue
             val amountPerItem = cashItemManager.getAmountForItem(stack) ?: continue
-            total = amountPerItem * stack.amount
+            total += amountPerItem * stack.amount
             stack.amount = 0
         }
         if (total <= 0) return 0.0
@@ -39,34 +39,11 @@ class CashExchangeService(
     }
 
     /** Vault残高を現金アイテムへ変換し、作成したアイテムを返す。 */
-    fun withdrawVaultToCash(player: Player, amount: Double): List<ItemStack> {
-        if (!vault.isAvailable()) return emptyList()
-        if (amount <= 0.0) return emptyList()
+    fun withdrawVaultToCash(player: Player, amount: Double): ItemStack? {
+        if (!vault.isAvailable()) return null
+        if (amount <= 0.0) return null
 
-        val target = plugin.server.getOfflinePlayer(player.uniqueId)
-        if (vault.getBalance(target) < amount) {
-            return emptyList()
-        }
-        val denominations = cashItemManager.getRegisteredCashItems()
-        if (denominations.isEmpty()) return emptyList()
-        val sorted = denominations.entries.sortedByDescending { it.key }
-
-        var remaining = floor(amount)
-        val withdrawCash = mutableListOf<ItemStack>()
-
-        for ((value, item) in sorted) {
-            val maxCount = floor(remaining / value).toInt()
-            if (maxCount <= 0) continue
-            val takeAmount = value * maxCount
-            remaining -= takeAmount
-            val cashStack = item.clone()
-            cashStack.amount = maxCount
-            withdrawCash += cashStack
-            if (remaining <= 0) throw Exception("${amount}以上の現金を作成しました")
-        }
-
-        val withdrawAmount = amount - remaining
-        val success = vault.withdraw(target, withdrawAmount)
-        return if (success) return withdrawCash else emptyList()
+        val success = vault.withdraw(player, amount)
+        return if (success) cashItemManager.getItemForAmount(amount) else null
     }
 }

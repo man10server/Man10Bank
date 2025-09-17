@@ -32,7 +32,7 @@ class AtmCommand(
 
         when(arg) {
             "deposit" -> AtmDepositUI(sender, cashItemManager, cashExchangeService).open()
-            "withdraw" -> AtmWithdrawUI(sender, cashItemManager, cashExchangeService).open()
+            "withdraw" -> AtmWithdrawUI(sender, cashItemManager, cashExchangeService,vault).open()
             else -> AtmMainUI(sender, vault).open()
 
         }

@@ -30,7 +30,7 @@ class DepositCommand(
         if (amount > vaultBal) {
             Messages.error(plugin, player, "所持金が不足しています。" +
                     "保有: ${BalanceFormats.colored(vaultBal)} " +
-                    "要求: ${BalanceFormats.colored(amount)}")
+                    "§c§l要求: ${BalanceFormats.colored(amount)}")
             return null
         }
         return amount
@@ -47,9 +47,7 @@ class DepositCommand(
         val result = bank.deposit(depositRequest(player, amount))
         if (result.isSuccess) {
             val newBank = result.getOrNull() ?: 0.0
-            Messages.send(
-                plugin,
-                player,
+            Messages.send(plugin, player,
                 "入金に成功しました。" +
                         "金額: ${BalanceFormats.colored(amount)} " +
                         "銀行残高: ${BalanceFormats.colored(newBank)} " +
