@@ -51,31 +51,30 @@ class ChequeService(
         val cheque = created.getOrNull()
         val id = cheque?.id ?: return Result.failure(IllegalStateException("小切手IDの取得に失敗しました"))
 
-        val chequeItem = ItemStack(Material.PAPER)
-        val meta = chequeItem.itemMeta
-        meta.setCustomModelData(1)
+        val chequeItem = ItemStack(Material.PAPER).apply {
+            editMeta { meta ->
+                meta.setCustomModelData(1)
+                meta.displayName(Component.text("§b§l小切手§7§l(Cheque)"))
 
-        meta.displayName(Component.text("§b§l小切手§7§l(Cheque)"))
+                val lore = mutableListOf<Component>()
+                lore.add(Component.text("§e====[Man10Bank]===="))
+                lore.add(Component.text(""))
+                lore.add(Component.text("§a§l発行者: ${if (isOP) "§c§l" else "§d§l"}${p.name}"))
+                lore.add(Component.text("§a§l金額: ${BalanceFormats.amount(amount)}円"))
+                if (note != null) lore.add(Component.text("§d§lメモ: $note"))
+                lore.add(Component.text(""))
+                lore.add(Component.text("§e=================="))
+                meta.lore(lore)
 
-        val lore = mutableListOf<Component>()
-        lore.add(Component.text("§e====[Man10Bank]===="))
-        lore.add(Component.text(""))
-        lore.add(Component.text("§a§l発行者: ${if (isOP) "§c§l" else "§d§l"}${p.name}"))
-        lore.add(Component.text("§a§l金額: ${BalanceFormats.amount(amount)}円"))
-        if (note != null) lore.add(Component.text("§d§lメモ: $note"))
-        lore.add(Component.text(""))
-        lore.add(Component.text("§e=================="))
+                meta.addEnchant(Enchantment.DURABILITY, 1, true)
+                meta.addItemFlags(ItemFlag.HIDE_ENCHANTS, ItemFlag.HIDE_UNBREAKABLE)
 
-        meta.lore(lore)
-
-        meta.addEnchant(Enchantment.DURABILITY, 1, true)
-        meta.addItemFlags(ItemFlag.HIDE_ENCHANTS)
-        meta.addItemFlags(ItemFlag.HIDE_UNBREAKABLE)
-
-        meta.persistentDataContainer.set(NamespacedKey.fromString("cheque_id")!!, PersistentDataType.INTEGER, id)
-        meta.persistentDataContainer.set(NamespacedKey.fromString("cheque_amount")!!, PersistentDataType.DOUBLE, amount)
-
-        chequeItem.itemMeta = meta
+                val idKey = NamespacedKey(plugin, "cheque_id")
+                val amountKey = NamespacedKey(plugin, "cheque_amount")
+                meta.persistentDataContainer.set(idKey, PersistentDataType.INTEGER, id)
+                meta.persistentDataContainer.set(amountKey, PersistentDataType.DOUBLE, amount)
+            }
+        }
         return Result.success(chequeItem)
     }
 }
