@@ -46,6 +46,20 @@ class AtmCommand(
                 showLogs(sender, page)
                 return true
             }
+            "logop" -> {
+                val targetName = args.getOrNull(1)
+                if (targetName.isNullOrBlank()) {
+                    Messages.warn(sender, "使い方: /atm logop <playerName> [page]")
+                    return true
+                }
+                if (!sender.isOp) {
+                    Messages.error(sender, "このコマンドは運営のみ実行できます。")
+                    return true
+                }
+                val page = args.getOrNull(2)?.toIntOrNull()?.coerceAtLeast(0) ?: 0
+                showLogsOp(sender, targetName, page)
+                return true
+            }
             else -> AtmMainUI(sender, vault).open()
         }
         return true
@@ -68,6 +82,28 @@ class AtmCommand(
             }
             plugin.server.scheduler.runTask(plugin, Runnable {
                 showPaged(player, lines, page, LOG_PAGE_SIZE, "atm log")
+            })
+        }
+    }
+
+    private fun showLogsOp(viewer: Player, targetName: String, page: Int) {
+        val offset = page * LOG_PAGE_SIZE
+        val target = plugin.server.getOfflinePlayer(targetName)
+        scope.launch(Dispatchers.IO) {
+            val result = atmApi.getLogs(target.uniqueId, limit = LOG_PAGE_SIZE, offset = offset)
+            if (result.isFailure) {
+                Messages.error(plugin, viewer, "ATM履歴の取得に失敗しました。対象: $targetName")
+                return@launch
+            }
+            val logs = result.getOrNull().orEmpty()
+            val lines = logs.map { log ->
+                val kind = if (log.deposit == true) "§a§l入金" else "§c§l出金"
+                val amt = BalanceFormats.colored(log.amount ?: 0.0)
+                val date = log.date?.let { DateFormats.fromIsoString(it) } ?: ""
+                "§7[$date] §e$kind§r: $amt"
+            }
+            plugin.server.scheduler.runTask(plugin, Runnable {
+                showPaged(viewer, lines, page, LOG_PAGE_SIZE, "atm logop $targetName")
             })
         }
     }
