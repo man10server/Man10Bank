@@ -2,12 +2,11 @@ package red.man10.man10bank.command.balance
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import org.bukkit.command.Command
-import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 import red.man10.man10bank.Man10Bank
 import red.man10.man10bank.api.BankApiClient
+import red.man10.man10bank.command.BaseCommand
 import red.man10.man10bank.service.VaultManager
 import red.man10.man10bank.util.Messages
 
@@ -20,17 +19,14 @@ class BalanceCommand(
     private val scope: CoroutineScope,
     private val vault: VaultManager,
     private val bank: BankApiClient,
-) : CommandExecutor {
+) : BaseCommand(
+    allowPlayer = true,
+    allowConsole = false,
+    allowGeneralUser = true,
+) {
 
-    override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
-        if (!sender.hasPermission("man10bank.user")) {
-            Messages.error(sender, "このコマンドを実行する権限がありません。")
-            return true
-        }
-        if (sender !is Player) {
-            Messages.error(sender, "このコマンドはプレイヤーのみ使用できます。")
-            return true
-        }
+    override fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean {
+        sender as Player
         if (args.isNotEmpty()) {
             Messages.warn(sender, "使い方: /bal または /balance")
             return true
@@ -48,4 +44,3 @@ class BalanceCommand(
         return true
     }
 }
-
