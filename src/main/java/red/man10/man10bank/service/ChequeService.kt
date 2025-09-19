@@ -48,9 +48,15 @@ class ChequeService(
 
         event.isCancelled = true
         scope.launch(Dispatchers.IO) {
-            val amount = useCheque(player, item)
+            val result = useCheque(player, item)
             plugin.server.scheduler.runTask(plugin, Runnable {
-                Messages.send(player, "小切手を使用しました。金額: ${BalanceFormats.colored(amount)}")
+                if (result.isSuccess) {
+                    val amount = result.getOrNull() ?: 0.0
+                    Messages.send(player, "小切手を使用しました。金額: ${BalanceFormats.colored(amount)}")
+                } else {
+                    val msg = result.exceptionOrNull()?.message ?: "小切手の使用に失敗しました。"
+                    Messages.error(player, msg)
+                }
             })
         }
     }
@@ -82,24 +88,24 @@ class ChequeService(
      * - 成功、または既に使用済みなら使用済みの見た目の小切手に置き換えたItemStackを返す
      * - そうでなければ null
      */
-    private suspend fun useCheque(user: Player, item: ItemStack): Double {
-        val meta = item.itemMeta ?: return 0.0
+    private suspend fun useCheque(user: Player, item: ItemStack): Result<Double> {
+        val meta = item.itemMeta ?: return Result.failure(IllegalStateException("小切手のアイテム情報が不正です。"))
         val pdc = meta.persistentDataContainer
         val id = pdc.get(idKey, PersistentDataType.INTEGER)
             ?: pdc.get(oldChequeKey, PersistentDataType.INTEGER)
-            ?: return 0.0
+            ?: return Result.failure(IllegalStateException("小切手ではありません。"))
 
         val result = chequesApi.use(id, ChequeUseRequest(user.uniqueId.toString()))
 
         if (result.isSuccess) {
-            val detail = result.getOrNull()?:return 0.0
+            val detail = result.getOrNull() ?: return Result.failure(IllegalStateException("小切手情報の取得に失敗しました。"))
             Bukkit.getScheduler().runTask(plugin, Runnable {
                 item.amount = 0
                 user.inventory.addItem(buildChequeItem(cheque = detail, isUsed = true))
             })
-            return detail.amount!!
+            return Result.success(detail.amount ?: 0.0)
         }
-        return 0.0
+        return Result.failure(result.exceptionOrNull() ?: RuntimeException("小切手の使用に失敗しました。"))
     }
 
     private fun buildChequeItem(cheque: Cheque, isUsed: Boolean = false): ItemStack {
