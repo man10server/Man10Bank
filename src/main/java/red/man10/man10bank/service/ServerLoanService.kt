@@ -69,9 +69,13 @@ class ServerLoanService(
     }
 
     suspend fun get(uuid: UUID): Result<ServerLoan> {
-        // TODO: 実装を後続タスクで追加
-        throw NotImplementedError("ServerLoanService#get 未実装")
+        return api.get(uuid)
     }
+
+    /**
+     * 便宜メソッド: プレイヤーから取得
+     */
+    suspend fun get(player: Player): Result<ServerLoan> = get(player.uniqueId)
 
     suspend fun borrow(uuid: UUID, amount: Double): Result<ServerLoan> {
         // TODO: 実装を後続タスクで追加
