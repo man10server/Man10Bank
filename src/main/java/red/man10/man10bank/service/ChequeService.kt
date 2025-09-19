@@ -26,7 +26,6 @@ import kotlin.math.floor
 
 /**
  * 小切手(cheque)関連のイベントハンドラ。
- * - 仕様は今後拡張。現状は土台のみ。
  */
 class ChequeService(
     private val plugin: JavaPlugin,
