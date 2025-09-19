@@ -88,8 +88,28 @@ class ServerLoanService(
     }
 
     suspend fun setPaymentAmount(uuid: UUID, paymentAmount: Double?): Result<ServerLoan> {
-        // TODO: 実装を後続タスクで追加
-        throw NotImplementedError("ServerLoanService#setPaymentAmount 未実装")
+        return api.setPaymentAmount(uuid, paymentAmount)
+    }
+
+    /**
+     * 支払額の設定（プレイヤー指定）。
+     * - paymentAmount が null の場合は未設定に戻す
+     * - 正の数のみ許容
+     */
+    suspend fun setPaymentAmount(player: Player, paymentAmount: Double?) {
+        if (paymentAmount != null && paymentAmount <= 0.0) {
+            Messages.error(plugin, player, "金額が不正です。正の数を指定してください。")
+            return
+        }
+        val result = api.setPaymentAmount(player.uniqueId, paymentAmount)
+        if (result.isSuccess) {
+            val updated = result.getOrNull()
+            val info = updated?.paymentAmount?.let { BalanceFormats.colored(it) } ?: "未設定"
+            Messages.send(plugin, player, "支払額を更新しました。支払額: $info")
+        } else {
+            val msg = result.exceptionOrNull()?.message ?: "支払額の更新に失敗しました。"
+            Messages.error(plugin, player, msg)
+        }
     }
 
     suspend fun borrowLimit(uuid: UUID): Result<Double> {
