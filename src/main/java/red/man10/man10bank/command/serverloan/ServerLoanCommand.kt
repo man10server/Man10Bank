@@ -19,7 +19,7 @@ import red.man10.man10bank.util.DateFormats
  * - /mrevo borrow <金額>: 借入
  * - /mrevo pay <金額>: 返済
  * - /mrevo payment <金額>: 支払額設定
- * - /mrevo log [ページ]: ログ表示（ページ）
+ * - /mrevo log <ページ>: ログ表示（ページ）
  * - /mrevo help: ヘルプ
  */
 class ServerLoanCommand(
@@ -66,23 +66,7 @@ class ServerLoanCommand(
             "log" -> {
                 val page = args.getOrNull(1)?.toIntOrNull() ?: 0
                 val limit = 10
-                scope.launch {
-                    val res = service.logs(player, limit, page * limit)
-                    if (res.isSuccess) {
-                        val lines = res.getOrNull().orEmpty().map { log ->
-                            val date = log.date?.let { DateFormats.fromIsoString(it) } ?: "-"
-                            val action = log.action
-                            val amount = log.amount?.let { BalanceFormats.colored(it) } ?: "-"
-                            "${date} §b${action} §7${amount}"
-                        }
-                        plugin.server.scheduler.runTask(plugin, Runnable {
-                            showPaged(player, lines, page, "mrevo log")
-                        })
-                    } else {
-                        val msg = res.exceptionOrNull()?.message ?: "ログの取得に失敗しました。"
-                        Messages.error(plugin, player, msg)
-                    }
-                }
+                scope.launch { showLogs(player, page, limit) }
                 return true
             }
             else -> sendHelp(sender)
@@ -142,6 +126,27 @@ class ServerLoanCommand(
                 else -> emptyList()
             }
             else -> emptyList()
+        }
+    }
+
+    /**
+     * ログ取得と表示（ページング）。
+     */
+    private suspend fun showLogs(player: Player, page: Int, limit: Int) {
+        val res = service.logs(player, limit, page * limit)
+        if (res.isSuccess) {
+            val lines = res.getOrNull().orEmpty().map { log ->
+                val date = log.date?.let { DateFormats.fromIsoString(it) } ?: "-"
+                val action = log.action
+                val amount = log.amount?.let { BalanceFormats.colored(it) } ?: "-"
+                "${date} §b${action} §7${amount}"
+            }
+            plugin.server.scheduler.runTask(plugin, Runnable {
+                showPaged(player, lines, page, "mrevo log")
+            })
+        } else {
+            val msg = res.exceptionOrNull()?.message ?: "ログの取得に失敗しました。"
+            Messages.error(plugin, player, msg)
         }
     }
 }
