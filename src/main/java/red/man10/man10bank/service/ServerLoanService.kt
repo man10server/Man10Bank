@@ -1,15 +1,12 @@
 package red.man10.man10bank.service
 
-import kotlinx.coroutines.CoroutineScope
 import org.bukkit.entity.Player
 import red.man10.man10bank.Man10Bank
 import red.man10.man10bank.api.ServerLoanApiClient
 import red.man10.man10bank.api.model.request.ServerLoanBorrowBodyRequest
 import red.man10.man10bank.api.model.response.ServerLoan
-import red.man10.man10bank.api.model.response.ServerLoanLog
 import red.man10.man10bank.util.BalanceFormats
 import red.man10.man10bank.util.Messages
-import java.util.UUID
 
 /**
  * サーバーローン機能のサービス（型のみ）。
@@ -18,9 +15,13 @@ import java.util.UUID
  */
 class ServerLoanService(
     private val plugin: Man10Bank,
-    private val scope: CoroutineScope,
     private val api: ServerLoanApiClient,
 ) {
+
+    /**
+     * プレイヤーから取得
+     */
+    suspend fun get(player: Player): Result<ServerLoan> = api.get(player.uniqueId)
 
     /**
      * 借入処理（プレイヤー指定）。
@@ -68,29 +69,6 @@ class ServerLoanService(
         }
     }
 
-    suspend fun get(uuid: UUID): Result<ServerLoan> {
-        return api.get(uuid)
-    }
-
-    /**
-     * 便宜メソッド: プレイヤーから取得
-     */
-    suspend fun get(player: Player): Result<ServerLoan> = get(player.uniqueId)
-
-    suspend fun borrow(uuid: UUID, amount: Double): Result<ServerLoan> {
-        // TODO: 実装を後続タスクで追加
-        throw NotImplementedError("ServerLoanService#borrow 未実装")
-    }
-
-    suspend fun repay(uuid: UUID, amount: Double?): Result<ServerLoan> {
-        // TODO: 実装を後続タスクで追加
-        throw NotImplementedError("ServerLoanService#repay 未実装")
-    }
-
-    suspend fun setPaymentAmount(uuid: UUID, paymentAmount: Double?): Result<ServerLoan> {
-        return api.setPaymentAmount(uuid, paymentAmount)
-    }
-
     /**
      * 支払額の設定（プレイヤー指定）。
      * - paymentAmount が null の場合は未設定に戻す
@@ -110,15 +88,5 @@ class ServerLoanService(
             val msg = result.exceptionOrNull()?.message ?: "支払額の更新に失敗しました。"
             Messages.error(plugin, player, msg)
         }
-    }
-
-    suspend fun borrowLimit(uuid: UUID): Result<Double> {
-        // TODO: 実装を後続タスクで追加
-        throw NotImplementedError("ServerLoanService#borrowLimit 未実装")
-    }
-
-    suspend fun logs(uuid: UUID, limit: Int = 100, offset: Int = 0): Result<List<ServerLoanLog>> {
-        // TODO: 実装を後続タスクで追加
-        throw NotImplementedError("ServerLoanService#logs 未実装")
     }
 }
