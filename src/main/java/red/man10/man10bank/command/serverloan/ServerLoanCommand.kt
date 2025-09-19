@@ -1,7 +1,6 @@
 package red.man10.man10bank.command.serverloan
 
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.event.ClickEvent
@@ -28,17 +27,14 @@ class ServerLoanCommand(
     private val service: ServerLoanService,
 ) : BaseCommand(
     allowPlayer = true,
-    allowConsole = true,
-    allowGeneralUser = false, // 運営向け想定（OP）
+    allowConsole = false,
+    allowGeneralUser = true,
 ) {
 
     override fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean {
         if (args.isEmpty()) {
-            if (sender !is Player) {
-                Messages.warn(sender, "プレイヤーのみ実行できます。/mrevo help を参照してください。")
-                return true
-            }
-            scope.launch(Dispatchers.IO) { showSummary(sender) }
+            val player = sender as Player
+            scope.launch { showSummary(player) }
             return true
         }
 
@@ -46,35 +42,35 @@ class ServerLoanCommand(
         when (sub) {
             "help" -> { sendHelp(sender); return true }
             "borrow" -> {
-                if (sender !is Player) { Messages.error(sender, "プレイヤーのみ実行できます。") ; return true }
                 if (args.size < 2) { Messages.warn(sender, "使い方: /mrevo borrow <金額>"); return true }
                 val amount = args[1].toDoubleOrNull()
                 if (amount == null || amount <= 0.0) { Messages.error(sender, "金額が不正です。正の数を指定してください。"); return true }
-                scope.launch(Dispatchers.IO) { service.borrow(sender, amount) }
+                val player = sender as Player
+                scope.launch { service.borrow(player, amount) }
                 return true
             }
             "pay" -> {
-                if (sender !is Player) { Messages.error(sender, "プレイヤーのみ実行できます。") ; return true }
                 if (args.size < 2) { Messages.warn(sender, "使い方: /mrevo pay <金額>"); return true }
                 val amount = args[1].toDoubleOrNull()
                 if (amount == null || amount <= 0.0) { Messages.error(sender, "金額が不正です。正の数を指定してください。"); return true }
-                scope.launch(Dispatchers.IO) { service.repay(sender, amount) }
+                val player = sender as Player
+                scope.launch { service.repay(player, amount) }
                 return true
             }
             "payment" -> {
-                if (sender !is Player) { Messages.error(sender, "プレイヤーのみ実行できます。") ; return true }
                 if (args.size < 2) { Messages.warn(sender, "使い方: /mrevo payment <金額>"); return true }
                 val amount = args[1].toDoubleOrNull()
                 if (amount == null || amount <= 0.0) { Messages.error(sender, "金額が不正です。正の数を指定してください。"); return true }
-                scope.launch(Dispatchers.IO) { service.setPaymentAmount(sender, amount) }
+                val player = sender as Player
+                scope.launch { service.setPaymentAmount(player, amount) }
                 return true
             }
             "log", "logs" -> {
-                if (sender !is Player) { Messages.error(sender, "プレイヤーのみ実行できます。") ; return true }
                 val page = args.getOrNull(1)?.toIntOrNull() ?: 0
                 val limit = 10
-                scope.launch(Dispatchers.IO) {
-                    val res = service.logs(sender, limit, page * limit)
+                val player = sender as Player
+                scope.launch {
+                    val res = service.logs(player, limit, page * limit)
                     if (res.isSuccess) {
                         val lines = res.getOrNull().orEmpty().map { log ->
                             val date = log.date ?: "-"
@@ -83,11 +79,11 @@ class ServerLoanCommand(
                             "${date} §b${action} §7${amount}"
                         }
                         plugin.server.scheduler.runTask(plugin, Runnable {
-                            showPaged(sender, lines, page, "mrevo log")
+                            showPaged(player, lines, page, "mrevo log")
                         })
                     } else {
                         val msg = res.exceptionOrNull()?.message ?: "ログの取得に失敗しました。"
-                        Messages.error(plugin, sender, msg)
+                        Messages.error(plugin, player, msg)
                     }
                 }
                 return true
