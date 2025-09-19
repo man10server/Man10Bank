@@ -27,6 +27,9 @@ import red.man10.man10bank.command.atm.AtmCommand
 import red.man10.man10bank.command.cheque.ChequeCommand
 import red.man10.man10bank.ui.UIService
 import red.man10.man10bank.service.ChequeService
+import red.man10.man10bank.api.ServerLoanApiClient
+import red.man10.man10bank.service.ServerLoanService
+import red.man10.man10bank.command.serverloan.ServerLoanCommand
 
 class Man10Bank : JavaPlugin(), Listener {
 
@@ -41,10 +44,12 @@ class Man10Bank : JavaPlugin(), Listener {
     private lateinit var bankApi: BankApiClient
     private lateinit var atmApi: AtmApiClient
     private lateinit var chequesApi: ChequesApiClient
+    private lateinit var serverLoanApi: ServerLoanApiClient
     private lateinit var cashItemManager: CashItemManager
     private lateinit var cashExchangeService: CashExchangeService
     private lateinit var uiService: UIService
     private lateinit var chequeService: ChequeService
+    private lateinit var serverLoanService: ServerLoanService
 
     // サーバー識別名（configの serverName が空/未設定の場合はBukkitのサーバー名を使用）
     lateinit var serverName: String
@@ -90,9 +95,11 @@ class Man10Bank : JavaPlugin(), Listener {
         bankApi = BankApiClient(httpClient)
         atmApi = AtmApiClient(httpClient)
         chequesApi = ChequesApiClient(httpClient)
+        serverLoanApi = ServerLoanApiClient(httpClient)
         vaultManager = red.man10.man10bank.service.VaultManager(this)
         cashItemManager = CashItemManager(this)
         chequeService = ChequeService(this, scope, chequesApi)
+        serverLoanService = ServerLoanService(this, scope, serverLoanApi)
         uiService = UIService(this)
 
         // 起動時に現金アイテム設定を読み込む
@@ -130,6 +137,7 @@ class Man10Bank : JavaPlugin(), Listener {
         getCommand("atm")?.setExecutor(AtmCommand(this, scope, atmApi, vaultManager, cashItemManager, cashExchangeService))
         getCommand("mcheque")?.setExecutor(ChequeCommand(this, scope, chequeService))
         getCommand("mchequeop")?.setExecutor(ChequeCommand(this, scope, chequeService))
+        getCommand("mrevo")?.setExecutor(ServerLoanCommand(this, scope, serverLoanService))
 
         // 残高系（/bal, /balance ほか別名にも割り当て）
         listOf("bal", "balance", "money", "bank").forEach { cmd ->

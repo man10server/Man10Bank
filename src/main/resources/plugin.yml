@@ -64,6 +64,10 @@ commands:
   bankop:
     default: op
     description: 管理用コマンド（ヘルスチェック/現金アイテム設定）
+  mrevo:
+    description: サーバーローン管理コマンド
+    permission: mrevo
+    usage: /mrevo
 permissions:
   man10bank.user:
     description: Man10Bankのユーザー権限
