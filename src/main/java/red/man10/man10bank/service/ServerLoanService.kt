@@ -5,6 +5,7 @@ import red.man10.man10bank.Man10Bank
 import red.man10.man10bank.api.ServerLoanApiClient
 import red.man10.man10bank.api.model.request.ServerLoanBorrowBodyRequest
 import red.man10.man10bank.api.model.response.ServerLoan
+import red.man10.man10bank.api.model.response.ServerLoanLog
 import red.man10.man10bank.util.BalanceFormats
 import red.man10.man10bank.util.Messages
 
@@ -89,4 +90,11 @@ class ServerLoanService(
             Messages.error(plugin, player, msg)
         }
     }
+
+    /**
+     * ログ取得（プレイヤー指定）。
+     * - limit/offset によりページング可能
+     */
+    suspend fun logs(player: Player, limit: Int = 100, offset: Int = 0): Result<List<ServerLoanLog>> =
+        api.logs(player.uniqueId, limit, offset)
 }
