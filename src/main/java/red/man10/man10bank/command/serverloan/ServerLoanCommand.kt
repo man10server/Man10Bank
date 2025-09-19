@@ -1,15 +1,26 @@
 package red.man10.man10bank.command.serverloan
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.event.ClickEvent
 import org.bukkit.command.CommandSender
+import org.bukkit.entity.Player
 import red.man10.man10bank.Man10Bank
 import red.man10.man10bank.command.BaseCommand
 import red.man10.man10bank.service.ServerLoanService
+import red.man10.man10bank.util.BalanceFormats
 import red.man10.man10bank.util.Messages
 
 /**
- * /mrevo コマンド（型のみ）。
- * - 実装は後続で追加
+ * /mrevo コマンド。
+ * - /mrevo: get と borrowLimit の概要 + クリックでヘルプ表示
+ * - /mrevo borrow <金額>: 借入
+ * - /mrevo pay <金額>: 返済
+ * - /mrevo payment <金額>: 支払額設定
+ * - /mrevo log [ページ]: ログ表示（ページ）
+ * - /mrevo help: ヘルプ
  */
 class ServerLoanCommand(
     private val plugin: Man10Bank,
@@ -22,14 +33,122 @@ class ServerLoanCommand(
 ) {
 
     override fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean {
-        // TODO: 実装を後続タスクで追加
-        Messages.warn(sender, "このコマンドは現在準備中です。")
+        if (args.isEmpty()) {
+            if (sender !is Player) {
+                Messages.warn(sender, "プレイヤーのみ実行できます。/mrevo help を参照してください。")
+                return true
+            }
+            scope.launch(Dispatchers.IO) { showSummary(sender) }
+            return true
+        }
+
+        val sub = args[0].lowercase()
+        when (sub) {
+            "help" -> { sendHelp(sender); return true }
+            "borrow" -> {
+                if (sender !is Player) { Messages.error(sender, "プレイヤーのみ実行できます。") ; return true }
+                if (args.size < 2) { Messages.warn(sender, "使い方: /mrevo borrow <金額>"); return true }
+                val amount = args[1].toDoubleOrNull()
+                if (amount == null || amount <= 0.0) { Messages.error(sender, "金額が不正です。正の数を指定してください。"); return true }
+                scope.launch(Dispatchers.IO) { service.borrow(sender, amount) }
+                return true
+            }
+            "pay" -> {
+                if (sender !is Player) { Messages.error(sender, "プレイヤーのみ実行できます。") ; return true }
+                if (args.size < 2) { Messages.warn(sender, "使い方: /mrevo pay <金額>"); return true }
+                val amount = args[1].toDoubleOrNull()
+                if (amount == null || amount <= 0.0) { Messages.error(sender, "金額が不正です。正の数を指定してください。"); return true }
+                scope.launch(Dispatchers.IO) { service.repay(sender, amount) }
+                return true
+            }
+            "payment" -> {
+                if (sender !is Player) { Messages.error(sender, "プレイヤーのみ実行できます。") ; return true }
+                if (args.size < 2) { Messages.warn(sender, "使い方: /mrevo payment <金額>"); return true }
+                val amount = args[1].toDoubleOrNull()
+                if (amount == null || amount <= 0.0) { Messages.error(sender, "金額が不正です。正の数を指定してください。"); return true }
+                scope.launch(Dispatchers.IO) { service.setPaymentAmount(sender, amount) }
+                return true
+            }
+            "log", "logs" -> {
+                if (sender !is Player) { Messages.error(sender, "プレイヤーのみ実行できます。") ; return true }
+                val page = args.getOrNull(1)?.toIntOrNull() ?: 0
+                val limit = 10
+                scope.launch(Dispatchers.IO) {
+                    val res = service.logs(sender, limit, page * limit)
+                    if (res.isSuccess) {
+                        val lines = res.getOrNull().orEmpty().map { log ->
+                            val date = log.date ?: "-"
+                            val action = log.action
+                            val amount = log.amount?.let { BalanceFormats.colored(it) } ?: "-"
+                            "${date} §b${action} §7${amount}"
+                        }
+                        plugin.server.scheduler.runTask(plugin, Runnable {
+                            showPaged(sender, lines, page, "mrevo log")
+                        })
+                    } else {
+                        val msg = res.exceptionOrNull()?.message ?: "ログの取得に失敗しました。"
+                        Messages.error(plugin, sender, msg)
+                    }
+                }
+                return true
+            }
+            else -> sendHelp(sender)
+        }
         return true
     }
 
+    private suspend fun showSummary(player: Player) {
+        val getRes = service.get(player)
+        val limitRes = service.borrowLimit(player)
+        val lines = mutableListOf<String>()
+        if (getRes.isSuccess) {
+            val loan = getRes.getOrNull()
+            val borrow = loan?.borrowAmount?.let { BalanceFormats.colored(it) } ?: "0"
+            val payment = loan?.paymentAmount?.let { BalanceFormats.colored(it) } ?: "未設定"
+            val last = loan?.lastPayDate ?: "-"
+            lines += listOf(
+                "§b借入額: $borrow",
+                "§b支払額: $payment",
+                "§7最終返済: $last",
+            )
+        } else {
+            lines += "§7借入情報を取得できませんでした。"
+        }
+        if (limitRes.isSuccess) {
+            lines += "§b借入上限: ${BalanceFormats.colored(limitRes.getOrNull() ?: 0.0)}"
+        } else {
+            lines += "§7借入上限を取得できませんでした。"
+        }
+        Messages.sendMultiline(plugin, player, lines.joinToString("\n"))
+
+        // クリックでヘルプ
+        plugin.server.scheduler.runTask(plugin, Runnable {
+            val comp: Component = Component.text(Messages.PREFIX)
+                .append(Component.text("§b§l§n[ヘルプを表示]").clickEvent(ClickEvent.runCommand("/mrevo help")))
+            player.sendMessage(comp)
+        })
+    }
+
+    private fun sendHelp(sender: CommandSender) {
+        val lines = listOf(
+            "§b/mrevo §7- 概要を表示（借入状況/上限）",
+            "§b/mrevo borrow <金額> §7- 借入",
+            "§b/mrevo pay <金額> §7- 返済",
+            "§b/mrevo payment <金額> §7- 支払額設定",
+            "§b/mrevo log [ページ] §7- ログ表示",
+        )
+        Messages.sendMultiline(sender, lines.joinToString("\n"))
+    }
+
     override fun tabComplete(sender: CommandSender, label: String, args: Array<out String>): List<String> {
-        // TODO: 実装を後続タスクで追加
-        return emptyList()
+        if (args.isEmpty()) return emptyList()
+        return when (args.size) {
+            1 -> listOf("help", "borrow", "pay", "payment", "log")
+            2 -> when (args[0].lowercase()) {
+                "log", "logs" -> listOf("0", "1", "2")
+                else -> emptyList()
+            }
+            else -> emptyList()
+        }
     }
 }
-

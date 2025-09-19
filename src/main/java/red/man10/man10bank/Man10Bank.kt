@@ -99,7 +99,7 @@ class Man10Bank : JavaPlugin(), Listener {
         vaultManager = red.man10.man10bank.service.VaultManager(this)
         cashItemManager = CashItemManager(this)
         chequeService = ChequeService(this, scope, chequesApi)
-        serverLoanService = ServerLoanService(this, scope, serverLoanApi)
+        serverLoanService = ServerLoanService(this, serverLoanApi)
         uiService = UIService(this)
 
         // 起動時に現金アイテム設定を読み込む
