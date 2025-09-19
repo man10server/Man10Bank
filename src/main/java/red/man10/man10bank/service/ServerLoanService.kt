@@ -97,4 +97,9 @@ class ServerLoanService(
      */
     suspend fun logs(player: Player, limit: Int = 100, offset: Int = 0): Result<List<ServerLoanLog>> =
         api.logs(player.uniqueId, limit, offset)
+
+    /**
+     * 借入上限取得（プレイヤー指定）。
+     */
+    suspend fun borrowLimit(player: Player): Result<Double> = api.borrowLimit(player.uniqueId)
 }
