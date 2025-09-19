@@ -45,6 +45,29 @@ class ServerLoanService(
         }
     }
 
+    /**
+     * 返済処理（プレイヤー指定）。
+     * - 引数: プレイヤーと金額
+     * - 戻り値: なし（メッセージ送信は本メソッド内で行う）
+     */
+    suspend fun repay(player: Player, amount: Double) {
+        if (amount <= 0.0) {
+            Messages.error(plugin, player, "金額が不正です。正の数を指定してください。")
+            return
+        }
+        val result = api.repay(player.uniqueId, amount)
+        if (result.isSuccess) {
+            val loan = result.getOrNull()
+            val remainingInfo = loan?.borrowAmount?.let { BalanceFormats.colored(it) } ?: "不明"
+            Messages.send(plugin, player,
+                "§a返済に成功しました。金額: ${BalanceFormats.colored(amount)} §a残額: $remainingInfo"
+            )
+        } else {
+            val msg = result.exceptionOrNull()?.message ?: "返済に失敗しました。"
+            Messages.error(plugin, player, msg)
+        }
+    }
+
     suspend fun get(uuid: UUID): Result<ServerLoan> {
         // TODO: 実装を後続タスクで追加
         throw NotImplementedError("ServerLoanService#get 未実装")
