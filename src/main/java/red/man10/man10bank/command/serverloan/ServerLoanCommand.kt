@@ -11,6 +11,7 @@ import red.man10.man10bank.command.BaseCommand
 import red.man10.man10bank.service.ServerLoanService
 import red.man10.man10bank.util.BalanceFormats
 import red.man10.man10bank.util.Messages
+import red.man10.man10bank.util.DateFormats
 
 /**
  * /mrevo コマンド。
@@ -32,8 +33,8 @@ class ServerLoanCommand(
 ) {
 
     override fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean {
+        val player = sender as Player
         if (args.isEmpty()) {
-            val player = sender as Player
             scope.launch { showSummary(player) }
             return true
         }
@@ -42,38 +43,34 @@ class ServerLoanCommand(
         when (sub) {
             "help" -> { sendHelp(sender); return true }
             "borrow" -> {
-                if (args.size < 2) { Messages.warn(sender, "使い方: /mrevo borrow <金額>"); return true }
+                if (args.size < 2) { Messages.warn(player, "使い方: /mrevo borrow <金額>"); return true }
                 val amount = args[1].toDoubleOrNull()
-                if (amount == null || amount <= 0.0) { Messages.error(sender, "金額が不正です。正の数を指定してください。"); return true }
-                val player = sender as Player
+                if (amount == null || amount <= 0.0) { Messages.error(player, "金額が不正です。正の数を指定してください。"); return true }
                 scope.launch { service.borrow(player, amount) }
                 return true
             }
             "pay" -> {
-                if (args.size < 2) { Messages.warn(sender, "使い方: /mrevo pay <金額>"); return true }
+                if (args.size < 2) { Messages.warn(player, "使い方: /mrevo pay <金額>"); return true }
                 val amount = args[1].toDoubleOrNull()
-                if (amount == null || amount <= 0.0) { Messages.error(sender, "金額が不正です。正の数を指定してください。"); return true }
-                val player = sender as Player
+                if (amount == null || amount <= 0.0) { Messages.error(player, "金額が不正です。正の数を指定してください。"); return true }
                 scope.launch { service.repay(player, amount) }
                 return true
             }
             "payment" -> {
-                if (args.size < 2) { Messages.warn(sender, "使い方: /mrevo payment <金額>"); return true }
+                if (args.size < 2) { Messages.warn(player, "使い方: /mrevo payment <金額>"); return true }
                 val amount = args[1].toDoubleOrNull()
-                if (amount == null || amount <= 0.0) { Messages.error(sender, "金額が不正です。正の数を指定してください。"); return true }
-                val player = sender as Player
+                if (amount == null || amount <= 0.0) { Messages.error(player, "金額が不正です。正の数を指定してください。"); return true }
                 scope.launch { service.setPaymentAmount(player, amount) }
                 return true
             }
-            "log", "logs" -> {
+            "log" -> {
                 val page = args.getOrNull(1)?.toIntOrNull() ?: 0
                 val limit = 10
-                val player = sender as Player
                 scope.launch {
                     val res = service.logs(player, limit, page * limit)
                     if (res.isSuccess) {
                         val lines = res.getOrNull().orEmpty().map { log ->
-                            val date = log.date ?: "-"
+                            val date = log.date?.let { DateFormats.fromIsoString(it) } ?: "-"
                             val action = log.action
                             val amount = log.amount?.let { BalanceFormats.colored(it) } ?: "-"
                             "${date} §b${action} §7${amount}"
@@ -141,7 +138,7 @@ class ServerLoanCommand(
         return when (args.size) {
             1 -> listOf("help", "borrow", "pay", "payment", "log")
             2 -> when (args[0].lowercase()) {
-                "log", "logs" -> listOf("0", "1", "2")
+                "log" -> listOf("0", "1", "2")
                 else -> emptyList()
             }
             else -> emptyList()
