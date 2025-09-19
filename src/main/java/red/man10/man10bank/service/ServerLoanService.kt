@@ -34,10 +34,10 @@ class ServerLoanService(
         }
         val result = api.borrow(player.uniqueId, ServerLoanBorrowBodyRequest(amount))
         if (result.isSuccess) {
-            Messages.send(
-                plugin,
-                player,
-                "借入に成功しました。金額: ${BalanceFormats.colored(amount)}"
+            val loan = result.getOrNull()
+            val paymentInfo = loan?.paymentAmount?.let { BalanceFormats.colored(it) } ?: "未設定"
+            Messages.send(plugin, player,
+                "§a借入に成功しました。金額: ${BalanceFormats.colored(amount)} §a支払額: $paymentInfo"
             )
         } else {
             val msg = result.exceptionOrNull()?.message ?: "借入に失敗しました。"
