@@ -32,6 +32,9 @@ class ServerLoanCommand(
     allowGeneralUser = true,
 ) {
 
+
+    //TODO: 金利情報などをAPIから見れるようにする
+
     override fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean {
         val player = sender as Player
         if (args.isEmpty()) {
@@ -74,25 +77,22 @@ class ServerLoanCommand(
     private suspend fun showSummary(player: Player) {
         val getRes = service.get(player)
         val limitRes = service.borrowLimit(player)
-        val lines = mutableListOf<String>()
+        val lines = mutableListOf("§e§n == Man10 Revolving Loan ==")
         if (getRes.isSuccess) {
             val loan = getRes.getOrNull()
             val borrow = loan?.borrowAmount?.let { BalanceFormats.colored(it) } ?: "0"
             val payment = loan?.paymentAmount?.let { BalanceFormats.colored(it) } ?: "未設定"
-            val last = loan?.lastPayDate ?: "-"
+            val last = loan?.lastPayDate?.let { DateFormats.fromIsoString(it) } ?: "-"
             lines += listOf(
                 "§b借入額: $borrow",
                 "§b支払額: $payment",
                 "§7最終返済: $last",
             )
-        } else {
-            lines += "§7借入情報を取得できませんでした。"
         }
         if (limitRes.isSuccess) {
             lines += "§b借入上限: ${BalanceFormats.colored(limitRes.getOrNull() ?: 0.0)}"
-        } else {
-            lines += "§7借入上限を取得できませんでした。"
         }
+
         Messages.sendMultiline(plugin, player, lines.joinToString("\n"))
 
         // クリックでヘルプ
@@ -105,7 +105,7 @@ class ServerLoanCommand(
 
     private fun sendHelp(sender: CommandSender) {
         val lines = listOf(
-            "§b/mrevo §7- 概要を表示（借入状況/上限）",
+            "§b/mrevo §7- ステータスを表示（借入状況/上限）",
             "§b/mrevo borrow <金額> §7- 借入",
             "§b/mrevo pay <金額> §7- 返済",
             "§b/mrevo payment <金額> §7- 支払額設定",
@@ -118,10 +118,6 @@ class ServerLoanCommand(
         if (args.isEmpty()) return emptyList()
         return when (args.size) {
             1 -> listOf("help", "borrow", "pay", "payment", "log")
-            2 -> when (args[0].lowercase()) {
-                "log" -> listOf("0", "1", "2")
-                else -> emptyList()
-            }
             else -> emptyList()
         }
     }
@@ -136,7 +132,7 @@ class ServerLoanCommand(
                 val date = log.date?.let { DateFormats.fromIsoString(it) } ?: "-"
                 val action = log.action
                 val amount = log.amount?.let { BalanceFormats.colored(it) } ?: "-"
-                "${date} §b${action} §7${amount}"
+                "$date §b${action} §7${amount}"
             }
             plugin.server.scheduler.runTask(plugin, Runnable {
                 showPaged(player, lines, page, "mrevo log")
