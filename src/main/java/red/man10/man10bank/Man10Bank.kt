@@ -30,6 +30,8 @@ import red.man10.man10bank.service.ChequeService
 import red.man10.man10bank.api.ServerLoanApiClient
 import red.man10.man10bank.service.ServerLoanService
 import red.man10.man10bank.command.serverloan.ServerLoanCommand
+import red.man10.man10bank.api.LoanApiClient
+import red.man10.man10bank.service.LoanService
 
 class Man10Bank : JavaPlugin(), Listener {
 
@@ -50,6 +52,8 @@ class Man10Bank : JavaPlugin(), Listener {
     private lateinit var uiService: UIService
     private lateinit var chequeService: ChequeService
     private lateinit var serverLoanService: ServerLoanService
+    private lateinit var loanApi: LoanApiClient
+    private lateinit var loanService: LoanService
 
     // サーバー識別名（configの serverName が空/未設定の場合はBukkitのサーバー名を使用）
     lateinit var serverName: String
@@ -96,10 +100,12 @@ class Man10Bank : JavaPlugin(), Listener {
         atmApi = AtmApiClient(httpClient)
         chequesApi = ChequesApiClient(httpClient)
         serverLoanApi = ServerLoanApiClient(httpClient)
+        loanApi = LoanApiClient(httpClient)
         vaultManager = red.man10.man10bank.service.VaultManager(this)
         cashItemManager = CashItemManager(this)
         chequeService = ChequeService(this, scope, chequesApi)
         serverLoanService = ServerLoanService(this, serverLoanApi)
+        loanService = LoanService(this, loanApi)
         uiService = UIService(this)
 
         // 起動時に現金アイテム設定を読み込む
@@ -149,6 +155,7 @@ class Man10Bank : JavaPlugin(), Listener {
         // GUIのイベントをハンドル
         server.pluginManager.registerEvents(uiService, this)
         server.pluginManager.registerEvents(chequeService, this)
+        server.pluginManager.registerEvents(loanService, this)
     }
 
     private fun registerProviders() {
