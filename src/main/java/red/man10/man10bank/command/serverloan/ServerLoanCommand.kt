@@ -44,22 +44,19 @@ class ServerLoanCommand(
             "help" -> { sendHelp(sender); return true }
             "borrow" -> {
                 if (args.size < 2) { Messages.warn(player, "使い方: /mrevo borrow <金額>"); return true }
-                val amount = args[1].toDoubleOrNull()
-                if (amount == null || amount <= 0.0) { Messages.error(player, "金額が不正です。正の数を指定してください。"); return true }
+                val amount = parseDouble(player, args[1]) ?: return true
                 scope.launch { service.borrow(player, amount) }
                 return true
             }
             "pay" -> {
                 if (args.size < 2) { Messages.warn(player, "使い方: /mrevo pay <金額>"); return true }
-                val amount = args[1].toDoubleOrNull()
-                if (amount == null || amount <= 0.0) { Messages.error(player, "金額が不正です。正の数を指定してください。"); return true }
+                val amount = parseDouble(player, args[1]) ?: return true
                 scope.launch { service.repay(player, amount) }
                 return true
             }
             "payment" -> {
                 if (args.size < 2) { Messages.warn(player, "使い方: /mrevo payment <金額>"); return true }
-                val amount = args[1].toDoubleOrNull()
-                if (amount == null || amount <= 0.0) { Messages.error(player, "金額が不正です。正の数を指定してください。"); return true }
+                val amount = parseDouble(player, args[1]) ?: return true
                 scope.launch { service.setPaymentAmount(player, amount) }
                 return true
             }
@@ -148,5 +145,22 @@ class ServerLoanCommand(
             val msg = res.exceptionOrNull()?.message ?: "ログの取得に失敗しました。"
             Messages.error(plugin, player, msg)
         }
+    }
+
+    /**
+     * 金額のパースとバリデーション（正の数）。
+     * 不正な場合はエラーメッセージを表示して null を返す。
+     */
+    private fun parseDouble(player: Player, text: String): Double? {
+        val value = text.toDoubleOrNull()
+        if (value == null) {
+            Messages.error(player, "金額が数値ではありません。")
+            return null
+        }
+        if (value <= 0.0) {
+            Messages.error(player, "金額が不正です。正の数を指定してください。")
+            return null
+        }
+        return value
     }
 }
