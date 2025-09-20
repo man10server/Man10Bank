@@ -8,6 +8,8 @@ import red.man10.man10bank.api.LoanApiClient
 import red.man10.man10bank.api.model.request.LoanCreateRequest
 import red.man10.man10bank.api.model.response.Loan
 import red.man10.man10bank.util.ItemStackBase64
+import java.time.OffsetDateTime
+import java.time.ZoneOffset
 
 /**
  * プレイヤー間ローン機能のサービス（型のみ）。
@@ -22,9 +24,8 @@ class LoanService(
     /**
      * 借り手のローン取得（プレイヤー単位）。
      */
-    suspend fun getBorrowerLoans(player: Player, limit: Int = 100, offset: Int = 0): Result<List<Loan>> {
-        throw NotImplementedError("LoanService#getBorrowerLoans 未実装")
-    }
+    suspend fun getBorrowerLoans(player: Player, limit: Int = 100, offset: Int = 0): Result<List<Loan>> =
+        api.getBorrowerLoans(player.uniqueId, limit, offset)
 
     /**
      * ローン作成。
@@ -35,34 +36,41 @@ class LoanService(
         lender: Player,
         borrower: Player,
         amount: Double,
-        paybackDateIso: String,
+        paybackInDays: Int,
         collateral: ItemStack?,
     ): Result<Loan> {
-        throw NotImplementedError("LoanService#create 未実装")
+        if (amount <= 0.0) return Result.failure(IllegalArgumentException("金額が不正です。正の数を指定してください。"))
+        if (paybackInDays <= 0) return Result.failure(IllegalArgumentException("返済期限日数が不正です。1以上を指定してください。"))
+
+        val paybackDateIso = OffsetDateTime.now(ZoneOffset.UTC).plusDays(paybackInDays.toLong()).toString()
+        val body = LoanCreateRequest(
+            lendUuid = lender.uniqueId.toString(),
+            borrowUuid = borrower.uniqueId.toString(),
+            amount = amount,
+            paybackDate = paybackDateIso,
+            collateralItem = encodeCollateralOrNull(collateral),
+        )
+        return api.create(body)
     }
 
     /**
      * ローン詳細の取得。
      */
-    suspend fun get(id: Int): Result<Loan> {
-        throw NotImplementedError("LoanService#get 未実装")
-    }
+    suspend fun get(id: Int): Result<Loan> = api.get(id)
 
     /**
      * 返済実行。
      * - collector は回収者（任意）。null の場合はAPIへ未指定で委譲
      */
-    suspend fun repay(id: Int, collector: Player?): Result<Loan> {
-        throw NotImplementedError("LoanService#repay 未実装")
-    }
+    suspend fun repay(id: Int, collector: Player): Result<Loan> =
+        api.repay(id, collector.uniqueId.toString())
 
     /**
      * 担保返却の解放。
      * - borrower は借り手（任意）。null の場合はAPIへ未指定で委譲
      */
-    suspend fun releaseCollateral(id: Int, borrower: Player?): Result<Loan> {
-        throw NotImplementedError("LoanService#releaseCollateral 未実装")
-    }
+    suspend fun releaseCollateral(id: Int, borrower: Player): Result<Loan> =
+        api.releaseCollateral(id, borrower.uniqueId.toString())
 
     // --------------
     // 内部ユーティリティ
@@ -72,4 +80,3 @@ class LoanService(
      */
     internal fun encodeCollateralOrNull(item: ItemStack?): String? = item?.let { ItemStackBase64.encode(it) }
 }
-
