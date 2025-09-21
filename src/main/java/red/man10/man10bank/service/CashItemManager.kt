@@ -81,4 +81,35 @@ class CashItemManager(private val plugin: JavaPlugin) {
         if (!pdc.has(cashAmountKey, PersistentDataType.STRING)) return null
         return pdc.get(cashAmountKey, PersistentDataType.STRING)?.toDoubleOrNull()
     }
+
+    // -----------------
+    // 集計ユーティリティ
+    // -----------------
+    /** プレイヤーのインベントリ内の現金合計を返す。 */
+    fun countInventoryCash(player: org.bukkit.entity.Player): Double {
+        var total = 0.0
+        for (stack in player.inventory.contents) {
+            val item = stack ?: continue
+            if (item.amount <= 0 || item.type.isAir) continue
+            val unit = getAmountForItem(item) ?: continue
+            total += unit * item.amount
+        }
+        return total
+    }
+
+    /** プレイヤーのエンダーチェスト内の現金合計を返す。 */
+    fun countEnderChestCash(player: org.bukkit.entity.Player): Double {
+        var total = 0.0
+        for (stack in player.enderChest.contents) {
+            val item = stack ?: continue
+            if (item.amount <= 0 || item.type.isAir) continue
+            val unit = getAmountForItem(item) ?: continue
+            total += unit * item.amount
+        }
+        return total
+    }
+
+    /** インベントリ+エンダーチェストの現金合計を返す。 */
+    fun countTotalCash(player: org.bukkit.entity.Player): Double =
+        countInventoryCash(player) + countEnderChestCash(player)
 }
