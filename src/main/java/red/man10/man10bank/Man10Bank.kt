@@ -16,7 +16,8 @@ import red.man10.man10bank.command.transaction.DepositCommand
 import red.man10.man10bank.command.transaction.WithdrawCommand
 import red.man10.man10bank.command.transaction.PayCommand
 import red.man10.man10bank.command.balance.BalanceCommand
-import red.man10.man10bank.command.balance.BalanceProviders
+import red.man10.man10bank.command.balance.BalanceRegistry
+import red.man10.man10bank.util.BalanceFormats
 import red.man10.man10bank.config.ConfigManager
 import red.man10.man10bank.net.HttpClientFactory
 import red.man10.man10bank.service.HealthService
@@ -159,7 +160,13 @@ class Man10Bank : JavaPlugin(), Listener {
     }
 
     private fun registerProviders() {
-        // デフォルトの表示プロバイダを登録（外部で上書き/追加可能）
-        BalanceProviders.registerDefaults()
+        // デフォルトの表示プロバイダを登録（実装側で登録）
+        cashItemManager.registerBalanceProvider()
+        vaultManager.registerBalanceProvider()
+        // bank はここで登録
+        BalanceRegistry.register(id = "bank", order = 20) { player ->
+            val bal = bankApi.getBalance(player.uniqueId).getOrElse { 0.0 }
+            if (bal <= 0.0) "" else "§b§l銀行: ${BalanceFormats.colored(bal)}§r"
+        }
     }
 }

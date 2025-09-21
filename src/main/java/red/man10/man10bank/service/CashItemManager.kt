@@ -112,4 +112,16 @@ class CashItemManager(private val plugin: JavaPlugin) {
     /** インベントリ+エンダーチェストの現金合計を返す。 */
     fun countTotalCash(player: org.bukkit.entity.Player): Double =
         countInventoryCash(player) + countEnderChestCash(player)
+
+    /** 残高表示プロバイダの登録（現金）。 */
+    fun registerBalanceProvider() {
+        red.man10.man10bank.command.balance.BalanceRegistry.register(
+            id = "cash",
+            order = 5,
+            provider = red.man10.man10bank.command.balance.BalanceRegistry.Provider { player ->
+                val total = countTotalCash(player)
+                if (total <= 0.0) "" else "§b§l現金: ${red.man10.man10bank.util.BalanceFormats.colored(total)}§r"
+            }
+        )
+    }
 }

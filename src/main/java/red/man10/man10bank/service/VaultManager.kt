@@ -48,4 +48,16 @@ class VaultManager(private val plugin: JavaPlugin) {
         if (bal + 1e-6 < amount) return false
         return econ.withdrawPlayer(player, amount).transactionSuccess()
     }
+
+    /** 残高表示プロバイダの登録（電子マネー/Vault）。 */
+    fun registerBalanceProvider() {
+        red.man10.man10bank.command.balance.BalanceRegistry.register(
+            id = "vault",
+            order = 10,
+            provider = red.man10.man10bank.command.balance.BalanceRegistry.Provider { player ->
+                val cash = getBalance(player)
+                "§b§l電子マネー: ${red.man10.man10bank.util.BalanceFormats.colored(cash)}§r"
+            }
+        )
+    }
 }

@@ -29,7 +29,7 @@ object BalanceRegistry {
          * プレイヤー向けの表示行を返します（カラーコード可）。
          * 例: listOf("§e§l銀行残高: 1,234,567§r")
          */
-        suspend fun line(player: Player, ctx: Context): String
+        suspend fun line(player: Player): String
     }
 
     /** 表示セクションを追加（同一idは上書き）。orderが小さい順に表示。 */
@@ -38,13 +38,13 @@ object BalanceRegistry {
     }
 
     /** 登録済みセクションを結合して表示行を返す。 */
-    suspend fun buildLines(player: Player, ctx: Context): List<String> {
+    suspend fun buildLines(player: Player): List<String> {
         return providers.entries
             .sortedBy { it.value.first }
             .map { entry ->
                 val id = entry.key
                 val provider = entry.value.second
-                runCatching { provider.line(player, ctx) }
+                runCatching { provider.line(player) }
                     .getOrElse { "§7[${id}] の表示に失敗: ${it.message}" }
             }
             .filter { it.isNotBlank() }
