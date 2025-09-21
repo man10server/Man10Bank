@@ -8,6 +8,7 @@ import red.man10.man10bank.Man10Bank
 import red.man10.man10bank.api.BankApiClient
 import red.man10.man10bank.command.BaseCommand
 import red.man10.man10bank.service.VaultManager
+import red.man10.man10bank.service.CashItemManager
 import red.man10.man10bank.util.Messages
 
 /**
@@ -19,6 +20,7 @@ class BalanceCommand(
     private val scope: CoroutineScope,
     private val vault: VaultManager,
     private val bank: BankApiClient,
+    private val cash: CashItemManager,
 ) : BaseCommand(
     allowPlayer = true,
     allowConsole = false,
@@ -33,7 +35,7 @@ class BalanceCommand(
         }
 
         scope.launch {
-            val ctx = BalanceRegistry.Context(plugin, bank, vault)
+            val ctx = BalanceRegistry.Context(plugin, bank, vault, cash)
             val lines = BalanceRegistry.buildLines(sender, ctx)
             if (lines.isEmpty()) {
                 Messages.send(plugin, sender, "表示可能な情報がありません。")

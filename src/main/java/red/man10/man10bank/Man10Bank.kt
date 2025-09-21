@@ -147,7 +147,7 @@ class Man10Bank : JavaPlugin(), Listener {
 
         // 残高系（/bal, /balance ほか別名にも割り当て）
         listOf("bal", "balance", "money", "bank").forEach { cmd ->
-            getCommand(cmd)?.setExecutor(BalanceCommand(this, scope, vaultManager, bankApi))
+            getCommand(cmd)?.setExecutor(BalanceCommand(this, scope, vaultManager, bankApi, cashItemManager))
         }
     }
 

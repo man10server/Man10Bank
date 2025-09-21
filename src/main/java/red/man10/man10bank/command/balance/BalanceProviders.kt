@@ -11,6 +11,15 @@ import red.man10.man10bank.util.BalanceFormats
  */
 object BalanceProviders {
 
+    /** 現金（インベントリ + エンダーチェスト） */
+    object CashProvider : BalanceRegistry.Provider {
+        override suspend fun line(player: Player, ctx: BalanceRegistry.Context): String {
+            val total = ctx.cash.countTotalCash(player)
+            if (total <= 0.0) return ""
+            return "§b§l現金: ${BalanceFormats.colored(total)}§r"
+        }
+    }
+
     /** 電子マネー（Vault） */
     object VaultProvider : BalanceRegistry.Provider {
         override suspend fun line(player: Player, ctx: BalanceRegistry.Context): String {
@@ -31,6 +40,7 @@ object BalanceProviders {
     /** 既定のプロバイダをレジストリへ登録。 */
     fun registerDefaults() {
         // order は小さい方が上に表示される
+        BalanceRegistry.register(id = "cash", order = 5, provider = CashProvider)
         BalanceRegistry.register(id = "vault", order = 10, provider = VaultProvider)
         BalanceRegistry.register(id = "bank", order = 20, provider = BankProvider)
     }
