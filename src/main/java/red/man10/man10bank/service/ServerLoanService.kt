@@ -6,6 +6,7 @@ import red.man10.man10bank.api.ServerLoanApiClient
 import red.man10.man10bank.api.model.request.ServerLoanBorrowBodyRequest
 import red.man10.man10bank.api.model.response.ServerLoan
 import red.man10.man10bank.api.model.response.ServerLoanLog
+import red.man10.man10bank.api.model.response.PaymentInfoResponse
 import red.man10.man10bank.util.BalanceFormats
 import red.man10.man10bank.util.Messages
 
@@ -102,4 +103,10 @@ class ServerLoanService(
      * 借入上限取得（プレイヤー指定）。
      */
     suspend fun borrowLimit(player: Player): Result<Double> = api.borrowLimit(player.uniqueId)
+
+    /**
+     * 支払情報取得（次回返済日/1日あたりの利息）。
+     */
+    suspend fun paymentInfo(player: Player): Result<PaymentInfoResponse> =
+        api.paymentInfo(player.uniqueId)
 }

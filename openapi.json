@@ -1573,6 +1573,55 @@
           }
         }
       }
+    },
+    "/api/ServerLoan/{uuid}/payment-info": {
+      "get": {
+        "tags": [
+          "ServerLoan"
+        ],
+        "parameters": [
+          {
+            "name": "uuid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentInfoResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1679,6 +1728,9 @@
           },
           "used": {
             "type": "boolean"
+          },
+          "op": {
+            "type": "boolean"
           }
         }
       },
@@ -1703,6 +1755,9 @@
             "maxLength": 64,
             "minLength": 0,
             "type": "string"
+          },
+          "op": {
+            "type": "boolean"
           }
         }
       },
@@ -2080,6 +2135,23 @@
           "date": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "PaymentInfoResponse": {
+        "required": [
+          "nextRepayDate",
+          "dailyInterestPerDay"
+        ],
+        "type": "object",
+        "properties": {
+          "nextRepayDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dailyInterestPerDay": {
+            "type": "number",
+            "format": "double"
           }
         }
       },

@@ -32,9 +32,6 @@ class ServerLoanCommand(
     allowGeneralUser = true,
 ) {
 
-
-    //TODO: 金利情報などをAPIから見れるようにする
-
     override fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean {
         val player = sender as Player
         if (args.isEmpty()) {
@@ -77,6 +74,7 @@ class ServerLoanCommand(
     private suspend fun showSummary(player: Player) {
         val getRes = service.get(player)
         val limitRes = service.borrowLimit(player)
+        val paymentInfoRes = service.paymentInfo(player)
         val lines = mutableListOf("§e§n == Man10 Revolving Loan ==")
         if (getRes.isSuccess) {
             val loan = getRes.getOrNull()
@@ -91,6 +89,16 @@ class ServerLoanCommand(
         }
         if (limitRes.isSuccess) {
             lines += "§b借入上限: ${BalanceFormats.colored(limitRes.getOrNull() ?: 0.0)}"
+        }
+
+        if (paymentInfoRes.isSuccess) {
+            val info = paymentInfoRes.getOrNull()
+            val next = info?.nextRepayDate?.let { DateFormats.fromIsoString(it) } ?: "-"
+            val daily = info?.dailyInterestPerDay?.let { BalanceFormats.colored(it) } ?: "-"
+            lines += listOf(
+                "§b次回返済日: $next",
+                "§b1日あたりの利息: $daily",
+            )
         }
 
         Messages.sendMultiline(plugin, player, lines.joinToString("\n"))
