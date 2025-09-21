@@ -12,6 +12,7 @@ import io.ktor.http.contentType
 import red.man10.man10bank.api.model.request.ServerLoanBorrowBodyRequest
 import red.man10.man10bank.api.model.response.ServerLoan
 import red.man10.man10bank.api.model.response.ServerLoanLog
+import red.man10.man10bank.api.model.response.PaymentInfoResponse
 import java.util.UUID
 
 /** /api/ServerLoan 用のAPIクライアント */
@@ -45,5 +46,9 @@ class ServerLoanApiClient(private val client: HttpClient) {
             if (limit >= 0) parameter("limit", limit)
             if (offset >= 0) parameter("offset", offset)
         }.body()
+    }
+
+    suspend fun paymentInfo(uuid: UUID): Result<PaymentInfoResponse> = runCatching {
+        client.get("/api/ServerLoan/${uuid}/payment-info").body()
     }
 }
