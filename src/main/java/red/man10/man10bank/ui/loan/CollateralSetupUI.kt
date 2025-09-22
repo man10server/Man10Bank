@@ -24,15 +24,6 @@ class CollateralSetupUI(
             // プレイヤーが閉じたタイミングで担保情報を更新
             val base = ui as CollateralBaseUI
             val newItems = base.getCollateralItems()
-            // UI上のアイテムはプレイヤーに返却（消失防止）
-            val inv2 = base.getInventory()
-            for (slot in COLLATERAL_SLOTS) {
-                val it = inv2.getItem(slot) ?: continue
-                if (!it.type.isAir) {
-                    event.player.inventory.addItem(it)
-                    inv2.setItem(slot, null)
-                }
-            }
             onUpdate(newItems)
         }
     }

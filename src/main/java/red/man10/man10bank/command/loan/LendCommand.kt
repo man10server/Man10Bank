@@ -61,6 +61,7 @@ class LendCommand(
 
         fun isNotBorrower(p: Proposal?, uuid: UUID): Boolean = p == null || !p.isBorrower(uuid)
         fun isNotLender(p: Proposal?, uuid: UUID): Boolean = p == null || !p.isLender(uuid)
+        fun isAlreadyProposed(borrower: UUID): Boolean = proposals.values.any { it.borrower == borrower }
     }
 
     override fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean {
@@ -112,6 +113,10 @@ class LendCommand(
         }
         if (borrower.uniqueId == sender.uniqueId && !sender.isOp) {
             Messages.error(sender, "自分自身には提案できません。")
+            return true
+        }
+        if (isAlreadyProposed(borrower.uniqueId)) {
+            Messages.error(sender, "このプレイヤーには既に提案が進行中です。承認または拒否が完了するまでお待ちください。")
             return true
         }
 
