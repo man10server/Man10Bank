@@ -88,36 +88,36 @@ class LendCommand(
     private fun handlePropose(sender: Player, args: Array<out String>): Boolean {
         if (args.size < 4) {
             Messages.error(sender, "引数が不足しています。/mlend <player> <金額> <返済金額> <返済日>")
-            return true
+            return false
         }
         val amount = args[1].toDoubleOrNull()
         val repayAmount = args[2].toDoubleOrNull()
-        val paybackDays = parsePaybackDays(args[3])
+        val paybackDays = args[3].toIntOrNull()
         val borrower = Bukkit.getPlayer(args[0])
 
         if (amount == null || amount <= 0) {
             Messages.error(sender, "金額が不正です。正の数を指定してください。")
-            return true
+            return false
         }
         if (repayAmount == null || repayAmount <= 0) {
             Messages.error(sender, "返済金額が不正です。正の数を指定してください。")
-            return true
+            return false
         }
         if (paybackDays == null || paybackDays <= 0) {
-            Messages.error(sender, "返済日が不正です。yyyy-MM-dd または 日数で指定してください。")
-            return true
+            Messages.error(sender, "返済日が不正です。日数（正の整数）で指定してください。")
+            return false
         }
         if (borrower == null) {
             Messages.error(sender, "対象プレイヤーが見つかりません。オンラインのプレイヤー名を指定してください。")
-            return true
+            return false
         }
         if (borrower.uniqueId == sender.uniqueId && !sender.isOp) {
             Messages.error(sender, "自分自身には提案できません。")
-            return true
+            return false
         }
         if (isAlreadyProposed(borrower.uniqueId)) {
             Messages.error(sender, "このプレイヤーには既に提案が進行中です。承認または拒否が完了するまでお待ちください。")
-            return true
+            return false
         }
 
         val id = UUID.randomUUID().toString().substring(0, 8)
@@ -201,9 +201,11 @@ class LendCommand(
             Messages.error(sender, "この提案は見つからないか、あなた宛ではありません。")
             return true
         }
+        // 担保返却（UI設定のみで実物を保持していない場合は冪等）
+        returnCollateralsToBorrower(proposal!!)
         remove(id)
         val lender = Bukkit.getPlayer(proposal!!.lender)
-        if (lender != null) Messages.warn(lender, "${sender.name} に拒否されました。")
+        if (lender != null) Messages.warn(lender, "${sender.name} に拒否されました。（ID: ${proposal.id}）")
         Messages.send(sender, "§6提案を拒否しました。")
         return true
     }
@@ -280,23 +282,30 @@ class LendCommand(
             Messages.error(sender, "この提案は見つからないか、あなたが貸し手ではありません。")
             return true
         }
+        // 担保返却（UI設定のみで実物を保持していない場合は冪等）
+        returnCollateralsToBorrower(proposal!!)
         remove(id)
-        val borrower = Bukkit.getPlayer(proposal!!.borrower)
-        if (borrower != null) Messages.warn(borrower, "貸し手に拒否されました。")
+        val borrower = Bukkit.getPlayer(proposal.borrower)
+        if (borrower != null) Messages.warn(borrower, "貸し手に拒否されました。（ID: ${proposal.id}）")
         Messages.send(sender, "§6提案を拒否しました。")
         return true
     }
-
-    // 返済日: yyyy-MM-dd または 日数
-    private fun parsePaybackDays(arg: String): Int? {
-        arg.toIntOrNull()?.let { return it }
-        return try {
-            val date = LocalDate.parse(arg)
-            val today = LocalDate.now(ZoneOffset.UTC)
-            val days = ChronoUnit.DAYS.between(today, date).toInt()
-            if (days <= 0) null else days
-        } catch (e: Exception) {
-            null
+    /**
+     * 担保を借り手に返却（オンライン時）。
+     */
+    private fun returnCollateralsToBorrower(p: Proposal) {
+        val borrower = Bukkit.getPlayer(p.borrower) ?: return
+        val inv = borrower.inventory
+        if (p.collaterals.isEmpty()) return
+        var count = 0
+        for (stack in p.collaterals) {
+            val leftovers = inv.addItem(stack.clone())
+            if (leftovers.isNotEmpty()) {
+                leftovers.values.forEach { l -> borrower.world.dropItemNaturally(borrower.location, l) }
+            }
+            count++
         }
+        p.collaterals = emptyList()
+        Messages.send(borrower, "担保を返却しました（${count}件）。")
     }
 }
