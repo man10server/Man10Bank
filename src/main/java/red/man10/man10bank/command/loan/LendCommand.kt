@@ -43,7 +43,10 @@ class LendCommand(
         val paybackDays: Int,
         var collaterals: List<ItemStack> = emptyList(),
         var borrowerApproved: Boolean = false,
-    )
+    ) {
+        fun isBorrower(uuid: UUID): Boolean = borrower == uuid
+        fun isLender(uuid: UUID): Boolean = lender == uuid
+    }
 
     companion object Store {
         private val proposals: MutableMap<String, Proposal> = mutableMapOf()
@@ -55,6 +58,9 @@ class LendCommand(
         fun get(id: String): Proposal? = proposals[id]
 
         fun remove(id: String) { proposals.remove(id) }
+
+        fun notFoundOrNotBorrower(p: Proposal?, uuid: UUID): Boolean = p == null || !p.isBorrower(uuid)
+        fun notFoundOrNotLender(p: Proposal?, uuid: UUID): Boolean = p == null || !p.isLender(uuid)
     }
 
     override fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean {
@@ -83,10 +89,10 @@ class LendCommand(
             Messages.error(sender, "引数が不足しています。/mlend <player> <金額> <返済金額> <返済日>")
             return true
         }
-        val targetName = args[0]
         val amount = args[1].toDoubleOrNull()
         val repayAmount = args[2].toDoubleOrNull()
         val paybackDays = parsePaybackDays(args[3])
+        val borrower = Bukkit.getPlayer(args[0])
 
         if (amount == null || amount <= 0) {
             Messages.error(sender, "金額が不正です。正の数を指定してください。")
@@ -100,14 +106,11 @@ class LendCommand(
             Messages.error(sender, "返済日が不正です。yyyy-MM-dd または 日数で指定してください。")
             return true
         }
-
-        val borrower = Bukkit.getPlayerExact(targetName)
-            ?: Bukkit.getOnlinePlayers().firstOrNull { it.name.equals(targetName, true) }
         if (borrower == null) {
             Messages.error(sender, "対象プレイヤーが見つかりません。オンラインのプレイヤー名を指定してください。")
             return true
         }
-        if (borrower.uniqueId == sender.uniqueId) {
+        if (borrower.uniqueId == sender.uniqueId && !sender.isOp) {
             Messages.error(sender, "自分自身には提案できません。")
             return true
         }
@@ -125,14 +128,14 @@ class LendCommand(
 
         // 借り手へ提案内容を送信（クリックボタン付き）
         sendBorrowerProposal(sender, borrower, p)
-        Messages.send(sender, "\u00a7a${borrower.name} に提案を送信しました。（ID: $id）")
+        Messages.send(sender, "§a${borrower.name} に提案を送信しました。")
         return true
     }
 
     private fun sendBorrowerProposal(lender: Player, borrower: Player, p: Proposal) {
         val lines = listOf(
-            "\u00a7e\u00a7l[借金の提案]",
-            "貸し手: ${lender.name}",
+            "§e§l[借金の提案]",
+            "借入相手: ${lender.name}",
             "借入金額: ${BalanceFormats.colored(p.amount)}",
             "返済金額: ${BalanceFormats.colored(p.repayAmount)}",
             "返済期限: ${p.paybackDays} 日",
@@ -140,13 +143,13 @@ class LendCommand(
         Messages.sendMultiline(borrower, lines.joinToString("\n"))
 
         var comp = Component.text(Messages.PREFIX)
-        comp = comp.append(Component.text("\u00a7b\u00a7l\u00a7n[担保を設定]")
+        comp = comp.append(Component.text("§b§l§n[担保を設定]")
             .clickEvent(ClickEvent.runCommand("/mlend ui ${p.id}")))
         comp = comp.append(Component.text(" "))
-        comp = comp.append(Component.text("\u00a7a\u00a7l\u00a7n[承認]")
+        comp = comp.append(Component.text("§a§l§n[承認]")
             .clickEvent(ClickEvent.runCommand("/mlend b-accept ${p.id}")))
         comp = comp.append(Component.text(" "))
-        comp = comp.append(Component.text("\u00a7c\u00a7l\u00a7n[拒否]")
+        comp = comp.append(Component.text("§c§l§n[拒否]")
             .clickEvent(ClickEvent.runCommand("/mlend b-reject ${p.id}")))
         borrower.sendMessage(comp)
     }
@@ -154,16 +157,16 @@ class LendCommand(
     // 借り手: 担保設定UI
     private fun handleBorrowerOpenUI(sender: Player, args: Array<out String>): Boolean {
         val id = args.getOrNull(1) ?: return true.also { Messages.error(sender, "IDが指定されていません。") }
-        val p = get(id)
-        if (p == null || p.borrower != sender.uniqueId) {
+        val proposal = get(id)
+        if (notFoundOrNotBorrower(proposal, sender.uniqueId)) {
             Messages.error(sender, "この提案は見つからないか、あなた宛ではありません。")
             return true
         }
-        CollateralSetupUI(sender, p.collaterals) { newItems ->
+        CollateralSetupUI(sender, proposal.collaterals, onUpdate = { newItems: List<ItemStack> ->
             // UIクローズ時にアイテムはプレイヤーへ返却済み（UIの設計上、明示配置）
-            p.collaterals = newItems
+            proposal.collaterals = newItems
             Messages.send(sender, "担保を更新しました（${newItems.size}件）。")
-        }.open()
+        }).open()
         return true
     }
 
@@ -171,7 +174,7 @@ class LendCommand(
     private fun handleBorrowerAccept(sender: Player, args: Array<out String>): Boolean {
         val id = args.getOrNull(1) ?: return true.also { Messages.error(sender, "IDが指定されていません。") }
         val p = get(id)
-        if (p == null || p.borrower != sender.uniqueId) {
+        if (notFoundOrNotBorrower(p, sender.uniqueId)) {
             Messages.error(sender, "この提案は見つからないか、あなた宛ではありません。")
             return true
         }
@@ -182,7 +185,7 @@ class LendCommand(
             return true
         }
         sendLenderConfirmation(lender, sender, p)
-        Messages.send(sender, "\u00a7a承認しました。貸し手の最終承認待ちです。")
+        Messages.send(sender, "§a承認しました。貸し手の最終承認待ちです。")
         return true
     }
 
@@ -190,21 +193,21 @@ class LendCommand(
     private fun handleBorrowerReject(sender: Player, args: Array<out String>): Boolean {
         val id = args.getOrNull(1) ?: return true.also { Messages.error(sender, "IDが指定されていません。") }
         val p = get(id)
-        if (p == null || p.borrower != sender.uniqueId) {
+        if (notFoundOrNotBorrower(p, sender.uniqueId)) {
             Messages.error(sender, "この提案は見つからないか、あなた宛ではありません。")
             return true
         }
         remove(id)
         val lender = Bukkit.getPlayer(p.lender)
         if (lender != null) Messages.warn(lender, "${sender.name} に拒否されました。（ID: ${p.id}）")
-        Messages.send(sender, "\u00a76提案を拒否しました。")
+        Messages.send(sender, "§6提案を拒否しました。")
         return true
     }
 
     private fun sendLenderConfirmation(lender: Player, borrower: Player, p: Proposal) {
         val lines = listOf(
-            "\u00a7e\u00a7l[借金の最終確認]",
-            "借り手: ${borrower.name}",
+            "§e§l[借金の最終確認]",
+            "貸出相手: ${borrower.name}",
             "借入金額: ${BalanceFormats.colored(p.amount)}",
             "返済金額: ${BalanceFormats.colored(p.repayAmount)}",
             "返済期限: ${p.paybackDays} 日",
@@ -213,13 +216,13 @@ class LendCommand(
         Messages.sendMultiline(lender, lines.joinToString("\n"))
 
         var comp = Component.text(Messages.PREFIX)
-        comp = comp.append(Component.text("\u00a7b\u00a7l\u00a7n[担保を確認]")
+        comp = comp.append(Component.text("§b§l§n[担保を確認]")
             .clickEvent(ClickEvent.runCommand("/mlend l-view ${p.id}")))
         comp = comp.append(Component.text(" "))
-        comp = comp.append(Component.text("\u00a7a\u00a7l\u00a7n[最終承認]")
+        comp = comp.append(Component.text("§a§l§n[最終承認]")
             .clickEvent(ClickEvent.runCommand("/mlend l-confirm ${p.id}")))
         comp = comp.append(Component.text(" "))
-        comp = comp.append(Component.text("\u00a7c\u00a7l\u00a7n[拒否]")
+        comp = comp.append(Component.text("§c§l§n[拒否]")
             .clickEvent(ClickEvent.runCommand("/mlend l-reject ${p.id}")))
         lender.sendMessage(comp)
     }
@@ -228,7 +231,7 @@ class LendCommand(
     private fun handleLenderView(sender: Player, args: Array<out String>): Boolean {
         val id = args.getOrNull(1) ?: return true.also { Messages.error(sender, "IDが指定されていません。") }
         val p = get(id)
-        if (p == null || p.lender != sender.uniqueId) {
+        if (notFoundOrNotLender(p, sender.uniqueId)) {
             Messages.error(sender, "この提案は見つからないか、あなたが貸し手ではありません。")
             return true
         }
@@ -240,7 +243,7 @@ class LendCommand(
     private fun handleLenderConfirm(sender: Player, args: Array<out String>): Boolean {
         val id = args.getOrNull(1) ?: return true.also { Messages.error(sender, "IDが指定されていません。") }
         val p = get(id)
-        if (p == null || p.lender != sender.uniqueId) {
+        if (notFoundOrNotLender(p, sender.uniqueId)) {
             Messages.error(sender, "この提案は見つからないか、あなたが貸し手ではありません。")
             return true
         }
@@ -258,8 +261,8 @@ class LendCommand(
             val result = loanService.create(sender, borrower, p.repayAmount, p.paybackDays, collateral)
             if (result.isSuccess) {
                 val loan = result.getOrNull()
-                Messages.send(plugin, sender, "\u00a7aローンを作成しました。ID: ${loan?.id ?: "不明"}")
-                Messages.send(plugin, borrower, "\u00a7a借入が確定しました。金額: ${BalanceFormats.colored(p.repayAmount)}")
+                Messages.send(plugin, sender, "§aローンを作成しました。ID: ${loan?.id ?: "不明"}")
+                Messages.send(plugin, borrower, "§a借入が確定しました。金額: ${BalanceFormats.colored(p.repayAmount)}")
                 remove(id)
             } else {
                 val msg = result.exceptionOrNull()?.message ?: "ローン作成に失敗しました。"
@@ -273,14 +276,14 @@ class LendCommand(
     private fun handleLenderReject(sender: Player, args: Array<out String>): Boolean {
         val id = args.getOrNull(1) ?: return true.also { Messages.error(sender, "IDが指定されていません。") }
         val p = get(id)
-        if (p == null || p.lender != sender.uniqueId) {
+        if (notFoundOrNotLender(p, sender.uniqueId)) {
             Messages.error(sender, "この提案は見つからないか、あなたが貸し手ではありません。")
             return true
         }
         remove(id)
         val borrower = Bukkit.getPlayer(p.borrower)
         if (borrower != null) Messages.warn(borrower, "貸し手に拒否されました。（ID: ${p.id}）")
-        Messages.send(sender, "\u00a76提案を拒否しました。")
+        Messages.send(sender, "§6提案を拒否しました。")
         return true
     }
 
@@ -297,4 +300,3 @@ class LendCommand(
         }
     }
 }
-

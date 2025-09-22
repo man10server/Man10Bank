@@ -8,7 +8,7 @@ import red.man10.man10bank.ui.InventoryUI
 /**
  * 担保設定画面。
  * - コンストラクタで既存の担保情報を受け取り、GUIクローズ時に更新コールバックを呼ぶ
- * - スロット0〜8が担保領域、9が閉じるボタン
+ * - スロット0〜7が担保領域、8が閉じるボタン
  */
 class CollateralSetupUI(
     private val player: Player,
