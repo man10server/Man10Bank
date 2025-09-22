@@ -14,9 +14,10 @@ import red.man10.man10bank.Man10Bank
 import red.man10.man10bank.api.LoanApiClient
 import red.man10.man10bank.api.model.request.LoanCreateRequest
 import red.man10.man10bank.api.model.response.Loan
-import red.man10.man10bank.api.model.response.LoanRepayResponse
 import red.man10.man10bank.util.BalanceFormats
 import red.man10.man10bank.util.ItemStackBase64
+import red.man10.man10bank.ui.loan.CollateralCollectUI
+import red.man10.man10bank.util.Messages
 import java.text.SimpleDateFormat
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
@@ -76,19 +77,56 @@ class LoanService(
         api.getBorrowerLoans(player.uniqueId, limit, offset)
 
     /**
-     * 返済実行。
-     * - collector は回収者（任意）。null の場合はAPIへ未指定で委譲
-     */
-    suspend fun repay(id: Int, collector: Player): Result<LoanRepayResponse> =
-        api.repay(id, collector.uniqueId.toString())
-
-    /**
      * 担保返却の解放。
      * - borrower は借り手（任意）。null の場合はAPIへ未指定で委譲
      */
     suspend fun releaseCollateral(id: Int, borrower: Player): Result<Loan> =
         api.releaseCollateral(id, borrower.uniqueId.toString())
 
+    private suspend fun repay(collector: Player, id: Int) {
+        val result = api.repay(id, collector.uniqueId.toString())
+
+        if (!result.isSuccess) {
+            val msg = result.exceptionOrNull()?.message ?: "返済処理に失敗しました。"
+            val notFound = msg.contains("404") || msg.contains("Not Found", ignoreCase = true)
+            if (notFound) {
+                Messages.error(plugin, collector, "借金データが見つかりません。(id: ${id})")
+            } else {
+                Messages.error(plugin, collector, msg)
+            }
+            return
+        }
+        val resp = result.getOrNull()
+        if (resp == null) {
+            Messages.error(plugin, collector, "返済処理に失敗しました。")
+            return
+        }
+        when (resp.outcome) {
+            0 -> {
+                val collected = resp.collectedAmount
+                val remaining = resp.remainingAmount
+                Messages.send(plugin, collector, "返済を回収しました。金額: ${BalanceFormats.colored(collected)} 残額: ${BalanceFormats.colored(remaining)}")
+            }
+            1 -> {
+                val base64 = resp.collateralItem
+                if (base64.isNullOrBlank()) {
+                    Messages.warn(plugin, collector, "担保データが見つかりませんでした。")
+                    return
+                }
+                val items = ItemStackBase64.decodeItems(base64)
+                if (items.isEmpty()) {
+                    Messages.warn(plugin, collector, "担保アイテムが空です。")
+                    return
+                }
+                CollateralCollectUI(collector, items, onCollected = {
+                    Messages.send(plugin, collector, "担保を回収しました。")
+                }).open()
+            }
+            else -> {
+                Messages.error(plugin, collector, "返済処理で不明な状態です。(outcome=${resp.outcome})")
+            }
+        }
+    }
 
     private fun issueDebtNote(loan: Loan): ItemStack {
         val item = ItemStack(Material.PAPER)
