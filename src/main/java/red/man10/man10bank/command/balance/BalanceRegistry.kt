@@ -1,9 +1,5 @@
 package red.man10.man10bank.command.balance
 import org.bukkit.entity.Player
-import red.man10.man10bank.Man10Bank
-import red.man10.man10bank.api.BankApiClient
-import red.man10.man10bank.service.VaultManager
-import red.man10.man10bank.service.CashItemManager
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -14,14 +10,6 @@ object BalanceRegistry {
 
     // id -> (order, provider)
     private val providers = ConcurrentHashMap<String, Pair<Int, Provider>>()
-
-    /** 表示用の依存コンテキスト。 */
-    data class Context(
-        val plugin: Man10Bank,
-        val bank: BankApiClient,
-        val vault: VaultManager,
-        val cash: CashItemManager,
-    )
 
     /** 表示データを提供する関数型インターフェイス。 */
     fun interface Provider {

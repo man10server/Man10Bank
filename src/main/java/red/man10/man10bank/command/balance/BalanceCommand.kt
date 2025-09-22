@@ -32,12 +32,9 @@ class BalanceCommand(
         }
 
         scope.launch {
-            val lines = BalanceRegistry.buildLines(sender)
-            if (lines.isEmpty()) {
-                Messages.send(plugin, sender, "表示可能な情報がありません。")
-            } else {
-                Messages.sendMultiline(plugin, sender, lines.joinToString("\n"))
-            }
+            val lines = mutableListOf("§e§l===== §kX§e§l${sender.name}のお金§kX §e§l=====")
+            lines.addAll(BalanceRegistry.buildLines(sender))
+            Messages.sendMultiline(plugin, sender, lines.joinToString("\n"))
         }
         return true
     }
