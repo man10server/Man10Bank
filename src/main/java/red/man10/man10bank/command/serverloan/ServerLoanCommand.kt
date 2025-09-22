@@ -12,6 +12,7 @@ import red.man10.man10bank.service.ServerLoanService
 import red.man10.man10bank.util.BalanceFormats
 import red.man10.man10bank.util.Messages
 import red.man10.man10bank.util.DateFormats
+import java.util.UUID
 
 /**
  * /mrevo コマンド。
@@ -32,6 +33,19 @@ class ServerLoanCommand(
     allowGeneralUser = true,
 ) {
 
+    companion object {
+        private const val CONFIRM_WINDOW_MS = 30_000L
+        private val borrowConfirmations: MutableMap<UUID, PendingBorrow> = mutableMapOf()
+    }
+
+    private data class PendingBorrow(
+        val amount: Double,
+        val expiresAt: Long,
+    ) {
+        fun isExpired(now: Long): Boolean = now > expiresAt
+        fun matches(amount: Double): Boolean = this.amount == amount
+    }
+
     override fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean {
         val player = sender as Player
         if (args.isEmpty()) {
@@ -45,8 +59,7 @@ class ServerLoanCommand(
             "borrow" -> {
                 if (args.size < 2) { Messages.warn(player, "使い方: /mrevo borrow <金額>"); return true }
                 val amount = parseDouble(player, args[1]) ?: return true
-                scope.launch { service.borrow(player, amount) }
-                return true
+                return handleBorrowWithConfirm(player, amount)
             }
             "pay" -> {
                 if (args.size < 2) { Messages.warn(player, "使い方: /mrevo pay <金額>"); return true }
@@ -68,6 +81,30 @@ class ServerLoanCommand(
             }
             else -> sendHelp(sender)
         }
+        return true
+    }
+
+    /**
+     * /mrevo borrow の二重実行確認つき処理。
+     */
+    private fun handleBorrowWithConfirm(player: Player, amount: Double): Boolean {
+        val key = player.uniqueId
+        val now = System.currentTimeMillis()
+        val pending = borrowConfirmations[key]
+        if (pending == null || !pending.matches(amount) || pending.isExpired(now)) {
+            borrowConfirmations[key] = PendingBorrow(amount, now + CONFIRM_WINDOW_MS)
+            val guide = """
+                §l以下の内容で借入を実行します
+                §7- 借入金額: §e§l${BalanceFormats.coloredYen(amount)}
+                §lもう一度同じコマンドを${CONFIRM_WINDOW_MS / 1000}秒以内に実行して確認してください
+            """.trimIndent()
+            Messages.sendMultiline(player, guide)
+            return true
+        }
+
+        // 確認済み
+        borrowConfirmations.remove(key)
+        scope.launch { service.borrow(player, amount) }
         return true
     }
 
