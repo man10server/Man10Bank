@@ -80,7 +80,7 @@ class ServerLoanCommand(
             val loan = getRes.getOrNull()
             val borrow = loan?.borrowAmount?.let { BalanceFormats.colored(it) } ?: "0"
             val payment = loan?.paymentAmount?.let { BalanceFormats.colored(it) } ?: "未設定"
-            val last = loan?.lastPayDate?.let { DateFormats.fromIsoString(it) } ?: "-"
+            val last = loan?.lastPayDate?.let { DateFormats.toDateTime(it) } ?: "-"
             lines += listOf(
                 "§b借入額: $borrow",
                 "§b支払額: $payment",
@@ -93,7 +93,7 @@ class ServerLoanCommand(
 
         if (paymentInfoRes.isSuccess) {
             val info = paymentInfoRes.getOrNull()
-            val next = info?.nextRepayDate?.let { DateFormats.fromIsoString(it) } ?: "-"
+            val next = info?.nextRepayDate?.let { DateFormats.toDateTime(it) } ?: "-"
             val daily = info?.dailyInterestPerDay?.let { BalanceFormats.colored(it) } ?: "-"
             lines += listOf(
                 "§b次回返済日: $next",
@@ -137,7 +137,7 @@ class ServerLoanCommand(
         val res = service.logs(player, limit, page * limit)
         if (res.isSuccess) {
             val lines = res.getOrNull().orEmpty().map { log ->
-                val date = log.date?.let { DateFormats.fromIsoString(it) } ?: "-"
+                val date = log.date?.let { DateFormats.toDateTime(it) } ?: "-"
                 val action = log.action
                 val amount = log.amount?.let { BalanceFormats.colored(it) } ?: "-"
                 "$date §b${action} §7${amount}"

@@ -22,6 +22,7 @@ import red.man10.man10bank.api.model.response.Loan
 import red.man10.man10bank.util.BalanceFormats
 import red.man10.man10bank.util.ItemStackBase64
 import red.man10.man10bank.ui.loan.CollateralCollectUI
+import red.man10.man10bank.util.DateFormats
 import red.man10.man10bank.util.Messages
 import java.text.SimpleDateFormat
 import java.time.OffsetDateTime
@@ -180,16 +181,16 @@ class LoanService(
         meta.setCustomModelData(2)
         meta.displayName(Component.text("§c§l約束手形 §7§l(Promissory Note)"))
 
-        val sdf = SimpleDateFormat("yyyy-MM-dd")
         val borrowerName = Bukkit.getOfflinePlayer(UUID.fromString(loan.borrowUuid)).name
-        val paybackText = sdf.format(loan.paybackDate!!)
+        val paybackText = DateFormats.toDate(loan.paybackDate!!)
         val hasCollateral = !loan.collateralItem.isNullOrBlank()
         val debt = BalanceFormats.amount(loan.amount?:0.0)
         val lore = listOf(
             Component.text("§4§l========[Man10Bank]========"),
             Component.text("   §7§l債務者:  $borrowerName"),
             Component.text("   §8§l有効日:  $paybackText"),
-            Component.text("   §7§l支払額:  $debt 円${if (hasCollateral) " or 担保アイテム" else ""}"),
+            Component.text("   §7§l支払額:  $debt 円" ),
+            Component.text("   §8§l担保等:  ${if (hasCollateral) "あり" else "なし"}"),
             Component.text("§4§l==========================")
         )
         meta.lore(lore)
