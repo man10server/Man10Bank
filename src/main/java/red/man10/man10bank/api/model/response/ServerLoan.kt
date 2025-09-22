@@ -24,3 +24,9 @@ data class ServerLoanLog(
     val amount: Double? = null,
     val date: String? = null,
 )
+
+@Serializable
+data class PaymentInfoResponse(
+    val nextRepayDate: String,
+    val dailyInterestPerDay: Double,
+)

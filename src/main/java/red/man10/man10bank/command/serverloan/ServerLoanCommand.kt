@@ -76,30 +76,30 @@ class ServerLoanCommand(
         val limitRes = service.borrowLimit(player)
         val paymentInfoRes = service.paymentInfo(player)
         val lines = mutableListOf("§e§n == Man10 Revolving Loan ==")
-        if (getRes.isSuccess) {
-            val loan = getRes.getOrNull()
-            val borrow = loan?.borrowAmount?.let { BalanceFormats.coloredYen(it) } ?: "0"
-            val payment = loan?.paymentAmount?.let { BalanceFormats.coloredYen(it) } ?: "未設定"
-            val last = loan?.lastPayDate?.let { DateFormats.toDateTime(it) } ?: "-"
-            lines += listOf(
-                "§b借入額: $borrow",
-                "§b支払額: $payment",
-                "§7最終返済: $last",
-            )
-        }
-        if (limitRes.isSuccess) {
-            lines += "§b借入上限: ${BalanceFormats.coloredYen(limitRes.getOrNull() ?: 0.0)}"
+
+        if (getRes.isFailure || limitRes.isFailure || paymentInfoRes.isFailure) {
+            val msg = getRes.exceptionOrNull()?.message ?: limitRes.exceptionOrNull()?.message ?: "情報の取得に失敗しました。"
+            lines += listOf("§c$msg")
+            Messages.sendMultiline(plugin, player, lines.joinToString("\n"))
+            return
         }
 
-        if (paymentInfoRes.isSuccess) {
-            val info = paymentInfoRes.getOrNull()
-            val next = info?.nextRepayDate?.let { DateFormats.toDateTime(it) } ?: "-"
-            val daily = info?.dailyInterestPerDay?.let { BalanceFormats.coloredYen(it) } ?: "-"
-            lines += listOf(
-                "§b次回返済日: $next",
-                "§b1日あたりの利息: $daily",
-            )
-        }
+        val loan = getRes.getOrNull()
+        val info = paymentInfoRes.getOrNull()
+        val borrow = BalanceFormats.coloredYen(loan?.borrowAmount?: 0.0)
+        val payment = BalanceFormats.coloredYen(loan?.paymentAmount?: 0.0)
+        val daily = BalanceFormats.coloredYen(info?.dailyInterestPerDay?: 0.0)
+        val borrowLimit = BalanceFormats.coloredYen(limitRes.getOrNull() ?: 0.0)
+        val last = loan?.lastPayDate?.let { DateFormats.toDate(it) } ?: "-"
+        val next = info?.nextRepayDate?.let { DateFormats.toDate(it) } ?: "-"
+        lines += listOf(
+            "§b借入額: $borrow",
+            "§b支払額: $payment",
+            "§b日利息: $daily",
+            "§b借入上限: $borrowLimit",
+            "§b前回返済日: $last",
+            "§b次回返済日: $next",
+        )
 
         Messages.sendMultiline(plugin, player, lines.joinToString("\n"))
 

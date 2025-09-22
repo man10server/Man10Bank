@@ -34,13 +34,13 @@ class ServerLoanService(
             val loan = get(player).getOrNull()
             val payInfo = paymentInfo(player).getOrNull()
 
-            val borrowText = BalanceFormats.coloredYen(loan?.borrowAmount ?: 0.0)
-            val paymentText = loan?.paymentAmount?.let { BalanceFormats.coloredYen(it) } ?: "未設定"
+            val borrowText = BalanceFormats.amount(loan?.borrowAmount ?: 0.0)
+            val paymentText = loan?.paymentAmount?.let { BalanceFormats.amount(it) } ?: "未設定"
             val nextDateText = payInfo?.nextRepayDate?.let { DateFormats.toDate(it) } ?: "不明"
 
-            "§b§lリボの借入額: ${borrowText}§r\n" +
-            "§b§l支払額: ${paymentText}§r\n" +
-            "§b§l次の支払日: ${nextDateText}§r"
+            "§b§lまんじゅうリボ: §c§l${borrowText}円§r\n" +
+            "§b§l支払額: §c§l${paymentText}円§r\n" +
+            "§b§l次の支払日: §c§l${nextDateText}§r"
         }
     }
 
