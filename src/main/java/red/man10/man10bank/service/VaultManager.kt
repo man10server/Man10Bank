@@ -4,6 +4,8 @@ import net.milkbowl.vault.economy.Economy
 import org.bukkit.OfflinePlayer
 import org.bukkit.plugin.RegisteredServiceProvider
 import org.bukkit.plugin.java.JavaPlugin
+import red.man10.man10bank.command.balance.BalanceRegistry
+import red.man10.man10bank.util.BalanceFormats
 
 /**
  * Vault(Economy) 連携のシンプルなマネージャー。
@@ -51,12 +53,12 @@ class VaultManager(private val plugin: JavaPlugin) {
 
     /** 残高表示プロバイダの登録（電子マネー/Vault）。 */
     fun registerBalanceProvider() {
-        red.man10.man10bank.command.balance.BalanceRegistry.register(
+        BalanceRegistry.register(
             id = "vault",
             order = 10,
-            provider = red.man10.man10bank.command.balance.BalanceRegistry.Provider { player ->
+            provider = { player ->
                 val cash = getBalance(player)
-                "§b§l電子マネー: ${red.man10.man10bank.util.BalanceFormats.colored(cash)}§r"
+                "§b§l電子マネー: ${BalanceFormats.colored(cash)}§r"
             }
         )
     }

@@ -17,7 +17,6 @@ import red.man10.man10bank.command.transaction.WithdrawCommand
 import red.man10.man10bank.command.transaction.PayCommand
 import red.man10.man10bank.command.balance.BalanceCommand
 import red.man10.man10bank.command.balance.BalanceRegistry
-import red.man10.man10bank.util.BalanceFormats
 import red.man10.man10bank.config.ConfigManager
 import red.man10.man10bank.net.HttpClientFactory
 import red.man10.man10bank.service.HealthService
@@ -33,6 +32,7 @@ import red.man10.man10bank.service.ServerLoanService
 import red.man10.man10bank.command.serverloan.ServerLoanCommand
 import red.man10.man10bank.api.LoanApiClient
 import red.man10.man10bank.service.LoanService
+import red.man10.man10bank.service.BankService
 
 class Man10Bank : JavaPlugin(), Listener {
 
@@ -55,6 +55,7 @@ class Man10Bank : JavaPlugin(), Listener {
     private lateinit var serverLoanService: ServerLoanService
     private lateinit var loanApi: LoanApiClient
     private lateinit var loanService: LoanService
+    private lateinit var bankService: BankService
 
     // サーバー識別名（configの serverName が空/未設定の場合はBukkitのサーバー名を使用）
     lateinit var serverName: String
@@ -107,6 +108,7 @@ class Man10Bank : JavaPlugin(), Listener {
         chequeService = ChequeService(this, scope, chequesApi)
         serverLoanService = ServerLoanService(this, serverLoanApi)
         loanService = LoanService(this, loanApi)
+        bankService = BankService(bankApi)
         uiService = UIService(this)
 
         // 起動時に現金アイテム設定を読み込む
@@ -148,7 +150,7 @@ class Man10Bank : JavaPlugin(), Listener {
 
         // 残高系（/bal, /balance ほか別名にも割り当て）
         listOf("bal", "balance", "money", "bank").forEach { cmd ->
-            getCommand(cmd)?.setExecutor(BalanceCommand(this, scope, vaultManager, bankApi, cashItemManager))
+            getCommand(cmd)?.setExecutor(BalanceCommand(this, scope))
         }
     }
 
@@ -163,10 +165,6 @@ class Man10Bank : JavaPlugin(), Listener {
         // デフォルトの表示プロバイダを登録（実装側で登録）
         cashItemManager.registerBalanceProvider()
         vaultManager.registerBalanceProvider()
-        // bank はここで登録
-        BalanceRegistry.register(id = "bank", order = 20) { player ->
-            val bal = bankApi.getBalance(player.uniqueId).getOrElse { 0.0 }
-            if (bal <= 0.0) "" else "§b§l銀行: ${BalanceFormats.colored(bal)}§r"
-        }
+        bankService.registerBalanceProvider()
     }
 }

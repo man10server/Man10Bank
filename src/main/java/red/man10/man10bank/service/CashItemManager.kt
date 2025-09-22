@@ -5,6 +5,8 @@ import org.bukkit.configuration.file.YamlConfiguration
 import org.bukkit.inventory.ItemStack
 import org.bukkit.persistence.PersistentDataType
 import org.bukkit.plugin.java.JavaPlugin
+import red.man10.man10bank.command.balance.BalanceRegistry
+import red.man10.man10bank.util.BalanceFormats
 import java.io.File
 import java.io.IOException
 
@@ -115,12 +117,12 @@ class CashItemManager(private val plugin: JavaPlugin) {
 
     /** 残高表示プロバイダの登録（現金）。 */
     fun registerBalanceProvider() {
-        red.man10.man10bank.command.balance.BalanceRegistry.register(
+        BalanceRegistry.register(
             id = "cash",
             order = 5,
-            provider = red.man10.man10bank.command.balance.BalanceRegistry.Provider { player ->
+            provider = { player ->
                 val total = countTotalCash(player)
-                if (total <= 0.0) "" else "§b§l現金: ${red.man10.man10bank.util.BalanceFormats.colored(total)}§r"
+                if (total <= 0.0) "" else "§b§l現金: ${BalanceFormats.colored(total)}§r"
             }
         )
     }
