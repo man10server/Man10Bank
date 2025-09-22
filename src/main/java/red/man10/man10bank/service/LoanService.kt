@@ -37,7 +37,7 @@ class LoanService(
         borrower: Player,
         repayAmount: Double,
         paybackInDays: Int,
-        collateral: ItemStack?,
+        collaterals: List<ItemStack>?,
     ): Result<Loan> {
         if (repayAmount <= 0.0) return Result.failure(IllegalArgumentException("金額が不正です。正の数を指定してください。"))
         if (paybackInDays <= 0) return Result.failure(IllegalArgumentException("返済期限日数が不正です。1以上を指定してください。"))
@@ -48,7 +48,7 @@ class LoanService(
             borrowUuid = borrower.uniqueId.toString(),
             amount = repayAmount,
             paybackDate = paybackDateIso,
-            collateralItem = encodeCollateralOrNull(collateral),
+            collateralItem = encodeCollateralsOrNull(collaterals),
         )
         return api.create(body)
     }
@@ -78,5 +78,6 @@ class LoanService(
     /**
      * 担保アイテムをBase64へ変換（必要時に使用）。
      */
-    internal fun encodeCollateralOrNull(item: ItemStack?): String? = item?.let { ItemStackBase64.encode(it) }
+    internal fun encodeCollateralsOrNull(items: List<ItemStack>?): String? =
+        items?.filter { !it.type.isAir }?.takeIf { it.isNotEmpty() }?.let { ItemStackBase64.encodeItems(it) }
 }

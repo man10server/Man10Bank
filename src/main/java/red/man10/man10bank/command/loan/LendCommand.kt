@@ -256,10 +256,8 @@ class LendCommand(
             Messages.error(sender, "借り手がオフラインのため、実行できません。")
             return true
         }
-        val collateral = proposal.collaterals.firstOrNull()
-
         scope.launch {
-            val result = loanService.create(sender, borrower, proposal.repayAmount, proposal.paybackDays, collateral)
+            val result = loanService.create(sender, borrower, proposal.repayAmount, proposal.paybackDays, proposal.collaterals)
             if (result.isSuccess) {
                 val loan = result.getOrNull()
                 Messages.send(plugin, sender, "§aローンを作成しました。ID: ${loan?.id ?: "不明"}")
