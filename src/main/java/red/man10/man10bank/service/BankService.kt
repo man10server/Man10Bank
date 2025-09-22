@@ -42,7 +42,14 @@ class BankService(
             return
         }
         // Bank へ入金
-        val result = api.deposit(depositRequest(player, amount))
+        val result = api.deposit(
+            depositRequest(
+                player = player,
+                amount = amount,
+                note = "PlayerDepositOnCommand",
+                displayNote = "/depositによる入金",
+            )
+        )
         if (result.isSuccess) {
             val newBank = result.getOrNull() ?: 0.0
             Messages.send(plugin, player,
@@ -62,7 +69,14 @@ class BankService(
     /** Bank -> Vault 出金処理（メッセージ送信込み）。 */
     suspend fun withdraw(player: Player, amount: Double) {
         // 銀行から出金
-        val result = api.withdraw(withdrawRequest(player, amount))
+        val result = api.withdraw(
+            withdrawRequest(
+                player = player,
+                amount = amount,
+                note = "PlayerWithdrawOnCommand",
+                displayNote = "/withdrawによる出金",
+            )
+        )
 
         if (!result.isSuccess) {
             val ex = result.exceptionOrNull()
@@ -92,7 +106,14 @@ class BankService(
 
         // Vault への入金に失敗したら銀行に返金
         Messages.error(plugin, player, "出金は成功しましたが、Vaultへの反映に失敗しました。銀行に返金します")
-        val refundResult = api.deposit(refundRequest(player, amount))
+        val refundResult = api.deposit(
+            depositRequest(
+                player = player,
+                amount = amount,
+                note = "RefundForFailedVaultDeposit",
+                displayNote = "Vaultへの反映失敗による返金",
+            )
+        )
         if (refundResult.isSuccess) {
             Messages.send(plugin, player, "返金に成功しました。銀行残高: ${BalanceFormats.colored(refundResult.getOrNull() ?: 0.0)}")
         } else {
@@ -122,37 +143,6 @@ class BankService(
         return if (amount > 0.0) amount else null
     }
 
-    private fun depositRequest(sender: Player, amount: Double): DepositRequest {
-        return DepositRequest(
-            uuid = sender.uniqueId.toString(),
-            amount = amount,
-            pluginName = plugin.name,
-            note = "PlayerDepositOnCommand",
-            displayNote = "/depositによる入金",
-            server = plugin.serverName
-        )
-    }
-
-    private fun withdrawRequest(sender: Player, amount: Double): WithdrawRequest =
-        WithdrawRequest(
-            uuid = sender.uniqueId.toString(),
-            amount = amount,
-            pluginName = plugin.name,
-            note = "PlayerWithdrawOnCommand",
-            displayNote = "/withdrawによる出金",
-            server = plugin.serverName
-        )
-
-    private fun refundRequest(sender: Player, amount: Double): DepositRequest =
-        DepositRequest(
-            uuid = sender.uniqueId.toString(),
-            amount = amount,
-            pluginName = plugin.name,
-            note = "RefundForFailedVaultDeposit",
-            displayNote = "Vaultへの反映失敗による返金",
-            server = plugin.serverName
-        )
-
     /**
      * 振り込み（送金）処理。
      * - 送金元から出金 → 受取人へ入金 → 失敗時は送金元へ返金
@@ -164,13 +154,11 @@ class BankService(
         }
         // 1) 送金元から出金
         val withdraw = api.withdraw(
-            WithdrawRequest(
-                uuid = sender.uniqueId.toString(),
+            withdrawRequest(
+                player = sender,
                 amount = amount,
-                pluginName = plugin.name,
                 note = "TransferTo${targetName}",
                 displayNote = "${targetName}へ送金",
-                server = plugin.serverName
             )
         )
 
@@ -186,13 +174,14 @@ class BankService(
 
         // 2) 受取人へ入金
         val deposit = api.deposit(
+            // 受取人用なので uuid は受取人
             DepositRequest(
                 uuid = targetUuid.toString(),
                 amount = amount,
                 pluginName = plugin.name,
                 note = "TransferFrom${sender.name}",
                 displayNote = "${sender.name}からの送金",
-                server = plugin.serverName
+                server = plugin.serverName,
             )
         )
 
@@ -209,13 +198,11 @@ class BankService(
 
         // 3) 受取失敗時は送金元へ返金
         val refund = api.deposit(
-            DepositRequest(
-                uuid = sender.uniqueId.toString(),
+            depositRequest(
+                player = sender,
                 amount = amount,
-                pluginName = plugin.name,
                 note = "RefundForFailedTransfer",
                 displayNote = "/mpay送金失敗の返金",
-                server = plugin.serverName
             )
         )
 
@@ -229,4 +216,24 @@ class BankService(
             )
         }
     }
+
+    private fun depositRequest(player: Player, amount: Double, note: String, displayNote: String): DepositRequest =
+        DepositRequest(
+            uuid = player.uniqueId.toString(),
+            amount = amount,
+            pluginName = plugin.name,
+            note = note,
+            displayNote = displayNote,
+            server = plugin.serverName,
+        )
+
+    private fun withdrawRequest(player: Player, amount: Double, note: String, displayNote: String): WithdrawRequest =
+        WithdrawRequest(
+            uuid = player.uniqueId.toString(),
+            amount = amount,
+            pluginName = plugin.name,
+            note = note,
+            displayNote = displayNote,
+            server = plugin.serverName,
+        )
 }
