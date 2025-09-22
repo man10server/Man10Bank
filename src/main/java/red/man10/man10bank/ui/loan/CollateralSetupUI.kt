@@ -26,7 +26,7 @@ class CollateralSetupUI(
             val newItems = base.getCollateralItems()
             // UI上のアイテムはプレイヤーに返却（消失防止）
             val inv2 = base.getInventory()
-            for (slot in CollateralBaseUI.COLLATERAL_SLOTS) {
+            for (slot in COLLATERAL_SLOTS) {
                 val it = inv2.getItem(slot) ?: continue
                 if (!it.type.isAir) {
                     event.player.inventory.addItem(it)
@@ -38,8 +38,7 @@ class CollateralSetupUI(
     }
 ) {
     init {
-        // 既存担保を先頭から配置
-        initialCollaterals?.let { setCollateralItems(it.map { it.clone() }) }
+        initialCollaterals?.let { setCollateralItems(it) }
     }
 
     fun open() { super.open(player) }
