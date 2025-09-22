@@ -23,7 +23,7 @@ object DateFormats {
             try {
                 Instant.parse(iso8601).atZone(zone).format(dateTimeFormatter)
             } catch (_: Exception) {
-                iso8601
+                iso8601.replace("T", " ")
             }
         }
     }
@@ -35,7 +35,7 @@ object DateFormats {
             try {
                 Instant.parse(iso8601).atZone(zone).format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
             } catch (_: Exception) {
-                iso8601
+                iso8601.replace("T", " ")
             }
         }
     }

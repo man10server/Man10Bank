@@ -68,6 +68,10 @@ commands:
     description: サーバーローン管理コマンド
     permission: mrevo
     usage: /mrevo
+  ballog:
+    description: 銀行ログ閲覧コマンド
+    permission: ballog
+    usage: /ballog [page]
 permissions:
   man10bank.user:
     description: Man10Bankのユーザー権限
@@ -77,10 +81,7 @@ permissions:
     description: issue money
   mcheque:
     default: op
-    description: issue chheque
+    description: issue cheque
   mrevo:
     default: op
     description: server loan system
-  ballog:
-    default: op
-    description: bank log

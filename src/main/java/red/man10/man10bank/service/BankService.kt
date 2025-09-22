@@ -213,6 +213,17 @@ class BankService(
         }
     }
 
+    /**
+     * 取引ログの取得（失敗時はProblemDetailsを表示し、nullを返す）。
+     */
+    suspend fun getLogs(player: Player, limit: Int = 10, offset: Int = 0): List<red.man10.man10bank.api.model.response.MoneyLog>? {
+        val result = api.getLogs(player.uniqueId, limit, offset)
+        if (result.isSuccess) return result.getOrNull()
+        val ex = result.exceptionOrNull()
+        Messages.error(plugin, player, "ログ取得に失敗しました: ${ex?.message ?: "不明なエラー"}")
+        return null
+    }
+
     /** 銀行残高の取得（エラー時はnull）。*/
     private suspend fun getBalance(player: Player): Double? =
         api.getBalance(player.uniqueId).getOrNull()

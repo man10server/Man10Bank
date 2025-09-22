@@ -16,7 +16,6 @@ import red.man10.man10bank.command.transaction.DepositCommand
 import red.man10.man10bank.command.transaction.WithdrawCommand
 import red.man10.man10bank.command.transaction.PayCommand
 import red.man10.man10bank.command.balance.BalanceCommand
-import red.man10.man10bank.command.balance.BalanceRegistry
 import red.man10.man10bank.config.ConfigManager
 import red.man10.man10bank.net.HttpClientFactory
 import red.man10.man10bank.service.HealthService
@@ -31,6 +30,7 @@ import red.man10.man10bank.api.ServerLoanApiClient
 import red.man10.man10bank.service.ServerLoanService
 import red.man10.man10bank.command.serverloan.ServerLoanCommand
 import red.man10.man10bank.api.LoanApiClient
+import red.man10.man10bank.command.transaction.BalLogCommand
 import red.man10.man10bank.service.LoanService
 import red.man10.man10bank.service.BankService
 
@@ -142,6 +142,7 @@ class Man10Bank : JavaPlugin(), Listener {
         getCommand("deposit")?.setExecutor(DepositCommand(this, scope, bankService))
         getCommand("withdraw")?.setExecutor(WithdrawCommand(this, scope, bankService))
         getCommand("mpay")?.setExecutor(PayCommand(this, scope, bankService))
+        getCommand("ballog")?.setExecutor(BalLogCommand(scope, bankService))
         getCommand("bankop")?.setExecutor(BankOpCommand(this, scope, healthService, cashItemManager))
         getCommand("atm")?.setExecutor(AtmCommand(this, scope, atmApi, vaultManager, cashItemManager, cashExchangeService))
         getCommand("mcheque")?.setExecutor(ChequeCommand(this, scope, chequeService))
