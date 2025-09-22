@@ -1020,7 +1020,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Loan"
+                  "$ref": "#/components/schemas/LoanRepayResponse"
                 }
               }
             }
@@ -2074,9 +2074,41 @@
             "format": "date-time"
           },
           "collateralItem": {
-            "maxLength": 128,
-            "minLength": 0,
             "type": "string"
+          }
+        }
+      },
+      "LoanRepayOutcome": {
+        "type": "integer"
+      },
+      "LoanRepayResponse": {
+        "required": [
+          "loanId",
+          "outcome",
+          "collectedAmount",
+          "remainingAmount",
+          "collateralItem"
+        ],
+        "type": "object",
+        "properties": {
+          "loanId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/LoanRepayOutcome"
+          },
+          "collectedAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "remainingAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "collateralItem": {
+            "type": "string",
+            "nullable": true
           }
         }
       },

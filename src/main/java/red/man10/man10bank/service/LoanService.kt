@@ -14,6 +14,7 @@ import red.man10.man10bank.Man10Bank
 import red.man10.man10bank.api.LoanApiClient
 import red.man10.man10bank.api.model.request.LoanCreateRequest
 import red.man10.man10bank.api.model.response.Loan
+import red.man10.man10bank.api.model.response.LoanRepayResponse
 import red.man10.man10bank.util.BalanceFormats
 import red.man10.man10bank.util.ItemStackBase64
 import java.text.SimpleDateFormat
@@ -78,7 +79,7 @@ class LoanService(
      * 返済実行。
      * - collector は回収者（任意）。null の場合はAPIへ未指定で委譲
      */
-    suspend fun repay(id: Int, collector: Player): Result<Loan> =
+    suspend fun repay(id: Int, collector: Player): Result<LoanRepayResponse> =
         api.repay(id, collector.uniqueId.toString())
 
     /**

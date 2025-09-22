@@ -11,6 +11,7 @@ import io.ktor.http.contentType
 import io.ktor.client.request.setBody
 import red.man10.man10bank.api.model.request.LoanCreateRequest
 import red.man10.man10bank.api.model.response.Loan
+import red.man10.man10bank.api.model.response.LoanRepayResponse
 import java.util.UUID
 
 /** /api/Loan 用のAPIクライアント */
@@ -32,7 +33,7 @@ class LoanApiClient(private val client: HttpClient) {
 
     suspend fun get(id: Int): Result<Loan> = runCatching { client.get("/api/Loan/${id}").body() }
 
-    suspend fun repay(id: Int, collectorUuid: String?): Result<Loan> = runCatching {
+    suspend fun repay(id: Int, collectorUuid: String?): Result<LoanRepayResponse> = runCatching {
         client.post("/api/Loan/${id}/repay") {
             collectorUuid?.let { parameter("collectorUuid", it) }
         }.body()
