@@ -36,12 +36,6 @@ class LoanService(
     private val oldIdKey = NamespacedKey.fromString("id")!!
 
     /**
-     * 借り手のローン取得（プレイヤー単位）。
-     */
-    suspend fun getBorrowerLoans(player: Player, limit: Int = 100, offset: Int = 0): Result<List<Loan>> =
-        api.getBorrowerLoans(player.uniqueId, limit, offset)
-
-    /**
      * ローン作成。
      * - 返却: 作成された Loan
      * - collateral は任意（null 可）
@@ -57,12 +51,14 @@ class LoanService(
         if (paybackInDays <= 0) return Result.failure(IllegalArgumentException("返済期限日数が不正です。1以上を指定してください。"))
 
         val paybackDateIso = OffsetDateTime.now(ZoneOffset.UTC).plusDays(paybackInDays.toLong()).toString()
+        val encoded = collaterals?.filter { !it.type.isAir }?.takeIf { it.isNotEmpty() }?.let { ItemStackBase64.encodeItems(it) }
+
         val body = LoanCreateRequest(
             lendUuid = lender.uniqueId.toString(),
             borrowUuid = borrower.uniqueId.toString(),
             amount = repayAmount,
             paybackDate = paybackDateIso,
-            collateralItem = encodeCollateralsOrNull(collaterals),
+            collateralItem = encoded,
         )
         return api.create(body)
     }
@@ -71,6 +67,12 @@ class LoanService(
      * ローン詳細の取得。
      */
     suspend fun get(id: Int): Result<Loan> = api.get(id)
+
+    /**
+     * 借り手のローン取得（プレイヤー単位）。
+     */
+    suspend fun getBorrowerLoans(player: Player, limit: Int = 100, offset: Int = 0): Result<List<Loan>> =
+        api.getBorrowerLoans(player.uniqueId, limit, offset)
 
     /**
      * 返済実行。
@@ -86,16 +88,8 @@ class LoanService(
     suspend fun releaseCollateral(id: Int, borrower: Player): Result<Loan> =
         api.releaseCollateral(id, borrower.uniqueId.toString())
 
-    // --------------
-    // 内部ユーティリティ
-    // --------------
-    /**
-     * 担保アイテムをBase64へ変換（必要時に使用）。
-     */
-    internal fun encodeCollateralsOrNull(items: List<ItemStack>?): String? =
-        items?.filter { !it.type.isAir }?.takeIf { it.isNotEmpty() }?.let { ItemStackBase64.encodeItems(it) }
 
-    fun issueDebtNote(loan: Loan): ItemStack {
+    private fun issueDebtNote(loan: Loan): ItemStack {
         val item = ItemStack(Material.PAPER)
         val meta = item.itemMeta
         meta.setCustomModelData(2)
@@ -114,8 +108,6 @@ class LoanService(
             Component.text("§4§l==========================")
         )
         meta.lore(lore)
-
-        // PDC: loan_id のみ
         meta.persistentDataContainer.set(loanIdKey, PersistentDataType.INTEGER, loan.id ?: -1)
 
         meta.addEnchant(Enchantment.FORTUNE, 1, true)
@@ -128,7 +120,7 @@ class LoanService(
     /**
      * 手形Itemから Loan ID を取得（"loan_id" / 旧形式 "id" をサポート）。
      */
-    fun getLoanId(item: ItemStack?): Int? {
+    private fun getLoanId(item: ItemStack?): Int? {
         val meta = item?.itemMeta ?: return null
         val pdc = meta.persistentDataContainer
         pdc.get(loanIdKey, PersistentDataType.INTEGER)?.let { return it }
