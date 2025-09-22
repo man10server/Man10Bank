@@ -175,7 +175,7 @@ class LoanService(
             0 -> {
                 val collected = resp.collectedAmount
                 val remaining = resp.remainingAmount
-                Messages.send(plugin, collector, "返済を回収しました。金額: ${BalanceFormats.colored(collected)} 残額: ${BalanceFormats.colored(remaining)}")
+                Messages.send(plugin, collector, "返済を回収しました。金額: ${BalanceFormats.coloredYen(collected)} 残額: ${BalanceFormats.coloredYen(remaining)}")
             }
             1 -> {
                 val base64 = resp.collateralItem

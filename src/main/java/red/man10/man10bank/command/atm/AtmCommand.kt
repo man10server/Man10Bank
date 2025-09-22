@@ -77,7 +77,7 @@ class AtmCommand(
             val logs = result.getOrNull().orEmpty()
             val lines = logs.map { log ->
                 val kind = if (log.deposit == true) "§a§l入金" else "§c§l出金"
-                val amt = BalanceFormats.colored(log.amount ?: 0.0)
+                val amt = BalanceFormats.coloredYen(log.amount ?: 0.0)
                 val date = log.date?.let { DateFormats.toDateTime(it) } ?: ""
                 "§7[$date] §e$kind§r: $amt"
             }

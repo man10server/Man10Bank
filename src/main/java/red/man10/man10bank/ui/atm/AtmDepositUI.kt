@@ -79,7 +79,7 @@ class AtmDepositUI(
 
             val deposited = exchange.depositCashToVault(player, targets)
             if (deposited > 0.0) {
-                Messages.send(p, "入金しました: ${BalanceFormats.colored(deposited)}")
+                Messages.send(p, "入金しました: ${BalanceFormats.coloredYen(deposited)}")
             }
             p.closeInventory()
         }

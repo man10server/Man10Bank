@@ -58,7 +58,7 @@ class VaultManager(private val plugin: JavaPlugin) {
             order = 10,
             provider = { player ->
                 val cash = getBalance(player)
-                "§b§l電子マネー: ${BalanceFormats.colored(cash)}§r"
+                "§b§l電子マネー: ${BalanceFormats.coloredYen(cash)}§r"
             }
         )
     }

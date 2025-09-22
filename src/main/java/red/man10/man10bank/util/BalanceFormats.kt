@@ -8,7 +8,7 @@ import java.util.Locale
  */
 object BalanceFormats {
     /** Double入力を色付きで整数表示に（小数は切り捨て）。 */
-    fun colored(value: Double): String = "§e§l${amount(value)}§r"
+    fun coloredYen(value: Double): String = "§e§l${amount(value)}円§r"
 
     /** Double入力を整数表示に（小数は切り捨て）。 */
     fun amount(value: Double): String = String.format(Locale.JAPAN, "%,d", value.toLong())

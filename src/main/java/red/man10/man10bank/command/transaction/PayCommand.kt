@@ -77,7 +77,7 @@ class PayCommand(
             Messages.sendMultiline(sender,"""
                 §l以下の内容で送金します
                 §7- 送金相手: §e§l$targetName 
-                §7- 送金金額: ${BalanceFormats.colored(amount)}
+                §7- 送金金額: ${BalanceFormats.coloredYen(amount)}
                 §l§nもう一度同じコマンドを${CONFIRM_WINDOW_MS / 1000}秒以内に実行して確認してください
             """.trimIndent())
             return true

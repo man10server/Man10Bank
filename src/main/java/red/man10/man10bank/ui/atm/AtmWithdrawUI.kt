@@ -57,7 +57,7 @@ class AtmWithdrawUI(
     private fun createWithdrawButton(amount: Double, balance: Double): UIButton {
         val base = cashItems.getItemForAmount(amount)?: ItemStack(Material.PAPER)
         val lore = (base.lore()?: listOf()).toMutableList()
-        lore.add(Component.text("§b§l電子マネー: ${BalanceFormats.colored(balance)}§b§l円"))
+        lore.add(Component.text("§b§l電子マネー: ${BalanceFormats.coloredYen(balance)}§b§l"))
         base.lore(lore)
 
         val icon = base.clone()
@@ -69,7 +69,7 @@ class AtmWithdrawUI(
             }
             val inv = p.inventory
             inv.addItem(item)
-            Messages.send(p, "引き出しました: ${BalanceFormats.colored(amount)}")
+            Messages.send(p, "引き出しました: ${BalanceFormats.coloredYen(amount)}")
             open()
         }
     }

@@ -15,9 +15,6 @@ import red.man10.man10bank.ui.loan.CollateralSetupUI
 import red.man10.man10bank.ui.loan.CollateralViewUI
 import red.man10.man10bank.util.BalanceFormats
 import red.man10.man10bank.util.Messages
-import java.time.LocalDate
-import java.time.ZoneOffset
-import java.time.temporal.ChronoUnit
 import java.util.*
 
 /**
@@ -143,8 +140,8 @@ class LendCommand(
         val lines = listOf(
             "§e§l[借金の提案]",
             "借入相手: ${lender.name}",
-            "借入金額: ${BalanceFormats.colored(p.amount)}",
-            "返済金額: ${BalanceFormats.colored(p.repayAmount)}",
+            "借入金額: ${BalanceFormats.coloredYen(p.amount)}",
+            "返済金額: ${BalanceFormats.coloredYen(p.repayAmount)}",
             "返済期限: ${p.paybackDays} 日",
         )
         Messages.sendMultiline(borrower, lines.joinToString("\n"))
@@ -227,8 +224,8 @@ class LendCommand(
         val lines = listOf(
             "§e§l[借金の最終確認]",
             "貸出相手: ${borrower.name}",
-            "借入金額: ${BalanceFormats.colored(p.amount)}",
-            "返済金額: ${BalanceFormats.colored(p.repayAmount)}",
+            "借入金額: ${BalanceFormats.coloredYen(p.amount)}",
+            "返済金額: ${BalanceFormats.coloredYen(p.repayAmount)}",
             "返済期限: ${p.paybackDays} 日",
             "担保点数: ${p.collaterals.size}",
         )
@@ -278,7 +275,7 @@ class LendCommand(
             if (result.isSuccess) {
                 val loan = result.getOrNull()
                 Messages.send(plugin, sender, "§aローンを作成しました。ID: ${loan?.id ?: "不明"}")
-                Messages.send(plugin, borrower, "§a借入が確定しました。金額: ${BalanceFormats.colored(proposal.repayAmount)}")
+                Messages.send(plugin, borrower, "§a借入が確定しました。金額: ${BalanceFormats.coloredYen(proposal.repayAmount)}円")
                 remove(id)
             } else {
                 val msg = result.exceptionOrNull()?.message ?: "ローン作成に失敗しました。"
@@ -321,7 +318,7 @@ class LendCommand(
             loans.forEach { loan ->
                 val id = loan.id ?: -1
                 val lender = loan.lendPlayer
-                val amount = BalanceFormats.colored(loan.amount ?: 0.0)
+                val amount = BalanceFormats.coloredYen(loan.amount ?: 0.0)
                 val deadline = loan.paybackDate?.let { red.man10.man10bank.util.DateFormats.toDateTime(it) } ?: "-"
                 val hasCollateral = !loan.collateralItem.isNullOrBlank()
                 val collateral = if (hasCollateral) "§6担保未回収" else "§7担保なし"

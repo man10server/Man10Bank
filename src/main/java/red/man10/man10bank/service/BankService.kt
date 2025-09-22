@@ -25,7 +25,7 @@ class BankService(
     fun registerBalanceProvider() {
         BalanceRegistry.register(id = "bank", order = 20) { player ->
             val bal = getBalance(player)?: 0.0
-            if (bal <= 0.0) "" else "§b§l銀行: ${BalanceFormats.colored(bal)}§r"
+            if (bal <= 0.0) "" else "§b§l銀行: ${BalanceFormats.coloredYen(bal)}§r"
         }
     }
 
@@ -50,16 +50,16 @@ class BankService(
             val newBank = result.getOrNull() ?: 0.0
             Messages.send(plugin, player,
                 "入金に成功しました。" +
-                        "§b金額: ${BalanceFormats.colored(amount)} " +
-                        "§b銀行残高: ${BalanceFormats.colored(newBank)} " +
-                        "§b電子マネー: ${BalanceFormats.colored(vault.getBalance(player))}"
+                        "§b金額: ${BalanceFormats.coloredYen(amount)} " +
+                        "§b銀行残高: ${BalanceFormats.coloredYen(newBank)} " +
+                        "§b電子マネー: ${BalanceFormats.coloredYen(vault.getBalance(player))}"
             )
             return
         }
         // 失敗したので Vault に返金
         vault.deposit(player, amount)
         val msg = result.exceptionOrNull()?.message ?: "不明なエラー"
-        Messages.error(plugin, player, "入金に失敗しました: $msg 金額: ${BalanceFormats.colored(amount)}")
+        Messages.error(plugin, player, "入金に失敗しました: $msg 金額: ${BalanceFormats.coloredYen(amount)}")
     }
 
     /** Bank -> Vault 出金処理（メッセージ送信込み）。 */
@@ -93,9 +93,9 @@ class BankService(
                 plugin,
                 player,
                 "出金に成功しました。" +
-                        "§b金額: ${BalanceFormats.colored(amount)} " +
-                        "§b銀行残高: ${BalanceFormats.colored(newBank)} " +
-                        "§b電子マネー: ${BalanceFormats.colored(vault.getBalance(player))}"
+                        "§b金額: ${BalanceFormats.coloredYen(amount)} " +
+                        "§b銀行残高: ${BalanceFormats.coloredYen(newBank)} " +
+                        "§b電子マネー: ${BalanceFormats.coloredYen(vault.getBalance(player))}"
             )
             return
         }
@@ -111,9 +111,9 @@ class BankService(
             )
         )
         if (refundResult.isSuccess) {
-            Messages.send(plugin, player, "返金に成功しました。銀行残高: ${BalanceFormats.colored(refundResult.getOrNull() ?: 0.0)}")
+            Messages.send(plugin, player, "返金に成功しました。銀行残高: ${BalanceFormats.coloredYen(refundResult.getOrNull() ?: 0.0)}")
         } else {
-            Messages.error(plugin, player, "${BalanceFormats.colored(amount)}円の返金に失敗しました。至急管理者に連絡してください！")
+            Messages.error(plugin, player, "${BalanceFormats.coloredYen(amount)}円の返金に失敗しました。至急管理者に連絡してください！")
         }
     }
 
@@ -183,11 +183,11 @@ class BankService(
 
         if (deposit.isSuccess) {
             Messages.send(plugin, sender,
-                "送金に成功しました。送金先: $targetName 金額: ${BalanceFormats.colored(amount)}"
+                "送金に成功しました。送金先: $targetName 金額: ${BalanceFormats.coloredYen(amount)}"
             )
             // オンラインなら受取通知（銀行残高は省略）
             plugin.server.getPlayer(targetUuid)?.let {
-                Messages.send(plugin, it, "${sender.name} さんから ${BalanceFormats.colored(amount)} 円の送金を受け取りました。")
+                Messages.send(plugin, it, "${sender.name} さんから ${BalanceFormats.coloredYen(amount)}の送金を受け取りました。")
             }
             return
         }
@@ -208,7 +208,7 @@ class BankService(
             )
         } else {
             Messages.error(plugin, sender,
-                "${BalanceFormats.colored(amount)}円の返金に失敗しました。至急管理者に連絡してください！"
+                "${BalanceFormats.coloredYen(amount)}の返金に失敗しました。至急管理者に連絡してください！"
             )
         }
     }

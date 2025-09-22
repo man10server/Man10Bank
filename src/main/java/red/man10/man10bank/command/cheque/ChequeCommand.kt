@@ -56,7 +56,7 @@ class ChequeCommand(
                 if (remains.isNotEmpty()) {
                     remains.values.forEach { sender.world.dropItemNaturally(sender.location, it) }
                 }
-                val msg = (if (isOpLabel) "運営小切手を発行しました。" else "小切手を発行しました。") + " 金額: ${BalanceFormats.colored(amount)}"
+                val msg = (if (isOpLabel) "運営小切手を発行しました。" else "小切手を発行しました。") + " 金額: ${BalanceFormats.coloredYen(amount)}"
                 Messages.send(plugin, sender, msg)
             })
         }

@@ -38,7 +38,7 @@ class BalLogCommand(
                 val date = log.date?.let { DateFormats.toDateTime(it) } ?: "-"
                 val isDeposit = (log.deposit == true)
                 val type = if (isDeposit) "§a§l入金" else "§c§l出金"
-                val amount = BalanceFormats.colored(log.amount ?: 0.0)
+                val amount = BalanceFormats.coloredYen(log.amount ?: 0.0)
                 val note = log.displayNote
                 "§7${date} §b${type} §f${amount} §7- $note"
             }

@@ -52,7 +52,7 @@ class ChequeService(
             plugin.server.scheduler.runTask(plugin, Runnable {
                 if (result.isSuccess) {
                     val amount = result.getOrNull() ?: 0.0
-                    Messages.send(player, "小切手を使用しました。金額: ${BalanceFormats.colored(amount)}")
+                    Messages.send(player, "小切手を使用しました。金額: ${BalanceFormats.coloredYen(amount)}")
                 } else {
                     val msg = result.exceptionOrNull()?.message ?: "小切手の使用に失敗しました。"
                     Messages.error(player, msg)

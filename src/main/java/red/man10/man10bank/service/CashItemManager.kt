@@ -122,7 +122,7 @@ class CashItemManager(private val plugin: JavaPlugin) {
             order = 5,
             provider = { player ->
                 val total = countTotalCash(player)
-                if (total <= 0.0) "" else "§b§l現金: ${BalanceFormats.colored(total)}§r"
+                if (total <= 0.0) "" else "§b§l現金: ${BalanceFormats.coloredYen(total)}§r"
             }
         )
     }

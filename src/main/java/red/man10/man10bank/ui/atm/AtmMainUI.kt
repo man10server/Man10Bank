@@ -3,13 +3,11 @@ package red.man10.man10bank.ui.atm
 import net.kyori.adventure.text.Component
 import org.bukkit.Material
 import org.bukkit.entity.Player
-import org.bukkit.event.inventory.InventoryClickEvent
 import org.bukkit.inventory.ItemStack
 import red.man10.man10bank.service.VaultManager
 import red.man10.man10bank.ui.InventoryUI
 import red.man10.man10bank.ui.UIButton
 import red.man10.man10bank.util.BalanceFormats
-import red.man10.man10bank.util.Messages
 
 class AtmMainUI(
     private val player: Player,
@@ -41,7 +39,7 @@ class AtmMainUI(
         val item = ItemStack(Material.CHEST).apply {
             editMeta { meta ->
                 meta.displayName(Component.text("§b§l入金する"))
-                meta.lore(listOf(Component.text("§b§l現在の電子マネー: ${BalanceFormats.colored(balance)}")))
+                meta.lore(listOf(Component.text("§b§l現在の電子マネー: ${BalanceFormats.coloredYen(balance)}")))
             }
         }
         val button = UIButton(item)
@@ -55,7 +53,7 @@ class AtmMainUI(
         val item = ItemStack(Material.DISPENSER).apply {
             editMeta { meta ->
                 meta.displayName(Component.text("§c§l出金する"))
-                meta.lore(listOf(Component.text("§b§l現在の電子マネー: ${BalanceFormats.colored(balance)}")))
+                meta.lore(listOf(Component.text("§b§l現在の電子マネー: ${BalanceFormats.coloredYen(balance)}")))
             }
         }
         val button = UIButton(item)

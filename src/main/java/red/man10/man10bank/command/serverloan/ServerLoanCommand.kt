@@ -78,8 +78,8 @@ class ServerLoanCommand(
         val lines = mutableListOf("§e§n == Man10 Revolving Loan ==")
         if (getRes.isSuccess) {
             val loan = getRes.getOrNull()
-            val borrow = loan?.borrowAmount?.let { BalanceFormats.colored(it) } ?: "0"
-            val payment = loan?.paymentAmount?.let { BalanceFormats.colored(it) } ?: "未設定"
+            val borrow = loan?.borrowAmount?.let { BalanceFormats.coloredYen(it) } ?: "0"
+            val payment = loan?.paymentAmount?.let { BalanceFormats.coloredYen(it) } ?: "未設定"
             val last = loan?.lastPayDate?.let { DateFormats.toDateTime(it) } ?: "-"
             lines += listOf(
                 "§b借入額: $borrow",
@@ -88,13 +88,13 @@ class ServerLoanCommand(
             )
         }
         if (limitRes.isSuccess) {
-            lines += "§b借入上限: ${BalanceFormats.colored(limitRes.getOrNull() ?: 0.0)}"
+            lines += "§b借入上限: ${BalanceFormats.coloredYen(limitRes.getOrNull() ?: 0.0)}"
         }
 
         if (paymentInfoRes.isSuccess) {
             val info = paymentInfoRes.getOrNull()
             val next = info?.nextRepayDate?.let { DateFormats.toDateTime(it) } ?: "-"
-            val daily = info?.dailyInterestPerDay?.let { BalanceFormats.colored(it) } ?: "-"
+            val daily = info?.dailyInterestPerDay?.let { BalanceFormats.coloredYen(it) } ?: "-"
             lines += listOf(
                 "§b次回返済日: $next",
                 "§b1日あたりの利息: $daily",
@@ -139,7 +139,7 @@ class ServerLoanCommand(
             val lines = res.getOrNull().orEmpty().map { log ->
                 val date = log.date?.let { DateFormats.toDateTime(it) } ?: "-"
                 val action = log.action
-                val amount = log.amount?.let { BalanceFormats.colored(it) } ?: "-"
+                val amount = log.amount?.let { BalanceFormats.coloredYen(it) } ?: "-"
                 "$date §b${action} §7${amount}"
             }
             plugin.server.scheduler.runTask(plugin, Runnable {

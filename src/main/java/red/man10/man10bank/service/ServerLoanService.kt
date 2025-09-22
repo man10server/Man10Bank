@@ -38,9 +38,9 @@ class ServerLoanService(
         val result = api.borrow(player.uniqueId, ServerLoanBorrowBodyRequest(amount))
         if (result.isSuccess) {
             val loan = result.getOrNull()
-            val paymentInfo = loan?.paymentAmount?.let { BalanceFormats.colored(it) } ?: "未設定"
+            val paymentInfo = loan?.paymentAmount?.let { BalanceFormats.coloredYen(it) } ?: "未設定"
             Messages.send(plugin, player,
-                "§a借入に成功しました。金額: ${BalanceFormats.colored(amount)} §a支払額: $paymentInfo"
+                "§a借入に成功しました。金額: ${BalanceFormats.coloredYen(amount)} §a支払額: $paymentInfo"
             )
         } else {
             val msg = result.exceptionOrNull()?.message ?: "借入に失敗しました。"
@@ -61,9 +61,9 @@ class ServerLoanService(
         val result = api.repay(player.uniqueId, amount)
         if (result.isSuccess) {
             val loan = result.getOrNull()
-            val remainingInfo = loan?.borrowAmount?.let { BalanceFormats.colored(it) } ?: "不明"
+            val remainingInfo = loan?.borrowAmount?.let { BalanceFormats.coloredYen(it) } ?: "不明"
             Messages.send(plugin, player,
-                "§a返済に成功しました。金額: ${BalanceFormats.colored(amount)} §a残額: $remainingInfo"
+                "§a返済に成功しました。金額: ${BalanceFormats.coloredYen(amount)} §a残額: $remainingInfo"
             )
         } else {
             val msg = result.exceptionOrNull()?.message ?: "返済に失敗しました。"
@@ -84,7 +84,7 @@ class ServerLoanService(
         val result = api.setPaymentAmount(player.uniqueId, paymentAmount)
         if (result.isSuccess) {
             val updated = result.getOrNull()
-            val info = updated?.paymentAmount?.let { BalanceFormats.colored(it) } ?: "未設定"
+            val info = updated?.paymentAmount?.let { BalanceFormats.coloredYen(it) } ?: "未設定"
             Messages.send(plugin, player, "支払額を更新しました。支払額: $info")
         } else {
             val msg = result.exceptionOrNull()?.message ?: "支払額の更新に失敗しました。"
