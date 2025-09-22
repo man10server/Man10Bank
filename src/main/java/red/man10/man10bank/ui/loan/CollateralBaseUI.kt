@@ -99,11 +99,6 @@ open class CollateralBaseUI(
         }
     }
 
-    /** List<ItemStack> 用のヘルパー */
-    fun setCollateralItems(items: List<ItemStack>) {
-        setCollateralItems(items.map { it })
-    }
-
     /** 担保エリアが全て空か */
     fun isCollateralAreaEmpty(): Boolean = COLLATERAL_SLOTS.all {
         val i = getInventory().getItem(it)
