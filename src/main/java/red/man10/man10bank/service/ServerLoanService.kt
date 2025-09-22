@@ -7,7 +7,9 @@ import red.man10.man10bank.api.model.request.ServerLoanBorrowBodyRequest
 import red.man10.man10bank.api.model.response.ServerLoan
 import red.man10.man10bank.api.model.response.ServerLoanLog
 import red.man10.man10bank.api.model.response.PaymentInfoResponse
+import red.man10.man10bank.command.balance.BalanceRegistry
 import red.man10.man10bank.util.BalanceFormats
+import red.man10.man10bank.util.DateFormats
 import red.man10.man10bank.util.Messages
 
 /**
@@ -19,6 +21,28 @@ class ServerLoanService(
     private val plugin: Man10Bank,
     private val api: ServerLoanApiClient,
 ) {
+
+    /**
+     * 残高表示プロバイダの登録（リボ関連）。
+     * - リボの借入額
+     * - 支払額
+     * - 次の支払日
+     * 以上3行を1つのProviderでまとめて表示します。
+     */
+    fun registerBalanceProvider() {
+        BalanceRegistry.register(id = "serverloan", order = 30) { player ->
+            val loan = get(player).getOrNull()
+            val payInfo = paymentInfo(player).getOrNull()
+
+            val borrowText = BalanceFormats.coloredYen(loan?.borrowAmount ?: 0.0)
+            val paymentText = loan?.paymentAmount?.let { BalanceFormats.coloredYen(it) } ?: "未設定"
+            val nextDateText = payInfo?.nextRepayDate?.let { DateFormats.toDate(it) } ?: "不明"
+
+            "§b§lリボの借入額: ${borrowText}§r\n" +
+            "§b§l支払額: ${paymentText}§r\n" +
+            "§b§l次の支払日: ${nextDateText}§r"
+        }
+    }
 
     /**
      * プレイヤーから取得

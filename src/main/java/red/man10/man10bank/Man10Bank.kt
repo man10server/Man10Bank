@@ -168,5 +168,6 @@ class Man10Bank : JavaPlugin(), Listener {
         cashItemManager.registerBalanceProvider()
         vaultManager.registerBalanceProvider()
         bankService.registerBalanceProvider()
+        serverLoanService.registerBalanceProvider()
     }
 }
