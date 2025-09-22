@@ -8,9 +8,9 @@ import org.bukkit.Material
 import org.bukkit.NamespacedKey
 import org.bukkit.enchantments.Enchantment
 import org.bukkit.entity.Player
-import org.bukkit.event.Listener
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
+import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerInteractEvent
 import org.bukkit.inventory.ItemFlag
 import org.bukkit.inventory.ItemStack
@@ -19,12 +19,11 @@ import red.man10.man10bank.Man10Bank
 import red.man10.man10bank.api.LoanApiClient
 import red.man10.man10bank.api.model.request.LoanCreateRequest
 import red.man10.man10bank.api.model.response.Loan
-import red.man10.man10bank.util.BalanceFormats
-import red.man10.man10bank.util.ItemStackBase64
 import red.man10.man10bank.ui.loan.CollateralCollectUI
+import red.man10.man10bank.util.BalanceFormats
 import red.man10.man10bank.util.DateFormats
+import red.man10.man10bank.util.ItemStackBase64
 import red.man10.man10bank.util.Messages
-import java.text.SimpleDateFormat
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 import java.util.*
@@ -123,11 +122,11 @@ class LoanService(
         // 手形の使用を処理
         event.isCancelled = true
         scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            repay(player, id)
+            repay(player, id, item)
         }
     }
 
-    private suspend fun repay(collector: Player, id: Int) {
+    private suspend fun repay(collector: Player, id: Int, usedItem: ItemStack?) {
         val result = api.repay(id, collector.uniqueId.toString())
 
         if (!result.isSuccess) {
@@ -173,6 +172,25 @@ class LoanService(
                 Messages.error(plugin, collector, "返済処理で不明な状態です。(outcome=${resp.outcome})")
             }
         }
+
+        // 返済後に最新のローン情報で手形を更新
+        val loanRes = api.get(id)
+        if (!loanRes.isSuccess) {
+            val msg = loanRes.exceptionOrNull()?.message ?: "ローン情報の取得に失敗しました。"
+            Messages.error(plugin, collector, msg)
+            return
+        }
+        val loan = loanRes.getOrNull() ?: return
+
+        val updatedNote = issueDebtNote(loan)
+        plugin.server.scheduler.runTask(plugin, Runnable {
+            usedItem?.amount = 0
+            val leftover = collector.inventory.addItem(updatedNote)
+            if (leftover.isNotEmpty()) {
+                leftover.values.forEach { collector.world.dropItemNaturally(collector.location, it) }
+            }
+            Messages.send(plugin, collector, "手形を更新しました。")
+        })
     }
 
     private fun issueDebtNote(loan: Loan): ItemStack {
