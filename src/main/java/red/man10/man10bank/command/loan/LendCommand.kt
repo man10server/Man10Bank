@@ -313,13 +313,7 @@ class LendCommand(
     // 借り手: 自身の未返済/担保未回収の一覧
     private fun handleBorrowerList(sender: Player): Boolean {
         scope.launch {
-            val res = loanService.getBorrowerLoans(sender)
-            if (res.isFailure) {
-                val msg = res.exceptionOrNull()?.message ?: "借金一覧の取得に失敗しました。"
-                Messages.error(plugin, sender, msg)
-                return@launch
-            }
-            val loans = res.getOrNull().orEmpty()
+            val loans = loanService.getBorrowerLoans(sender)
             if (loans.isEmpty()) {
                 Messages.send(plugin, sender, "未返済または担保未回収の借金はありません。")
                 return@launch

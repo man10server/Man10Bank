@@ -93,9 +93,18 @@ class LoanService(
 
     /**
      * 借り手のローン取得（プレイヤー単位）。
+     * - APIの成功/失敗はサービス層で処理し、失敗時は空リストを返す。
+     * - エラー時はプレイヤーに日本語で通知。
      */
-    suspend fun getBorrowerLoans(player: Player, limit: Int = 100, offset: Int = 0): Result<List<Loan>> =
-        api.getBorrowerLoans(player.uniqueId, limit, offset)
+    suspend fun getBorrowerLoans(player: Player, limit: Int = 100, offset: Int = 0): List<Loan> {
+        val result = api.getBorrowerLoans(player.uniqueId, limit, offset)
+        if (result.isSuccess) {
+            return result.getOrNull().orEmpty()
+        }
+        val msg = result.exceptionOrNull()?.message ?: "借金一覧の取得に失敗しました。"
+        Messages.error(plugin, player, msg)
+        return emptyList()
+    }
 
     /**
      * 担保返却の解放。
