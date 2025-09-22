@@ -203,7 +203,7 @@ class LendCommand(
         }
         remove(id)
         val lender = Bukkit.getPlayer(proposal!!.lender)
-        if (lender != null) Messages.warn(lender, "${sender.name} に拒否されました。（ID: ${proposal.id}）")
+        if (lender != null) Messages.warn(lender, "${sender.name} に拒否されました。")
         Messages.send(sender, "§6提案を拒否しました。")
         return true
     }
@@ -286,7 +286,7 @@ class LendCommand(
         }
         remove(id)
         val borrower = Bukkit.getPlayer(proposal!!.borrower)
-        if (borrower != null) Messages.warn(borrower, "貸し手に拒否されました。（ID: ${proposal.id}）")
+        if (borrower != null) Messages.warn(borrower, "貸し手に拒否されました。")
         Messages.send(sender, "§6提案を拒否しました。")
         return true
     }

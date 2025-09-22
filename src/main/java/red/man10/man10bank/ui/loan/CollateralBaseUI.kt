@@ -56,6 +56,11 @@ open class CollateralBaseUI(
             // プレイヤーインベントリ側のホットバー切替は禁止
             if (event.action == InventoryAction.HOTBAR_SWAP) {
                 event.isCancelled = true
+                return
+            }
+            // 閲覧用（editable=false）の場合はプレイヤーインベントリも操作不可
+            if (!editable) {
+                event.isCancelled = true
             }
         }
     }
