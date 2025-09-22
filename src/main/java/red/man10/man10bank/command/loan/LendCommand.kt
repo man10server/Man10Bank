@@ -11,11 +11,9 @@ import org.bukkit.inventory.ItemStack
 import red.man10.man10bank.Man10Bank
 import red.man10.man10bank.command.BaseCommand
 import red.man10.man10bank.service.LoanService
-import red.man10.man10bank.ui.loan.CollateralDebtorReleaseUI
 import red.man10.man10bank.ui.loan.CollateralSetupUI
 import red.man10.man10bank.ui.loan.CollateralViewUI
 import red.man10.man10bank.util.BalanceFormats
-import red.man10.man10bank.util.ItemStackBase64
 import red.man10.man10bank.util.Messages
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -342,30 +340,7 @@ class LendCommand(
             Messages.error(sender, "IDが不正です。/mlend release <id>")
             return false
         }
-        scope.launch {
-            val result = loanService.releaseCollateral(id, sender)
-            if (result.isFailure) {
-                val msg = result.exceptionOrNull()?.message ?: "担保の解放に失敗しました。"
-                Messages.error(plugin, sender, msg)
-                return@launch
-            }
-            val loan = result.getOrNull()
-            val base64 = loan?.collateralItem
-            if (base64.isNullOrBlank()) {
-                Messages.warn(plugin, sender, "受け取れる担保がありません。")
-                return@launch
-            }
-            val items = ItemStackBase64.decodeItems(base64)
-            if (items.isEmpty()) {
-                Messages.warn(plugin, sender, "担保データが不正です。")
-                return@launch
-            }
-            plugin.server.scheduler.runTask(plugin, Runnable {
-                CollateralDebtorReleaseUI(sender, items, onReleased = {
-                    Messages.send(plugin, sender, "担保の受け取りが完了しました。")
-                }).open()
-            })
-        }
+        scope.launch { loanService.releaseCollateral(id, sender) }
         return true
     }
     /**

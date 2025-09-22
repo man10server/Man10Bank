@@ -20,6 +20,7 @@ import red.man10.man10bank.api.LoanApiClient
 import red.man10.man10bank.api.model.request.LoanCreateRequest
 import red.man10.man10bank.api.model.response.Loan
 import red.man10.man10bank.ui.loan.CollateralCollectUI
+import red.man10.man10bank.ui.loan.CollateralDebtorReleaseUI
 import red.man10.man10bank.util.BalanceFormats
 import red.man10.man10bank.util.DateFormats
 import red.man10.man10bank.util.ItemStackBase64
@@ -87,11 +88,6 @@ class LoanService(
     }
 
     /**
-     * ローン詳細の取得。
-     */
-    suspend fun get(id: Int): Result<Loan> = api.get(id)
-
-    /**
      * 借り手のローン取得（プレイヤー単位）。
      * - APIの成功/失敗はサービス層で処理し、失敗時は空リストを返す。
      * - エラー時はプレイヤーに日本語で通知。
@@ -107,11 +103,33 @@ class LoanService(
     }
 
     /**
-     * 担保返却の解放。
-     * - borrower は借り手（任意）。null の場合はAPIへ未指定で委譲
+     * 担保返却の解放（借り手側）。
+     * - APIの成功/失敗やUI表示までサービス層で処理する。
      */
-    suspend fun releaseCollateral(id: Int, borrower: Player): Result<Loan> =
-        api.releaseCollateral(id, borrower.uniqueId.toString())
+    suspend fun releaseCollateral(id: Int, borrower: Player) {
+        val result = api.releaseCollateral(id, borrower.uniqueId.toString())
+        if (result.isFailure) {
+            val msg = result.exceptionOrNull()?.message ?: "担保の解放に失敗しました。"
+            Messages.error(plugin, borrower, msg)
+            return
+        }
+        val loan = result.getOrNull()
+        val base64 = loan?.collateralItem
+        if (base64.isNullOrBlank()) {
+            Messages.warn(plugin, borrower, "受け取れる担保がありません。")
+            return
+        }
+        val items = ItemStackBase64.decodeItems(base64)
+        if (items.isEmpty()) {
+            Messages.warn(plugin, borrower, "担保データが不正です。")
+            return
+        }
+        plugin.server.scheduler.runTask(plugin, Runnable {
+            CollateralDebtorReleaseUI(borrower, items, onReleased = {
+                Messages.send(plugin, borrower, "担保の受け取りが完了しました。")
+            }).open()
+        })
+    }
 
 
     @EventHandler(priority = EventPriority.NORMAL)
