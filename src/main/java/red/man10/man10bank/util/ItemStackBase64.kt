@@ -38,4 +38,33 @@ object ItemStackBase64 {
     } catch (_: Exception) {
         null
     }
+
+    /**
+     * ItemStackのリストを Base64 文字列へエンコードする。
+     * - YAMLのリストへシリアライズ後、UTF-8バイト列をBase64化
+     */
+    fun encodeItems(items: List<ItemStack>): String {
+        val yaml = YamlConfiguration()
+        yaml.set("l", items)
+        val serialized = yaml.saveToString()
+        val bytes = serialized.toByteArray(StandardCharsets.UTF_8)
+        return Base64.getEncoder().encodeToString(bytes)
+    }
+
+    /**
+     * Base64化されたItemStackリストを復元する。
+     * - 復元失敗時は空リストを返す
+     */
+    fun decodeItems(base64: String): List<ItemStack> {
+        return try {
+            val bytes = Base64.getDecoder().decode(base64)
+            val yamlText = String(bytes, StandardCharsets.UTF_8)
+            val yaml = YamlConfiguration()
+            yaml.loadFromString(yamlText)
+            val raw = yaml.getList("l") ?: return emptyList()
+            raw.mapNotNull { it as? ItemStack }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
 }

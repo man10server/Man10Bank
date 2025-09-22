@@ -256,9 +256,6 @@ class LendCommand(
             Messages.error(sender, "借り手がオフラインのため、実行できません。")
             return true
         }
-
-        // APIへは返済金額（repayAmount）を amount として渡す（仕様要確認）
-        // 担保は現状先頭のみ対応
         val collateral = proposal.collaterals.firstOrNull()
 
         scope.launch {
@@ -271,6 +268,7 @@ class LendCommand(
             } else {
                 val msg = result.exceptionOrNull()?.message ?: "ローン作成に失敗しました。"
                 Messages.error(plugin, sender, msg)
+                remove(id)
             }
         }
         return true

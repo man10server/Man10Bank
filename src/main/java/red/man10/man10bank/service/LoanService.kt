@@ -35,18 +35,18 @@ class LoanService(
     suspend fun create(
         lender: Player,
         borrower: Player,
-        amount: Double,
+        repayAmount: Double,
         paybackInDays: Int,
         collateral: ItemStack?,
     ): Result<Loan> {
-        if (amount <= 0.0) return Result.failure(IllegalArgumentException("金額が不正です。正の数を指定してください。"))
+        if (repayAmount <= 0.0) return Result.failure(IllegalArgumentException("金額が不正です。正の数を指定してください。"))
         if (paybackInDays <= 0) return Result.failure(IllegalArgumentException("返済期限日数が不正です。1以上を指定してください。"))
 
         val paybackDateIso = OffsetDateTime.now(ZoneOffset.UTC).plusDays(paybackInDays.toLong()).toString()
         val body = LoanCreateRequest(
             lendUuid = lender.uniqueId.toString(),
             borrowUuid = borrower.uniqueId.toString(),
-            amount = amount,
+            amount = repayAmount,
             paybackDate = paybackDateIso,
             collateralItem = encodeCollateralOrNull(collateral),
         )
