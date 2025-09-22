@@ -99,6 +99,28 @@ class BankService(
         }
     }
 
+    /**
+     * /deposit 用の金額解決（null または "all" 相当をインジケータとして扱い、Vault残高を返す）。
+     * 条件を満たさない場合は null。
+     */
+    fun resolveDepositAmount(player: Player, arg: String?): Double? {
+        if (!vault.isAvailable()) return null
+        val vaultBal = vault.getBalance(player)
+        val amount = if (arg.isNullOrBlank() || arg.equals("all", ignoreCase = true)) vaultBal else arg.toDoubleOrNull() ?: -1.0
+        if (amount > vaultBal) return null
+        return if (amount > 0.0) amount else null
+    }
+
+    /**
+     * /withdraw 用の金額解決（null または "all" 相当で銀行残高）。条件を満たさない場合は null。
+     */
+    suspend fun resolveWithdrawAmount(player: Player, arg: String?): Double? {
+        val bankBal = getBalance(player) ?: return null
+        val amount = if (arg.isNullOrBlank() || arg.equals("all", ignoreCase = true)) bankBal else arg.toDoubleOrNull() ?: -1.0
+        if (amount > bankBal) return null
+        return if (amount > 0.0) amount else null
+    }
+
     private fun depositRequest(sender: Player, amount: Double): DepositRequest {
         return DepositRequest(
             uuid = sender.uniqueId.toString(),
