@@ -1,5 +1,7 @@
 package red.man10.man10bank.service
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import net.kyori.adventure.text.Component
 import org.bukkit.Bukkit
 import org.bukkit.Material
@@ -7,6 +9,9 @@ import org.bukkit.NamespacedKey
 import org.bukkit.enchantments.Enchantment
 import org.bukkit.entity.Player
 import org.bukkit.event.Listener
+import org.bukkit.event.EventHandler
+import org.bukkit.event.EventPriority
+import org.bukkit.event.player.PlayerInteractEvent
 import org.bukkit.inventory.ItemFlag
 import org.bukkit.inventory.ItemStack
 import org.bukkit.persistence.PersistentDataType
@@ -30,6 +35,7 @@ import java.util.*
  */
 class LoanService(
     private val plugin: Man10Bank,
+    private val scope: CoroutineScope,
     private val api: LoanApiClient,
 ) : Listener {
 
@@ -62,7 +68,22 @@ class LoanService(
             paybackDate = paybackDateIso,
             collateralItem = encoded,
         )
-        return api.create(body)
+        val result = api.create(body)
+
+        if (!result.isSuccess) {
+            return result
+        }
+        val loan = result.getOrNull() ?: return result
+        // 債権者に手形を発行
+        val note = issueDebtNote(loan)
+        plugin.server.scheduler.runTask(plugin, Runnable {
+            val leftover = lender.inventory.addItem(note)
+            if (leftover.isNotEmpty()) {
+                leftover.values.forEach { lender.world.dropItemNaturally(lender.location, it) }
+            }
+            Messages.send(plugin, lender, "ローン手形を発行しました。ID: ${loan.id ?: "不明"}")
+        })
+        return result
     }
 
     /**
@@ -82,6 +103,28 @@ class LoanService(
      */
     suspend fun releaseCollateral(id: Int, borrower: Player): Result<Loan> =
         api.releaseCollateral(id, borrower.uniqueId.toString())
+
+
+    @EventHandler(priority = EventPriority.NORMAL)
+    fun onInteractEvent(event: PlayerInteractEvent) {
+        val player = event.player
+        val item = event.item ?: return
+        val id = getLoanId(item) ?: return
+
+        // 右クリックのみを対象
+        val action = event.action
+        val isRightClick = when (action) {
+            org.bukkit.event.block.Action.RIGHT_CLICK_AIR, org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK -> true
+            else -> false
+        }
+        if (!isRightClick) return
+
+        // 手形の使用を処理
+        event.isCancelled = true
+        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            repay(player, id)
+        }
+    }
 
     private suspend fun repay(collector: Player, id: Int) {
         val result = api.repay(id, collector.uniqueId.toString())
@@ -118,9 +161,12 @@ class LoanService(
                     Messages.warn(plugin, collector, "担保アイテムが空です。")
                     return
                 }
-                CollateralCollectUI(collector, items, onCollected = {
-                    Messages.send(plugin, collector, "担保を回収しました。")
-                }).open()
+                // GUI操作はメインスレッドで行う
+                plugin.server.scheduler.runTask(plugin, Runnable {
+                    CollateralCollectUI(collector, items, onCollected = {
+                        Messages.send(plugin, collector, "担保を回収しました。")
+                    }).open()
+                })
             }
             else -> {
                 Messages.error(plugin, collector, "返済処理で不明な状態です。(outcome=${resp.outcome})")

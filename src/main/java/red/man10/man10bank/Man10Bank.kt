@@ -107,7 +107,7 @@ class Man10Bank : JavaPlugin(), Listener {
         cashItemManager = CashItemManager(this)
         chequeService = ChequeService(this, scope, chequesApi)
         serverLoanService = ServerLoanService(this, serverLoanApi)
-        loanService = LoanService(this, loanApi)
+        loanService = LoanService(this, scope, loanApi)
         bankService = BankService(this, bankApi, vaultManager)
         uiService = UIService(this)
 
