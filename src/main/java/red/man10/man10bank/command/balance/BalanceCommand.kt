@@ -2,6 +2,8 @@ package red.man10.man10bank.command.balance
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.event.ClickEvent
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 import red.man10.man10bank.Man10Bank
@@ -26,6 +28,13 @@ class BalanceCommand(
 
     override fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean {
         sender as Player
+
+        // /bal help の型（プレースホルダ）
+        if (args.size == 1 && args[0].equals("help", ignoreCase = true)) {
+            showHelp(sender)
+            return true
+        }
+
         if (args.isNotEmpty()) {
             Messages.warn(sender, "使い方: /bal または /balance")
             return true
@@ -35,7 +44,24 @@ class BalanceCommand(
             val lines = mutableListOf("§e§l===== §kX§e§l${sender.name}のお金§kX §e§l=====")
             lines.addAll(BalanceRegistry.buildLines(sender))
             Messages.sendMultiline(plugin, sender, lines.joinToString("\n"))
+
+            // 末尾にヘルプへの導線を追加
+            val comp: Component = Component.text(Messages.PREFIX)
+                .append(
+                    Component.text("§b§l§n[ここをクリックでコマンドを見る]")
+                        .clickEvent(ClickEvent.runCommand("/bal help"))
+                )
+            sender.sendMessage(comp)
         }
         return true
+    }
+
+    private fun showHelp(player: Player) {
+        // 型のみ（プレースホルダ）
+        val body = """
+            §e§l===== §kX§e§l/bal ヘルプ§kX §e§l=====
+            §7このコマンドのヘルプは準備中です。
+        """.trimIndent()
+        Messages.sendMultiline(plugin, player, body)
     }
 }
