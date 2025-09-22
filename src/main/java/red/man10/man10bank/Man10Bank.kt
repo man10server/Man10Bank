@@ -108,7 +108,7 @@ class Man10Bank : JavaPlugin(), Listener {
         chequeService = ChequeService(this, scope, chequesApi)
         serverLoanService = ServerLoanService(this, serverLoanApi)
         loanService = LoanService(this, loanApi)
-        bankService = BankService(bankApi)
+        bankService = BankService(this, bankApi, vaultManager)
         uiService = UIService(this)
 
         // 起動時に現金アイテム設定を読み込む
@@ -139,8 +139,8 @@ class Man10Bank : JavaPlugin(), Listener {
     }
 
     private fun registerCommands() {
-        getCommand("deposit")?.setExecutor(DepositCommand(this, scope, vaultManager, bankApi))
-        getCommand("withdraw")?.setExecutor(WithdrawCommand(this, scope, vaultManager, bankApi))
+        getCommand("deposit")?.setExecutor(DepositCommand(this, scope, vaultManager, bankService))
+        getCommand("withdraw")?.setExecutor(WithdrawCommand(this, scope, vaultManager, bankService))
         getCommand("mpay")?.setExecutor(PayCommand(this, scope, bankApi))
         getCommand("bankop")?.setExecutor(BankOpCommand(this, scope, healthService, cashItemManager))
         getCommand("atm")?.setExecutor(AtmCommand(this, scope, atmApi, vaultManager, cashItemManager, cashExchangeService))

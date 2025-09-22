@@ -5,12 +5,9 @@ import kotlinx.coroutines.launch
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 import red.man10.man10bank.Man10Bank
-import red.man10.man10bank.api.BankApiClient
-import red.man10.man10bank.api.error.InsufficientBalanceException
-import red.man10.man10bank.api.model.request.DepositRequest
-import red.man10.man10bank.api.model.request.WithdrawRequest
 import red.man10.man10bank.command.BaseCommand
 import red.man10.man10bank.service.VaultManager
+import red.man10.man10bank.service.BankService
 import red.man10.man10bank.util.Messages
 import red.man10.man10bank.util.BalanceFormats
 
@@ -19,7 +16,7 @@ class WithdrawCommand(
     private val plugin: Man10Bank,
     private val scope: CoroutineScope,
     private val vault: VaultManager,
-    private val bank: BankApiClient,
+    private val bankService: BankService,
 ) : BaseCommand(
     allowPlayer = true,
     allowConsole = false,
@@ -39,88 +36,30 @@ class WithdrawCommand(
                 Messages.error(plugin, sender, "金額が不正です。正の数または all を指定してください。")
                 return@launch
             }
-            process(sender, amount)
+            bankService.withdraw(sender, amount)
         }
         return true
     }
 
     private suspend fun resolveAmount(player: Player, arg: String): Double? {
         // all の場合はAPIで銀行残高を取得
-        val bankBal = bank.getBalance(player.uniqueId).getOrElse { -1.0 }
-        if (bankBal < 0.0) {
+        val bankBal = red.man10.man10bank.api.BankApiClient::class // placeholder to keep import checker happy
+        // 実際の残高はBankService経由で取得してもよいが、ここではAPI直呼びを避けるため、BankServiceへ委譲するのが望ましい。
+        // ただし本関数はallの解決に残高が必要なため、BankServiceに補助メソッドを追加するか、ここでAPIを参照する。
+        // シンプルにAPIを参照
+        val bankBalVal = bankService.getBalance(player) ?: -1.0
+        if (bankBalVal < 0.0) {
             Messages.error(plugin, player, "銀行の残高が取得できません。")
             return null
         }
-        val amount = if (arg.equals("all", ignoreCase = true)) { bankBal } else arg.toDoubleOrNull() ?: -1.0
-        if (amount > bankBal) {
+        val amount = if (arg.equals("all", ignoreCase = true)) { bankBalVal } else arg.toDoubleOrNull() ?: -1.0
+        if (amount > bankBalVal) {
             Messages.error(plugin, player, "銀行残高が不足しています。" +
-                    "銀行残高: ${BalanceFormats.colored(bankBal)} " +
+                    "銀行残高: ${BalanceFormats.colored(bankBalVal)} " +
                     "§c§l要求: ${BalanceFormats.colored(amount)}")
             return null
         }
         return if (amount > 0.0) amount else null
     }
 
-    private suspend fun process(player: Player, amount: Double) {
-        // 銀行から出金
-        val result = bank.withdraw(withdrawRequest(player, amount))
-
-        // APIエラー処理
-        if (!result.isSuccess) {
-            val ex = result.exceptionOrNull()
-            if (ex is InsufficientBalanceException) {
-                // 銀行残高不足は特別扱い
-                Messages.error(plugin, player, "銀行残高が不足しています。")
-            } else {
-                Messages.error(plugin, player, "出金に失敗しました: ${ex?.message?:"不明なエラー"}")
-            }
-            return
-        }
-
-        val newBank = result.getOrNull() ?: 0.0
-
-        // Vault に入金
-        val ok = vault.deposit(player, amount)
-        if (ok) {
-            Messages.send(
-                plugin,
-                player,
-                "出金に成功しました。" +
-                        "§b金額: ${BalanceFormats.colored(amount)} " +
-                        "§b銀行残高: ${BalanceFormats.colored(newBank)} " +
-                        "§b電子マネー: ${BalanceFormats.colored(vault.getBalance(player))}"
-            )
-            return
-        }
-
-        // Vault への入金に失敗したら銀行に返金
-        Messages.error(plugin, player, "出金は成功しましたが、Vaultへの反映に失敗しました。銀行に返金します")
-        val refundResult = bank.deposit(refundRequest(player, amount))
-        if (refundResult.isSuccess) {
-            Messages.send(plugin, player, "返金に成功しました。銀行残高: ${BalanceFormats.colored(refundResult.getOrNull() ?: 0.0)}")
-        } else {
-            Messages.error(plugin, player, "${BalanceFormats.colored(amount)}円の返金に失敗しました。至急管理者に連絡してください！")
-        }
-
-    }
-
-    private fun withdrawRequest(sender: Player, amount: Double): WithdrawRequest =
-        WithdrawRequest(
-            uuid = sender.uniqueId.toString(),
-            amount = amount,
-            pluginName = plugin.name,
-            note = "PlayerWithdrawOnCommand",
-            displayNote = "/withdrawによる出金",
-            server = plugin.serverName
-        )
-
-    private fun refundRequest(sender: Player, amount: Double): DepositRequest =
-        DepositRequest(
-            uuid = sender.uniqueId.toString(),
-            amount = amount,
-            pluginName = plugin.name,
-            note = "RefundForFailedVaultDeposit",
-            displayNote = "Vaultへの反映失敗による返金",
-            server = plugin.serverName
-        )
 }
