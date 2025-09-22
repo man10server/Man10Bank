@@ -9,6 +9,7 @@ import red.man10.man10bank.api.model.request.WithdrawRequest
 import red.man10.man10bank.command.balance.BalanceRegistry
 import red.man10.man10bank.util.BalanceFormats
 import red.man10.man10bank.util.Messages
+import java.util.UUID
 
 /**
  * BankApiClient 向けのサービス。
@@ -151,4 +152,81 @@ class BankService(
             displayNote = "Vaultへの反映失敗による返金",
             server = plugin.serverName
         )
+
+    /**
+     * 振り込み（送金）処理。
+     * - 送金元から出金 → 受取人へ入金 → 失敗時は送金元へ返金
+     */
+    suspend fun transfer(sender: Player, targetUuid: UUID, targetName: String, amount: Double) {
+        if (amount <= 0.0) {
+            Messages.error(plugin, sender, "金額が不正です。正の数を指定してください。")
+            return
+        }
+        // 1) 送金元から出金
+        val withdraw = api.withdraw(
+            WithdrawRequest(
+                uuid = sender.uniqueId.toString(),
+                amount = amount,
+                pluginName = plugin.name,
+                note = "TransferTo${targetName}",
+                displayNote = "${targetName}へ送金",
+                server = plugin.serverName
+            )
+        )
+
+        if (!withdraw.isSuccess) {
+            val ex = withdraw.exceptionOrNull()
+            if (ex is InsufficientBalanceException) {
+                Messages.error(plugin, sender, "銀行残高が不足しています。")
+            } else {
+                Messages.error(plugin, sender, "送金に失敗しました(出金失敗): ${ex?.message ?: "不明なエラー"}")
+            }
+            return
+        }
+
+        // 2) 受取人へ入金
+        val deposit = api.deposit(
+            DepositRequest(
+                uuid = targetUuid.toString(),
+                amount = amount,
+                pluginName = plugin.name,
+                note = "TransferFrom${sender.name}",
+                displayNote = "${sender.name}からの送金",
+                server = plugin.serverName
+            )
+        )
+
+        if (deposit.isSuccess) {
+            Messages.send(plugin, sender,
+                "送金に成功しました。送金先: $targetName 金額: ${BalanceFormats.colored(amount)}"
+            )
+            // オンラインなら受取通知（銀行残高は省略）
+            plugin.server.getPlayer(targetUuid)?.let {
+                Messages.send(plugin, it, "${sender.name} さんから ${BalanceFormats.colored(amount)} 円の送金を受け取りました。")
+            }
+            return
+        }
+
+        // 3) 受取失敗時は送金元へ返金
+        val refund = api.deposit(
+            DepositRequest(
+                uuid = sender.uniqueId.toString(),
+                amount = amount,
+                pluginName = plugin.name,
+                note = "RefundForFailedTransfer",
+                displayNote = "/mpay送金失敗の返金",
+                server = plugin.serverName
+            )
+        )
+
+        if (refund.isSuccess) {
+            Messages.error(plugin, sender,
+                "送金に失敗しました(入金失敗)。金額は返金されました。返金後残高は銀行でご確認ください。"
+            )
+        } else {
+            Messages.error(plugin, sender,
+                "${BalanceFormats.colored(amount)}円の返金に失敗しました。至急管理者に連絡してください！"
+            )
+        }
+    }
 }
