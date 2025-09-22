@@ -167,6 +167,10 @@ class LendCommand(
             Messages.error(sender, "この提案は見つからないか、あなた宛ではありません。")
             return true
         }
+        if (proposal!!.borrowerApproved) {
+            Messages.error(sender, "既に承認済みです。担保の変更はできません。")
+            return true
+        }
         CollateralSetupUI(sender, proposal!!.collaterals, onUpdate = { newItems: List<ItemStack> ->
             proposal.collaterals = newItems
             Messages.send(sender, "担保を更新しました（${newItems.size}件）。")
@@ -182,7 +186,11 @@ class LendCommand(
             Messages.error(sender, "この提案は見つからないか、あなた宛ではありません。")
             return true
         }
-        proposal!!.borrowerApproved = true
+        if (proposal!!.borrowerApproved) {
+            Messages.error(sender, "既に承認済みです。貸し手の最終承認待ちです。")
+            return true
+        }
+        proposal.borrowerApproved = true
         val lender = Bukkit.getPlayer(proposal.lender)
         if (lender == null) {
             Messages.warn(sender, "貸し手がオフラインのため、保留されました。")
@@ -201,10 +209,13 @@ class LendCommand(
             Messages.error(sender, "この提案は見つからないか、あなた宛ではありません。")
             return true
         }
-        // 担保返却（UI設定のみで実物を保持していない場合は冪等）
-        returnCollateralsToBorrower(proposal!!)
+        if (proposal!!.borrowerApproved) {
+            Messages.error(sender, "既に承認済みです。貸し手の最終承認待ちです。拒否できません。")
+            return true
+        }
+        returnCollateralsToBorrower(proposal)
         remove(id)
-        val lender = Bukkit.getPlayer(proposal!!.lender)
+        val lender = Bukkit.getPlayer(proposal.lender)
         if (lender != null) Messages.warn(lender, "${sender.name} に拒否されました。（ID: ${proposal.id}）")
         Messages.send(sender, "§6提案を拒否しました。")
         return true
@@ -255,7 +266,9 @@ class LendCommand(
         }
         val borrower = Bukkit.getPlayer(proposal!!.borrower)
         if (borrower == null) {
-            Messages.error(sender, "借り手がオフラインのため、実行できません。")
+            Messages.error(sender, "借り手がオフラインのため、キャンセルされました。")
+            returnCollateralsToBorrower(proposal)
+            remove(id)
             return true
         }
         scope.launch {
@@ -268,6 +281,8 @@ class LendCommand(
             } else {
                 val msg = result.exceptionOrNull()?.message ?: "ローン作成に失敗しました。"
                 Messages.error(plugin, sender, msg)
+                Messages.error(plugin, borrower, "貸し手のローン作成に失敗しました。提案はキャンセルされました。")
+                returnCollateralsToBorrower(proposal)
                 remove(id)
             }
         }
