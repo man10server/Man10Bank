@@ -59,7 +59,8 @@ class ServerLoanCommand(
             "borrow" -> {
                 if (args.size < 2) { Messages.warn(player, "使い方: /mrevo borrow <金額>"); return true }
                 val amount = parseDouble(player, args[1]) ?: return true
-                return handleBorrowWithConfirm(player, amount)
+                handleBorrowWithConfirm(player, amount)
+                return true
             }
             "pay" -> {
                 if (args.size < 2) { Messages.warn(player, "使い方: /mrevo pay <金額>"); return true }
@@ -84,10 +85,18 @@ class ServerLoanCommand(
         return true
     }
 
+    override fun tabComplete(sender: CommandSender, label: String, args: Array<out String>): List<String> {
+        if (args.isEmpty()) return emptyList()
+        return when (args.size) {
+            1 -> listOf("help", "borrow", "pay", "payment", "log")
+            else -> emptyList()
+        }
+    }
+
     /**
      * /mrevo borrow の二重実行確認つき処理。
      */
-    private fun handleBorrowWithConfirm(player: Player, amount: Double): Boolean {
+    private fun handleBorrowWithConfirm(player: Player, amount: Double) {
         val key = player.uniqueId
         val now = System.currentTimeMillis()
         val pending = borrowConfirmations[key]
@@ -99,13 +108,13 @@ class ServerLoanCommand(
                 §lもう一度同じコマンドを${CONFIRM_WINDOW_MS / 1000}秒以内に実行して確認してください
             """.trimIndent()
             Messages.sendMultiline(player, guide)
-            return true
+            return
         }
 
         // 確認済み
         borrowConfirmations.remove(key)
         scope.launch { service.borrow(player, amount) }
-        return true
+        return
     }
 
     private suspend fun showSummary(player: Player) {
@@ -157,14 +166,6 @@ class ServerLoanCommand(
             "§b/mrevo log [ページ] §7- ログ表示",
         )
         Messages.sendMultiline(sender, lines.joinToString("\n"))
-    }
-
-    override fun tabComplete(sender: CommandSender, label: String, args: Array<out String>): List<String> {
-        if (args.isEmpty()) return emptyList()
-        return when (args.size) {
-            1 -> listOf("help", "borrow", "pay", "payment", "log")
-            else -> emptyList()
-        }
     }
 
     /**
