@@ -24,14 +24,10 @@ class BankService(
     /** 残高表示プロバイダを登録（銀行）。 */
     fun registerBalanceProvider() {
         BalanceRegistry.register(id = "bank", order = 20) { player ->
-            val bal = api.getBalance(player.uniqueId).getOrElse { 0.0 }
+            val bal = getBalance(player)?: 0.0
             if (bal <= 0.0) "" else "§b§l銀行: ${BalanceFormats.colored(bal)}§r"
         }
     }
-
-    /** 銀行残高の取得（エラー時はnull）。*/
-    suspend fun getBalance(player: Player): Double? =
-        api.getBalance(player.uniqueId).getOrNull()
 
     /** Vault -> Bank 入金処理（メッセージ送信込み）。 */
     suspend fun deposit(player: Player, amount: Double) {
@@ -216,6 +212,11 @@ class BankService(
             )
         }
     }
+
+    /** 銀行残高の取得（エラー時はnull）。*/
+    private suspend fun getBalance(player: Player): Double? =
+        api.getBalance(player.uniqueId).getOrNull()
+
 
     private fun depositRequest(player: Player, amount: Double, note: String, displayNote: String): DepositRequest =
         DepositRequest(
