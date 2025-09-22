@@ -11,9 +11,11 @@ import org.bukkit.inventory.ItemStack
 import red.man10.man10bank.Man10Bank
 import red.man10.man10bank.command.BaseCommand
 import red.man10.man10bank.service.LoanService
+import red.man10.man10bank.ui.loan.CollateralDebtorReleaseUI
 import red.man10.man10bank.ui.loan.CollateralSetupUI
 import red.man10.man10bank.ui.loan.CollateralViewUI
 import red.man10.man10bank.util.BalanceFormats
+import red.man10.man10bank.util.ItemStackBase64
 import red.man10.man10bank.util.Messages
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -78,6 +80,8 @@ class LendCommand(
             "l-view" -> handleLenderView(sender, args)
             "l-confirm" -> handleLenderConfirm(sender, args)
             "l-reject" -> handleLenderReject(sender, args)
+            "list" -> handleBorrowerList(sender)
+            "release" -> handleBorrowerRelease(sender, args)
             else -> handlePropose(sender, args)
         }
     }
@@ -171,7 +175,7 @@ class LendCommand(
             Messages.error(sender, "既に承認済みです。担保の変更はできません。")
             return true
         }
-        CollateralSetupUI(sender, proposal!!.collaterals, onUpdate = { newItems: List<ItemStack> ->
+        CollateralSetupUI(sender, proposal.collaterals, onUpdate = { newItems: List<ItemStack> ->
             proposal.collaterals = newItems
             Messages.send(sender, "担保を更新しました（${newItems.size}件）。")
         }).open()
@@ -303,6 +307,71 @@ class LendCommand(
         val borrower = Bukkit.getPlayer(proposal.borrower)
         if (borrower != null) Messages.warn(borrower, "貸し手に拒否されました。（ID: ${proposal.id}）")
         Messages.send(sender, "§6提案を拒否しました。")
+        return true
+    }
+
+    // 借り手: 自身の未返済/担保未回収の一覧
+    private fun handleBorrowerList(sender: Player): Boolean {
+        scope.launch {
+            val res = loanService.getBorrowerLoans(sender)
+            if (res.isFailure) {
+                val msg = res.exceptionOrNull()?.message ?: "借金一覧の取得に失敗しました。"
+                Messages.error(plugin, sender, msg)
+                return@launch
+            }
+            val loans = res.getOrNull().orEmpty()
+            if (loans.isEmpty()) {
+                Messages.send(plugin, sender, "未返済または担保未回収の借金はありません。")
+                return@launch
+            }
+            val lines = mutableListOf<String>()
+            lines += "§e§l[あなたの借金一覧] (未返済/担保未回収)"
+            loans.forEach { loan ->
+                val id = loan.id ?: -1
+                val lender = loan.lendPlayer
+                val amount = BalanceFormats.colored(loan.amount ?: 0.0)
+                val deadline = loan.paybackDate?.let { red.man10.man10bank.util.DateFormats.toDateTime(it) } ?: "-"
+                val hasCollateral = !loan.collateralItem.isNullOrBlank()
+                val collateral = if (hasCollateral) "§6担保未回収" else "§7担保なし"
+                lines += "§bID:${id} §f貸し手:${lender} §f支払額:${amount} §f期限:${deadline} §f[$collateral]"
+            }
+            Messages.sendMultiline(plugin, sender, lines.joinToString("\n"))
+        }
+        return true
+    }
+
+    // 借り手: 担保の返還受け取り
+    private fun handleBorrowerRelease(sender: Player, args: Array<out String>): Boolean {
+        val idStr = args.getOrNull(1)
+        val id = idStr?.toIntOrNull()
+        if (id == null) {
+            Messages.error(sender, "IDが不正です。/mlend release <id>")
+            return false
+        }
+        scope.launch {
+            val result = loanService.releaseCollateral(id, sender)
+            if (result.isFailure) {
+                val msg = result.exceptionOrNull()?.message ?: "担保の解放に失敗しました。"
+                Messages.error(plugin, sender, msg)
+                return@launch
+            }
+            val loan = result.getOrNull()
+            val base64 = loan?.collateralItem
+            if (base64.isNullOrBlank()) {
+                Messages.warn(plugin, sender, "受け取れる担保がありません。")
+                return@launch
+            }
+            val items = ItemStackBase64.decodeItems(base64)
+            if (items.isEmpty()) {
+                Messages.warn(plugin, sender, "担保データが不正です。")
+                return@launch
+            }
+            plugin.server.scheduler.runTask(plugin, Runnable {
+                CollateralDebtorReleaseUI(sender, items, onReleased = {
+                    Messages.send(plugin, sender, "担保の受け取りが完了しました。")
+                }).open()
+            })
+        }
         return true
     }
     /**
