@@ -25,6 +25,7 @@ import red.man10.man10bank.util.BalanceFormats
 import red.man10.man10bank.util.DateFormats
 import red.man10.man10bank.util.ItemStackBase64
 import red.man10.man10bank.util.Messages
+import red.man10.man10bank.util.errorMessage
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 import java.util.*
@@ -78,7 +79,7 @@ class LoanService(
         val result = api.create(body)
 
         if (result.isFailure) {
-            val msg = result.exceptionOrNull()?.message ?: "不明なエラー"
+            val msg = result.errorMessage()
             Messages.error(plugin, lender, "ローン作成に失敗しました: $msg")
             Messages.error(plugin, borrower, "借入が確定できませんでした。$msg")
             return false
@@ -114,7 +115,7 @@ class LoanService(
         if (result.isSuccess) {
             return result.getOrNull().orEmpty()
         }
-        val msg = result.exceptionOrNull()?.message ?: "借金一覧の取得に失敗しました。"
+        val msg = result.errorMessage("借金一覧の取得に失敗しました。")
         Messages.error(plugin, player, msg)
         return emptyList()
     }
@@ -126,7 +127,7 @@ class LoanService(
     suspend fun releaseCollateral(id: Int, borrower: Player) {
         val result = api.releaseCollateral(id, borrower.uniqueId.toString())
         if (result.isFailure) {
-            val msg = result.exceptionOrNull()?.message ?: "担保の解放に失敗しました。"
+            val msg = result.errorMessage("担保の解放に失敗しました。")
             Messages.error(plugin, borrower, msg)
             return
         }
@@ -174,7 +175,7 @@ class LoanService(
         val result = api.repay(id, collector.uniqueId.toString())
 
         if (!result.isSuccess) {
-            val msg = result.exceptionOrNull()?.message ?: "不明なエラー"
+            val msg = result.errorMessage()
             Messages.error(plugin, collector, "返済処理に失敗しました: $msg")
             return
         }
@@ -215,7 +216,7 @@ class LoanService(
         // 返済後に最新のローン情報で手形を更新
         val loanRes = api.get(id)
         if (!loanRes.isSuccess) {
-            val msg = loanRes.exceptionOrNull()?.message ?: "不明なエラー"
+            val msg = loanRes.errorMessage()
             Messages.error(plugin, collector, "最新のローン情報の取得に失敗しました: $msg")
             return
         }

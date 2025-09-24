@@ -21,6 +21,7 @@ import red.man10.man10bank.api.model.request.ChequeCreateRequest
 import red.man10.man10bank.api.model.response.Cheque
 import red.man10.man10bank.api.model.request.ChequeUseRequest
 import red.man10.man10bank.util.BalanceFormats
+import red.man10.man10bank.util.errorMessage
 import red.man10.man10bank.util.Messages
 import kotlin.math.floor
 
@@ -51,10 +52,10 @@ class ChequeService(
             val result = useCheque(player, item)
             if (result.isSuccess) {
                 val amount = result.getOrNull() ?: 0.0
-                Messages.send(plugin,player, "小切手を使用しました。金額: ${BalanceFormats.coloredYen(amount)}")
+                Messages.send(plugin, player, "小切手を使用しました。金額: ${BalanceFormats.coloredYen(amount)}")
             } else {
-                val msg = result.exceptionOrNull()?.message ?: "不明なエラー"
-                Messages.error(plugin,player, "小切手の使用に失敗しました $msg")
+                val msg = result.errorMessage("小切手の使用に失敗しました。")
+                Messages.error(plugin, player, msg)
             }
         }
     }
@@ -76,7 +77,7 @@ class ChequeService(
         )
         val created = chequesApi.create(req)
         if (created.isFailure) {
-            val msg = created.exceptionOrNull()?.message?: "不明なエラー"
+            val msg = created.errorMessage()
             Messages.error(p, "小切手の発行に失敗しました: $msg")
             return null
         }

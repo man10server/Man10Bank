@@ -1,7 +1,9 @@
 package red.man10.man10bank.service
 
 import red.man10.man10bank.api.HealthApiClient
+import red.man10.man10bank.util.errorMessage
 import red.man10.man10bank.api.model.response.HealthPayload
+import red.man10.man10bank.util.errorMessage
 
 /**
  * ヘルスチェック用サービス。
@@ -20,7 +22,7 @@ class HealthService(
         val result = getHealth()
         val h = result.getOrNull()
         if (h == null) {
-            val errorMessage = result.exceptionOrNull()?.message ?: "不明なエラー"
+            val errorMessage = result.errorMessage()
             return "§c[ヘルスチェック] エラー: $errorMessage"
         } else {
             val dbStatus = if (h.database) "§aOK" else "§cFAIL"

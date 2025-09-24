@@ -9,8 +9,10 @@ import red.man10.man10bank.api.model.response.ServerLoanLog
 import red.man10.man10bank.api.model.response.PaymentInfoResponse
 import red.man10.man10bank.command.balance.BalanceRegistry
 import red.man10.man10bank.util.BalanceFormats
+import red.man10.man10bank.util.errorMessage
 import red.man10.man10bank.util.DateFormats
 import red.man10.man10bank.util.Messages
+import red.man10.man10bank.util.errorMessage
 
 /**
  * サーバーローン機能のサービス（型のみ）。
@@ -67,7 +69,7 @@ class ServerLoanService(
                 "§a借入に成功しました。金額: ${BalanceFormats.coloredYen(amount)} §a支払額: $paymentInfo"
             )
         } else {
-            val msg = result.exceptionOrNull()?.message ?: "不明なエラー"
+            val msg = result.errorMessage()
             Messages.error(plugin, player, "借入に失敗しました: $msg")
         }
     }
@@ -88,7 +90,7 @@ class ServerLoanService(
             val remainingInfo = loan?.borrowAmount?.let { BalanceFormats.coloredYen(it) } ?: "不明"
             Messages.send(plugin, player, "§a返済に成功しました。金額: ${BalanceFormats.coloredYen(amount)} §a残額: $remainingInfo")
         } else {
-            val msg = result.exceptionOrNull()?.message ?: "不明なエラー"
+            val msg = result.errorMessage()
             Messages.error(plugin, player, "返済に失敗しました: $msg")
         }
     }
@@ -109,7 +111,7 @@ class ServerLoanService(
             val info = updated?.paymentAmount?.let { BalanceFormats.coloredYen(it) } ?: "未設定"
             Messages.send(plugin, player, "支払額を更新しました。支払額: $info")
         } else {
-            val msg = result.exceptionOrNull()?.message ?: "不明なエラー"
+            val msg = result.errorMessage()
             Messages.error(plugin, player, "支払額の更新に失敗しました: $msg")
         }
     }

@@ -9,6 +9,7 @@ import org.bukkit.plugin.java.JavaPlugin
 import red.man10.man10bank.api.AtmApiClient
 import red.man10.man10bank.api.model.request.AtmLogRequest
 import red.man10.man10bank.api.model.response.AtmLog
+import red.man10.man10bank.util.errorMessage
 import kotlin.math.floor
 import java.util.UUID
 
@@ -77,7 +78,7 @@ class AtmService(
             )
             val result = api.appendLog(req)
             if (result.isFailure) {
-                plugin.logger.warning("ATMログ送信に失敗しました: ${result.exceptionOrNull()?.message}")
+                plugin.logger.warning("ATMログ送信に失敗しました: ${result.errorMessage()}")
             }
         }
     }
