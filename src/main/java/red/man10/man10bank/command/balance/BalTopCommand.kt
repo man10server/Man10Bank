@@ -19,6 +19,7 @@ class BalTopCommand(
     private val plugin: Man10Bank,
     private val scope: CoroutineScope,
     private val estateService: EstateService,
+    private val serverEstateService: red.man10.man10bank.service.ServerEstateService,
 ) : BaseCommand(allowPlayer = true, allowConsole = true, allowGeneralUser = true) {
 
     override fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean {
@@ -45,25 +46,16 @@ class BalTopCommand(
                 i++
             }
 
-            // 合計表示（ページ内集計）
-            val sumVault = sorted.sumOf { it.vault ?: 0.0 }
-            val sumCash = sorted.sumOf { it.cash ?: 0.0 }
-            val sumBank = sorted.sumOf { it.bank ?: 0.0 }
-            val sumShop = sorted.sumOf { it.shop ?: 0.0 }
-            val sumEstate = sorted.sumOf { it.estateAmount ?: 0.0 }
-            val sumLoan = sorted.sumOf { it.loan ?: 0.0 }
-            val sumTotal = sorted.sumOf { it.total ?: 0.0 }
-
-            Messages.send(plugin, sender, "§e§l電子マネーの合計:${BalanceFormats.amount(sumVault)}円")
-            Messages.send(plugin, sender, "§e§l現金の合計:${BalanceFormats.amount(sumCash)}円")
-            Messages.send(plugin, sender, "§e§l銀行口座の合計:${BalanceFormats.amount(sumBank)}円")
-            Messages.send(plugin, sender, "§e§lショップ残高の合計:${BalanceFormats.amount(sumShop)}円")
-            Messages.send(plugin, sender, "§e§lその他資産の合計:${BalanceFormats.amount(sumEstate)}円")
-            Messages.send(plugin, sender, "§c§l公的ローンの合計:${BalanceFormats.amount(sumLoan)}円")
-            Messages.send(plugin, sender, "§e§l全ての合計:${BalanceFormats.amount(sumTotal)}円")
+            val latest = serverEstateService.latest()?: return@launch
+            Messages.send(plugin, sender, "§e§l電子マネーの合計:${BalanceFormats.amount(latest.vault ?: 0.0)}円")
+            Messages.send(plugin, sender, "§e§l現金の合計:${BalanceFormats.amount(latest.cash ?: 0.0)}円")
+            Messages.send(plugin, sender, "§e§l銀行口座の合計:${BalanceFormats.amount(latest.bank ?: 0.0)}円")
+            Messages.send(plugin, sender, "§e§lショップ残高の合計:${BalanceFormats.amount(latest.shop ?: 0.0)}円")
+            Messages.send(plugin, sender, "§e§lその他資産の合計:${BalanceFormats.amount(latest.estateAmount ?: 0.0)}円")
+            Messages.send(plugin, sender, "§c§l公的ローンの合計:${BalanceFormats.amount(latest.loan ?: 0.0)}円")
+            Messages.send(plugin, sender, "§e§l全ての合計:${BalanceFormats.amount(latest.total ?: 0.0)}円")
         }
 
         return true
     }
 }
-
