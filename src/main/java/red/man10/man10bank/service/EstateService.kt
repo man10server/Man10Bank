@@ -30,6 +30,14 @@ class EstateService(
         return emptyList()
     }
 
+    /** UUID指定で資産履歴を取得（失敗時は空リスト）。 */
+    suspend fun history(uuid: java.util.UUID, limit: Int = 100, offset: Int = 0): List<EstateHistory> {
+        val res = api.history(uuid, limit, offset)
+        if (res.isSuccess) return res.getOrNull().orEmpty()
+        plugin.logger.warning(res.exceptionOrNull()?.message ?: "資産履歴の取得に失敗しました。")
+        return emptyList()
+    }
+
     /** サーバー全体の資産ランキング（履歴と同じ形で返す）。失敗時は空リスト。 */
     suspend fun ranking(limit: Int = 100, offset: Int = 0): List<EstateHistory> {
         val res = api.ranking(limit, offset)

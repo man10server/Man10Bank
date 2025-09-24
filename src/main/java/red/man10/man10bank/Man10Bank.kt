@@ -42,10 +42,12 @@ class Man10Bank : JavaPlugin(), Listener {
     private lateinit var atmApi: AtmApiClient
     private lateinit var chequesApi: ChequesApiClient
     private lateinit var serverLoanApi: ServerLoanApiClient
+    private lateinit var estateApi: red.man10.man10bank.api.EstateApiClient
     private lateinit var cashItemManager: CashItemManager
     private lateinit var atmService: red.man10.man10bank.service.AtmService
     private lateinit var uiService: UIService
     private lateinit var chequeService: ChequeService
+    private lateinit var estateService: red.man10.man10bank.service.EstateService
     private lateinit var serverLoanService: ServerLoanService
     private lateinit var loanApi: LoanApiClient
     private lateinit var loanService: LoanService
@@ -96,12 +98,14 @@ class Man10Bank : JavaPlugin(), Listener {
         atmApi = AtmApiClient(httpClient)
         chequesApi = ChequesApiClient(httpClient)
         serverLoanApi = ServerLoanApiClient(httpClient)
+        estateApi = red.man10.man10bank.api.EstateApiClient(httpClient)
         loanApi = LoanApiClient(httpClient)
 
         vaultManager = VaultManager(this)
         cashItemManager = CashItemManager(this)
         chequeService = ChequeService(this, scope, chequesApi)
         serverLoanService = ServerLoanService(this, serverLoanApi)
+        estateService = red.man10.man10bank.service.EstateService(this, estateApi, vaultManager, cashItemManager, chequeService)
         loanService = LoanService(this, scope, loanApi)
         bankService = BankService(this, bankApi, vaultManager)
         uiService = UIService(this)
@@ -138,7 +142,7 @@ class Man10Bank : JavaPlugin(), Listener {
         getCommand("withdraw")?.setExecutor(WithdrawCommand(this, scope, bankService))
         getCommand("mpay")?.setExecutor(PayCommand(this, scope, bankService))
         getCommand("ballog")?.setExecutor(BalLogCommand(scope, bankService))
-        getCommand("bankop")?.setExecutor(BankOpCommand(this, scope, healthService, cashItemManager))
+        getCommand("bankop")?.setExecutor(BankOpCommand(this, scope, healthService, cashItemManager, estateService))
         getCommand("atm")?.setExecutor(AtmCommand(this, scope, atmService, vaultManager, cashItemManager))
         getCommand("mcheque")?.setExecutor(ChequeCommand(this, scope, chequeService))
         getCommand("mchequeop")?.setExecutor(ChequeCommand(this, scope, chequeService))

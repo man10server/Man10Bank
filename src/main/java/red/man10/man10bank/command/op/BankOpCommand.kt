@@ -18,6 +18,7 @@ class BankOpCommand(
     private val scope: CoroutineScope,
     private val healthService: HealthService,
     cashItemManager: CashItemManager,
+    estateService: red.man10.man10bank.service.EstateService,
 ) : BaseCommand(
     allowPlayer = true,
     allowConsole = true,
@@ -29,6 +30,8 @@ class BankOpCommand(
         HealthSubcommand(plugin, scope, healthService),
         // 現金アイテム設定
         SetCashSubcommand(cashItemManager),
+        // 資産履歴
+        red.man10.man10bank.command.op.sub.HistorySubcommand(plugin, estateService),
     ).associateBy { it.name }
 
     override fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean {
