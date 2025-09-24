@@ -19,6 +19,7 @@ import red.man10.man10bank.api.model.request.DepositRequest
 import red.man10.man10bank.api.model.request.WithdrawRequest
 import red.man10.man10bank.api.model.response.MoneyLog
 import java.util.UUID
+import red.man10.man10bank.api.error.ApiErrorHandler
 
 /**
  * /api/Bank 系のWebAPIクライアント。
@@ -47,7 +48,7 @@ class BankApiClient(private val client: HttpClient) {
     }
 
     /** 取引ログ取得。MoneyLogの配列を返します。 */
-    suspend fun getLogs(uuid: UUID, limit: Int = 100, offset: Int = 0): Result<List<MoneyLog>> = runCatching {
+    suspend fun getLogs(uuid: UUID, limit: Int = 100, offset: Int = 0): Result<List<MoneyLog>> = ApiErrorHandler.run {
         client.get("/api/Bank/${uuid}/logs") {
             if (limit >= 0) parameter("limit", limit)
             if (offset >= 0) parameter("offset", offset)
@@ -55,7 +56,7 @@ class BankApiClient(private val client: HttpClient) {
     }
 
     /** 入金。成功時は新しい残高（Double）が返ります。 */
-    suspend fun deposit(body: DepositRequest): Result<Double> = runCatching {
+    suspend fun deposit(body: DepositRequest): Result<Double> = ApiErrorHandler.run {
         client.post("/api/Bank/deposit") {
             contentType(ContentType.Application.Json)
             setBody(body)
@@ -80,7 +81,13 @@ class BankApiClient(private val client: HttpClient) {
             } else {
                 Result.failure(e)
             }
-        } catch (e: ClientRequestException) {
+        } catch (e: red.man10.man10bank.api.error.ApiHttpException) {
+            if (e.status == HttpStatusCode.Conflict) {
+                Result.failure(red.man10.man10bank.api.error.InsufficientBalanceException())
+            } else {
+                Result.failure(e)
+            }
+        } catch (e: ClientRequestException) { // 念のため既存互換
             if (e.response.status == HttpStatusCode.Conflict) {
                 Result.failure(red.man10.man10bank.api.error.InsufficientBalanceException())
             } else {
