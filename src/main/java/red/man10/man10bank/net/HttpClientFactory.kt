@@ -29,6 +29,11 @@ import red.man10.man10bank.config.ConfigManager.ApiConfig
  * - retries: 0 より大きい場合は `HttpRequestRetry` を有効化し指数バックオフで再試行します。
  */
 object HttpClientFactory {
+    // JSONフォーマットは使い回してコストを下げる
+    private val jsonFormat = Json {
+        ignoreUnknownKeys = true
+        isLenient = true
+    }
 
     /**
      * ApiConfig から HttpClient を生成します。
@@ -55,8 +60,7 @@ object HttpClientFactory {
                     val response = clientException.response
                     val text = runCatching { response.bodyAsText() }.getOrNull()
                     val problemDetails = runCatching {
-                        Json { ignoreUnknownKeys = true }
-                            .decodeFromString(ProblemDetails.serializer(), text ?: "")
+                        jsonFormat.decodeFromString(ProblemDetails.serializer(), text ?: "")
                     }.getOrNull()
                     throw ApiHttpException(
                         status = response.status,
@@ -66,14 +70,7 @@ object HttpClientFactory {
                 }
             }
 
-            install(ContentNegotiation) {
-                json(
-                    Json {
-                        ignoreUnknownKeys = true
-                        isLenient = true
-                    }
-                )
-            }
+            install(ContentNegotiation) { json(jsonFormat) }
 
             install(HttpTimeout) {
                 // タイムアウトはすべてミリ秒単位
