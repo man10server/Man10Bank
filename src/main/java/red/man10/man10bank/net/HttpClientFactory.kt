@@ -3,15 +3,16 @@ package red.man10.man10bank.net
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.engine.cio.CIO
-import io.ktor.client.plugins.DefaultRequest
-import io.ktor.client.plugins.HttpRequestRetry
-import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.*
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.*
+import io.ktor.client.statement.*
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
+import red.man10.man10bank.api.error.ApiHttpException
+import red.man10.man10bank.api.error.ProblemDetails
 import red.man10.man10bank.config.ConfigManager.ApiConfig
 
 /**
@@ -47,6 +48,23 @@ object HttpClientFactory {
         return HttpClient(engine ?: CIO.create()) {
             // 2xx 以外を例外として扱う
             expectSuccess = true
+
+            HttpResponseValidator {
+                handleResponseExceptionWithRequest { cause, _ ->
+                    val clientException = cause as? ClientRequestException?: return@handleResponseExceptionWithRequest
+                    val response = clientException.response
+                    val text = runCatching { response.bodyAsText() }.getOrNull()
+                    val problemDetails = runCatching {
+                        Json { ignoreUnknownKeys = true }
+                            .decodeFromString(ProblemDetails.serializer(), text ?: "")
+                    }.getOrNull()
+                    throw ApiHttpException(
+                        status = response.status,
+                        problem = problemDetails,
+                        message = problemDetails?.title?:"HTTP ${response.status.value} ${response.status.description}"
+                    )
+                }
+            }
 
             install(ContentNegotiation) {
                 json(
