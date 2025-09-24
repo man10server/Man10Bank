@@ -73,6 +73,13 @@ class BankApiClient(private val client: HttpClient) {
                 setBody(body)
             }.body()
             Result.success(newBalance)
+        } catch (e: red.man10.man10bank.api.error.ApiHttpException) {
+            // HttpResponseValidator により置き換えられた例外
+            if (e.status == HttpStatusCode.Conflict) {
+                Result.failure(red.man10.man10bank.api.error.InsufficientBalanceException())
+            } else {
+                Result.failure(e)
+            }
         } catch (e: ClientRequestException) {
             if (e.response.status == HttpStatusCode.Conflict) {
                 Result.failure(red.man10.man10bank.api.error.InsufficientBalanceException())

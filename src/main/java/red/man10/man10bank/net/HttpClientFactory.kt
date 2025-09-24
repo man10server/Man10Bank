@@ -5,11 +5,15 @@ import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.DefaultRequest
 import io.ktor.client.plugins.HttpRequestRetry
+import io.ktor.client.plugins.HttpResponseValidator
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.plugins.ResponseException
 import io.ktor.client.request.*
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 import red.man10.man10bank.config.ConfigManager.ApiConfig
@@ -64,6 +68,26 @@ object HttpClientFactory {
                 socketTimeoutMillis = config.timeouts.socketMs
             }
 
+            // 非2xxレスポンスを ProblemDetails から短い文言に正規化
+            install(HttpResponseValidator) {
+                handleResponseExceptionWithRequest { cause, _ ->
+                    if (cause is ResponseException) {
+                        val status = cause.response.status
+                        val text = runCatching { cause.response.bodyAsText() }.getOrNull()
+                        val problem = runCatching {
+                            Json { ignoreUnknownKeys = true }.decodeFromString(
+                                red.man10.man10bank.api.error.ProblemDetails.serializer(),
+                                text ?: ""
+                            )
+                        }.getOrNull()
+                        val message = problem?.title?.takeIf { it.isNotBlank() }
+                            ?: problem?.detail?.takeIf { it.isNotBlank() }
+                            ?: defaultMessageForStatus(status)
+                        throw red.man10.man10bank.api.error.ApiHttpException(status, problem, message)
+                    }
+                }
+            }
+
             // リトライ回数は 0..5 にクランプ
             val retries = config.retries.coerceIn(0, 5)
             if (retries > 0) {
@@ -85,5 +109,14 @@ object HttpClientFactory {
                 }
             }
         }
+    }
+
+    private fun defaultMessageForStatus(status: HttpStatusCode): String = when (status) {
+        HttpStatusCode.BadRequest -> "不正なリクエストです。入力内容をご確認ください。"
+        HttpStatusCode.Conflict -> "要求が競合しました。状態を確認して再実行してください。"
+        HttpStatusCode.Unauthorized -> "認証に失敗しました。権限やAPIキーを確認してください。"
+        HttpStatusCode.Forbidden -> "許可されていない操作です。"
+        HttpStatusCode.NotFound -> "対象が見つかりませんでした。"
+        else -> "処理に失敗しました。（HTTP ${'$'}{status.value}）"
     }
 }
