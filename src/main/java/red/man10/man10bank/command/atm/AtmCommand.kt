@@ -6,7 +6,7 @@ import kotlinx.coroutines.launch
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 import red.man10.man10bank.Man10Bank
-import red.man10.man10bank.api.AtmApiClient
+import red.man10.man10bank.service.AtmService
 import red.man10.man10bank.util.BalanceFormats
 import red.man10.man10bank.util.DateFormats
 import red.man10.man10bank.command.BaseCommand
@@ -21,7 +21,7 @@ import red.man10.man10bank.util.Messages
 class AtmCommand(
     private val plugin: Man10Bank,
     private val scope: CoroutineScope,
-    private val atmApi: AtmApiClient,
+    private val atmService: AtmService,
     private val vault: VaultManager,
     private val cashItemManager: CashItemManager,
     private val cashExchangeService: CashExchangeService
@@ -69,22 +69,22 @@ class AtmCommand(
         val offset = page * LOG_PAGE_SIZE
         val target = plugin.server.getOfflinePlayer(targetName)
         scope.launch(Dispatchers.IO) {
-            val result = atmApi.getLogs(target.uniqueId, limit = LOG_PAGE_SIZE, offset = offset)
-            if (result.isFailure) {
-                Messages.error(plugin, viewer, "ATM履歴の取得に失敗しました。対象: $targetName")
-                return@launch
-            }
-            val logs = result.getOrNull().orEmpty()
-            val lines = logs.map { log ->
-                val kind = if (log.deposit == true) "§a§l入金" else "§c§l出金"
-                val amt = BalanceFormats.coloredYen(log.amount ?: 0.0)
-                val date = log.date?.let { DateFormats.toDateTime(it) } ?: ""
-                "§7[$date] §e$kind§r: $amt"
-            }
-            plugin.server.scheduler.runTask(plugin, Runnable {
-                Messages.send(viewer, "§6===== ${targetName}のATM履歴 =====")
-                showPaged(viewer, lines, page, "atm logop $targetName")
-            })
+            try {
+                val logs = atmService.logs(target.uniqueId, limit = LOG_PAGE_SIZE, offset = offset)
+                val lines = logs.map { log ->
+                    val kind = if (log.deposit == true) "§a§l入金" else "§c§l出金"
+                    val amt = BalanceFormats.coloredYen(log.amount ?: 0.0)
+                    val date = log.date?.let { DateFormats.toDateTime(it) } ?: ""
+                    "§7[$date] §e$kind§r: $amt"
+                }
+                val arg = if (viewer.uniqueId == target.uniqueId) "log" else "logop"
+                plugin.server.scheduler.runTask(plugin, Runnable {
+                    Messages.send(viewer, "§6===== ${targetName}のATM履歴 =====")
+                    showPaged(viewer, lines, page, "atm $arg $targetName")
+                })
+            } catch (e: Exception) {
+                val msg = e.message?.let { " 詳細: $it" } ?: ""
+                Messages.error(plugin, viewer, "ATM履歴の取得に失敗しました。対象: $targetName$msg")            }
         }
     }
 

@@ -18,21 +18,15 @@ import red.man10.man10bank.command.transaction.PayCommand
 import red.man10.man10bank.command.balance.BalanceCommand
 import red.man10.man10bank.config.ConfigManager
 import red.man10.man10bank.net.HttpClientFactory
-import red.man10.man10bank.service.HealthService
-import red.man10.man10bank.service.CashItemManager
-import red.man10.man10bank.service.CashExchangeService
 import red.man10.man10bank.command.op.BankOpCommand
 import red.man10.man10bank.command.atm.AtmCommand
 import red.man10.man10bank.command.cheque.ChequeCommand
 import red.man10.man10bank.ui.UIService
-import red.man10.man10bank.service.ChequeService
 import red.man10.man10bank.api.ServerLoanApiClient
-import red.man10.man10bank.service.ServerLoanService
 import red.man10.man10bank.command.serverloan.ServerLoanCommand
 import red.man10.man10bank.api.LoanApiClient
 import red.man10.man10bank.command.transaction.BalLogCommand
-import red.man10.man10bank.service.LoanService
-import red.man10.man10bank.service.BankService
+import red.man10.man10bank.service.*
 
 class Man10Bank : JavaPlugin(), Listener {
 
@@ -43,13 +37,14 @@ class Man10Bank : JavaPlugin(), Listener {
 
     // サービス
     private lateinit var healthService: HealthService
-    private lateinit var vaultManager: red.man10.man10bank.service.VaultManager
+    private lateinit var vaultManager: VaultManager
     private lateinit var bankApi: BankApiClient
     private lateinit var atmApi: AtmApiClient
     private lateinit var chequesApi: ChequesApiClient
     private lateinit var serverLoanApi: ServerLoanApiClient
     private lateinit var cashItemManager: CashItemManager
     private lateinit var cashExchangeService: CashExchangeService
+    private lateinit var atmService: red.man10.man10bank.service.AtmService
     private lateinit var uiService: UIService
     private lateinit var chequeService: ChequeService
     private lateinit var serverLoanService: ServerLoanService
@@ -103,7 +98,8 @@ class Man10Bank : JavaPlugin(), Listener {
         chequesApi = ChequesApiClient(httpClient)
         serverLoanApi = ServerLoanApiClient(httpClient)
         loanApi = LoanApiClient(httpClient)
-        vaultManager = red.man10.man10bank.service.VaultManager(this)
+
+        vaultManager = VaultManager(this)
         cashItemManager = CashItemManager(this)
         chequeService = ChequeService(this, scope, chequesApi)
         serverLoanService = ServerLoanService(this, serverLoanApi)
@@ -122,7 +118,6 @@ class Man10Bank : JavaPlugin(), Listener {
         } else {
             logger.info("Vault(Economy) に接続しました: ${vaultManager.provider()?.name}")
         }
-        cashExchangeService = CashExchangeService(this, scope, atmApi, vaultManager, cashItemManager)
     }
 
     private fun initServerName() {
@@ -144,7 +139,7 @@ class Man10Bank : JavaPlugin(), Listener {
         getCommand("mpay")?.setExecutor(PayCommand(this, scope, bankService))
         getCommand("ballog")?.setExecutor(BalLogCommand(scope, bankService))
         getCommand("bankop")?.setExecutor(BankOpCommand(this, scope, healthService, cashItemManager))
-        getCommand("atm")?.setExecutor(AtmCommand(this, scope, atmApi, vaultManager, cashItemManager, cashExchangeService))
+        getCommand("atm")?.setExecutor(AtmCommand(this, scope, atmService, vaultManager, cashItemManager, cashExchangeService))
         getCommand("mcheque")?.setExecutor(ChequeCommand(this, scope, chequeService))
         getCommand("mchequeop")?.setExecutor(ChequeCommand(this, scope, chequeService))
         getCommand("mrevo")?.setExecutor(ServerLoanCommand(this, scope, serverLoanService))
