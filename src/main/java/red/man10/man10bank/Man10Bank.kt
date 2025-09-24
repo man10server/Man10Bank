@@ -105,7 +105,7 @@ class Man10Bank : JavaPlugin(), Listener {
         cashItemManager = CashItemManager(this)
         chequeService = ChequeService(this, scope, chequesApi)
         serverLoanService = ServerLoanService(this, serverLoanApi)
-        estateService = red.man10.man10bank.service.EstateService(this, estateApi, vaultManager, cashItemManager, chequeService)
+        estateService = red.man10.man10bank.service.EstateService(this, scope, estateApi, vaultManager, cashItemManager, chequeService)
         loanService = LoanService(this, scope, loanApi)
         bankService = BankService(this, bankApi, vaultManager)
         uiService = UIService(this)
@@ -161,6 +161,7 @@ class Man10Bank : JavaPlugin(), Listener {
         server.pluginManager.registerEvents(uiService, this)
         server.pluginManager.registerEvents(chequeService, this)
         server.pluginManager.registerEvents(loanService, this)
+        server.pluginManager.registerEvents(estateService, this)
     }
 
     private fun registerProviders() {

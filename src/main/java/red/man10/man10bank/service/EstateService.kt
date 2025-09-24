@@ -1,6 +1,12 @@
 package red.man10.man10bank.service
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import org.bukkit.entity.Player
+import org.bukkit.event.EventHandler
+import org.bukkit.event.Listener
+import org.bukkit.event.player.PlayerJoinEvent
+import org.bukkit.event.player.PlayerQuitEvent
 import red.man10.man10bank.Man10Bank
 import red.man10.man10bank.api.EstateApiClient
 import red.man10.man10bank.api.model.request.EstateUpdateRequest
@@ -15,11 +21,12 @@ import red.man10.man10bank.util.Messages
  */
 class EstateService(
     private val plugin: Man10Bank,
+    private val scope: CoroutineScope,
     private val api: EstateApiClient,
     private val vault: VaultManager,
     private val cashItemManager: CashItemManager,
     private val chequeService: ChequeService,
-) {
+) : Listener {
 
     /** プレイヤー自身の資産履歴を取得（失敗時は空リスト）。 */
     suspend fun history(player: Player, limit: Int = 100, offset: Int = 0): List<EstateHistory> {
@@ -51,12 +58,25 @@ class EstateService(
         return emptyList()
     }
 
+    // -----------------
+    // イベント連携（ログイン/ログアウトでスナップショット）
+    // -----------------
+    @EventHandler
+    fun onJoin(e: PlayerJoinEvent) {
+        scope.launch { snapshot(e.player) }
+    }
+
+    @EventHandler
+    fun onQuit(e: PlayerQuitEvent) {
+        scope.launch { snapshot(e.player) }
+    }
+
     /**
      * プレイヤーの現在資産をスナップショットとして送信。
      * - CashItemManager: インベントリ+エンダーチェストの現金合計
      * - VaultManager   : 電子マネー（Vault残高）
      */
-    suspend fun snapshot(player: Player): Boolean {
+    private suspend fun snapshot(player: Player): Boolean {
         val cash = cashItemManager.countTotalCash(player)
         val vaultBal = vault.getBalance(player)
         val chequeTotal = chequeService.countTotalChequeAmount(player)
