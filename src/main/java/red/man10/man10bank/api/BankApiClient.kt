@@ -64,8 +64,8 @@ class BankApiClient(private val client: HttpClient) {
     }
 
     /**
-     * 出金。残高不足などで 409 Conflict を受け取った場合は
-     * InsufficientBalanceException を失敗として返します。
+     * 出金。
+     * - 非2xx時のエラーメッセージは HttpClientFactory により ApiHttpException へ正規化されます。
      */
     suspend fun withdraw(body: WithdrawRequest): Result<Double> = runCatching {
         client.post("/api/Bank/withdraw") {

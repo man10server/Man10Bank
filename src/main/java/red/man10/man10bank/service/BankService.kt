@@ -3,7 +3,6 @@ package red.man10.man10bank.service
 import org.bukkit.entity.Player
 import red.man10.man10bank.Man10Bank
 import red.man10.man10bank.api.BankApiClient
-import red.man10.man10bank.api.error.InsufficientBalanceException
 import red.man10.man10bank.api.model.request.DepositRequest
 import red.man10.man10bank.api.model.request.WithdrawRequest
 import red.man10.man10bank.command.balance.BalanceRegistry
