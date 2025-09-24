@@ -74,8 +74,8 @@ class BankService(
         )
 
         if (!result.isSuccess) {
-            val msg = result.exceptionOrNull()?.message ?: "出金に失敗しました。"
-            Messages.error(plugin, player, msg)
+            val msg = result.exceptionOrNull()?.message ?: "不明なエラー"
+            Messages.error(plugin, player, "出金に失敗しました: $msg")
             return
         }
 
@@ -108,7 +108,8 @@ class BankService(
         if (refundResult.isSuccess) {
             Messages.send(plugin, player, "返金に成功しました。銀行残高: ${BalanceFormats.coloredYen(refundResult.getOrNull() ?: 0.0)}")
         } else {
-            Messages.error(plugin, player, "${BalanceFormats.coloredYen(amount)}円の返金に失敗しました。至急管理者に連絡してください！")
+            val msg = refundResult.exceptionOrNull()?.message ?: "不明なエラー"
+            Messages.error(plugin, player, "${BalanceFormats.coloredYen(amount)}円の返金に失敗しました。$msg")
         }
     }
 
@@ -154,8 +155,8 @@ class BankService(
         )
 
         if (!withdraw.isSuccess) {
-            val msg = withdraw.exceptionOrNull()?.message ?: "送金に失敗しました(出金失敗)。"
-            Messages.error(plugin, sender, msg)
+            val msg = withdraw.exceptionOrNull()?.message ?: "不明なエラー"
+            Messages.error(plugin, sender, "送金に失敗しました(出金失敗)。$msg")
             return
         }
 
@@ -198,9 +199,8 @@ class BankService(
                 "送金に失敗しました(入金失敗)。金額は返金されました。返金後残高は銀行でご確認ください。"
             )
         } else {
-            Messages.error(plugin, sender,
-                "${BalanceFormats.coloredYen(amount)}の返金に失敗しました。至急管理者に連絡してください！"
-            )
+            val msg = refund.exceptionOrNull()?.message ?: "不明なエラー"
+            Messages.error(plugin, sender, "${BalanceFormats.coloredYen(amount)}の返金に失敗しました。 $msg")
         }
     }
 
@@ -210,8 +210,8 @@ class BankService(
     suspend fun getLogs(player: Player, limit: Int = 10, offset: Int = 0): List<red.man10.man10bank.api.model.response.MoneyLog>? {
         val result = api.getLogs(player.uniqueId, limit, offset)
         if (result.isSuccess) return result.getOrNull()
-        val ex = result.exceptionOrNull()
-        Messages.error(plugin, player, "ログ取得に失敗しました: ${ex?.message ?: "不明なエラー"}")
+        val msg = result.exceptionOrNull()?.message?: "不明なエラー"
+        Messages.error(plugin, player, "ログ取得に失敗しました: $msg")
         return null
     }
 
