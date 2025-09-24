@@ -78,22 +78,16 @@ class LoanService(
         val result = api.create(body)
 
         if (result.isFailure) {
-            val msg = result.exceptionOrNull()?.message ?: "ローン作成に失敗しました。"
-            // エラーメッセージはサービス層で通知
-            plugin.server.scheduler.runTask(plugin, Runnable {
-                Messages.error(plugin, lender, msg)
-                Messages.error(plugin, borrower, "借入が確定できませんでした。")
-            })
+            val msg = result.exceptionOrNull()?.message ?: "不明なエラー"
+            Messages.error(plugin, lender, "ローン作成に失敗しました: $msg")
+            Messages.error(plugin, borrower, "借入が確定できませんでした。$msg")
             return false
         }
 
         val loan = result.getOrNull()
         if (loan == null) {
-            val msg = "ローン作成に失敗しました。"
-            plugin.server.scheduler.runTask(plugin, Runnable {
-                Messages.error(plugin, lender, msg)
-                Messages.error(plugin, borrower, "借入が確定できませんでした。")
-            })
+            Messages.error(plugin, lender, "ローン作成に失敗しました。 null")
+            Messages.error(plugin, borrower, "借入が確定できませんでした。 null")
             return false
         }
 
@@ -104,7 +98,7 @@ class LoanService(
             if (leftover.isNotEmpty()) {
                 leftover.values.forEach { lender.world.dropItemNaturally(lender.location, it) }
             }
-            Messages.send(plugin, lender, "ローン手形を発行しました。ID: ${loan.id ?: "不明"}")
+            Messages.send(plugin, lender, "ローン手形を発行しました。")
             Messages.send(plugin, borrower, "借入が確定しました。金額: ${BalanceFormats.coloredYen(repayAmount)}円")
         })
         return true
@@ -180,13 +174,8 @@ class LoanService(
         val result = api.repay(id, collector.uniqueId.toString())
 
         if (!result.isSuccess) {
-            val msg = result.exceptionOrNull()?.message ?: "返済処理に失敗しました。"
-            val notFound = msg.contains("404") || msg.contains("Not Found", ignoreCase = true)
-            if (notFound) {
-                Messages.error(plugin, collector, "借金データが見つかりません。(id: ${id})")
-            } else {
-                Messages.error(plugin, collector, msg)
-            }
+            val msg = result.exceptionOrNull()?.message ?: "不明なエラー"
+            Messages.error(plugin, collector, "返済処理に失敗しました: $msg")
             return
         }
         val resp = result.getOrNull()
@@ -226,8 +215,8 @@ class LoanService(
         // 返済後に最新のローン情報で手形を更新
         val loanRes = api.get(id)
         if (!loanRes.isSuccess) {
-            val msg = loanRes.exceptionOrNull()?.message ?: "ローン情報の取得に失敗しました。"
-            Messages.error(plugin, collector, msg)
+            val msg = loanRes.exceptionOrNull()?.message ?: "不明なエラー"
+            Messages.error(plugin, collector, "最新のローン情報の取得に失敗しました: $msg")
             return
         }
         val loan = loanRes.getOrNull() ?: return

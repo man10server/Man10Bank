@@ -76,8 +76,8 @@ class ChequeService(
         )
         val created = chequesApi.create(req)
         if (created.isFailure) {
-            val ex = created.exceptionOrNull()
-            Messages.error(p, "小切手の発行に失敗しました: ${ex?.message ?: "不明なエラー"}")
+            val msg = created.exceptionOrNull()?.message?: "不明なエラー"
+            Messages.error(p, "小切手の発行に失敗しました: $msg")
             return null
         }
         val cheque = created.getOrNull()?:return null
