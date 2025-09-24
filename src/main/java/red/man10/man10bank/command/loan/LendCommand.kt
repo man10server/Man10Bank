@@ -255,7 +255,6 @@ class LendCommand(
         return true
     }
 
-    // 貸し手: 最終承認 -> サービス呼び出し
     private fun handleLenderConfirm(sender: Player, args: Array<out String>): Boolean {
         val id = args.getOrNull(1) ?: return true.also { Messages.error(sender, "IDが指定されていません。") }
         val proposal = get(id)
@@ -272,18 +271,10 @@ class LendCommand(
         }
         scope.launch {
             val result = loanService.create(sender, borrower, proposal.repayAmount, proposal.paybackDays, proposal.collaterals)
-            if (result.isSuccess) {
-                val loan = result.getOrNull()
-                Messages.send(plugin, sender, "§aローンを作成しました。ID: ${loan?.id ?: "不明"}")
-                Messages.send(plugin, borrower, "§a借入が確定しました。金額: ${BalanceFormats.coloredYen(proposal.repayAmount)}円")
-                remove(id)
-            } else {
-                val msg = result.exceptionOrNull()?.message ?: "ローン作成に失敗しました。"
-                Messages.error(plugin, sender, msg)
-                Messages.error(plugin, borrower, "貸し手のローン作成に失敗しました。提案はキャンセルされました。")
+            if (!result) {
                 returnCollateralsToBorrower(proposal)
-                remove(id)
             }
+            remove(id)
         }
         return true
     }

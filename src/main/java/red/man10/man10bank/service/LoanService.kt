@@ -46,7 +46,7 @@ class LoanService(
 
     /**
      * ローン作成。
-     * - 返却: 作成された Loan
+     * - 成功/失敗のみ返す（メッセージ表示や手形発行などの副作用は本関数内で処理）
      * - collateral は任意（null 可）
      */
     suspend fun create(
@@ -55,9 +55,15 @@ class LoanService(
         repayAmount: Double,
         paybackInDays: Int,
         collaterals: List<ItemStack>?,
-    ): Result<Loan> {
-        if (repayAmount <= 0.0) return Result.failure(IllegalArgumentException("金額が不正です。正の数を指定してください。"))
-        if (paybackInDays <= 0) return Result.failure(IllegalArgumentException("返済期限日数が不正です。1以上を指定してください。"))
+    ): Boolean {
+        if (repayAmount <= 0.0) {
+            Messages.error(plugin, lender, "返済金額が不正です。0より大きい値を指定してください。")
+            return false
+        }
+        if (paybackInDays <= 0) {
+            Messages.error(plugin, lender, "返済期限日数が不正です。1以上を指定してください。")
+            return false
+        }
 
         val paybackDateIso = OffsetDateTime.now(ZoneOffset.UTC).plusDays(paybackInDays.toLong()).toString()
         val encoded = collaterals?.filter { !it.type.isAir }?.takeIf { it.isNotEmpty() }?.let { ItemStackBase64.encodeItems(it) }
@@ -71,11 +77,27 @@ class LoanService(
         )
         val result = api.create(body)
 
-        if (!result.isSuccess) {
-            return result
+        if (result.isFailure) {
+            val msg = result.exceptionOrNull()?.message ?: "ローン作成に失敗しました。"
+            // エラーメッセージはサービス層で通知
+            plugin.server.scheduler.runTask(plugin, Runnable {
+                Messages.error(plugin, lender, msg)
+                Messages.error(plugin, borrower, "借入が確定できませんでした。")
+            })
+            return false
         }
-        val loan = result.getOrNull() ?: return result
-        // 債権者に手形を発行
+
+        val loan = result.getOrNull()
+        if (loan == null) {
+            val msg = "ローン作成に失敗しました。"
+            plugin.server.scheduler.runTask(plugin, Runnable {
+                Messages.error(plugin, lender, msg)
+                Messages.error(plugin, borrower, "借入が確定できませんでした。")
+            })
+            return false
+        }
+
+        // 債権者に手形を発行し、双方に通知
         val note = issueDebtNote(loan)
         plugin.server.scheduler.runTask(plugin, Runnable {
             val leftover = lender.inventory.addItem(note)
@@ -83,8 +105,9 @@ class LoanService(
                 leftover.values.forEach { lender.world.dropItemNaturally(lender.location, it) }
             }
             Messages.send(plugin, lender, "ローン手形を発行しました。ID: ${loan.id ?: "不明"}")
+            Messages.send(plugin, borrower, "借入が確定しました。金額: ${BalanceFormats.coloredYen(repayAmount)}円")
         })
-        return result
+        return true
     }
 
     /**
