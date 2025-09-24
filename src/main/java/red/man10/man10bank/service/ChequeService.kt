@@ -38,6 +38,9 @@ class ChequeService(
 
     private val oldChequeKey = NamespacedKey.fromString("cheque_id")!!
 
+    // 小切手金額の保存用キー（PDC: DOUBLE）
+    private val amountKey = NamespacedKey(plugin, "cheque_amount")
+
     @EventHandler
     fun onPlayerInteract(event: PlayerInteractEvent) {
         val player = event.player
@@ -140,7 +143,39 @@ class ChequeService(
             return item
         }
         meta.persistentDataContainer.set(idKey, PersistentDataType.INTEGER, cheque.id?:-1)
+        // 小切手の額面をPDCに保存（DOUBLE）。未指定時は0として扱う。
+        meta.persistentDataContainer.set(amountKey, PersistentDataType.DOUBLE, cheque.amount ?: 0.0)
         item.itemMeta = meta
         return item
+    }
+
+    /**
+     * ItemStack から小切手の金額を取得。小切手でない/金額未格納なら null。
+     */
+    fun getChequeAmount(item: ItemStack?): Double? {
+        val meta = item?.itemMeta ?: return null
+        val pdc = meta.persistentDataContainer
+        if (!pdc.has(idKey, PersistentDataType.INTEGER) && !pdc.has(oldChequeKey, PersistentDataType.INTEGER)) return null
+        return pdc.get(amountKey, PersistentDataType.DOUBLE)
+    }
+
+    /**
+     * プレイヤーのインベントリとエンダーチェストにある小切手の総額を返す。
+     */
+    fun countTotalChequeAmount(player: Player): Double {
+        var total = 0.0
+        // インベントリ
+        for (stack in player.inventory.contents) {
+            val s = stack ?: continue
+            val amount = getChequeAmount(s) ?: continue
+            if (s.amount > 0) total += amount * s.amount
+        }
+        // エンダーチェスト
+        for (stack in player.enderChest.contents) {
+            val s = stack ?: continue
+            val amount = getChequeAmount(s) ?: continue
+            if (s.amount > 0) total += amount * s.amount
+        }
+        return total
     }
 }

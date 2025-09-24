@@ -18,6 +18,7 @@ class EstateService(
     private val api: EstateApiClient,
     private val vault: VaultManager,
     private val cashItemManager: CashItemManager,
+    private val chequeService: ChequeService,
 ) {
 
     /** プレイヤー自身の資産履歴を取得（失敗時は空リスト）。 */
@@ -50,16 +51,15 @@ class EstateService(
     suspend fun snapshot(player: Player): Boolean {
         val cash = cashItemManager.countTotalCash(player)
         val vaultBal = vault.getBalance(player)
+        val chequeTotal = chequeService.countTotalChequeAmount(player)
         val req = EstateUpdateRequest(
             cash = cash,
             vault = vaultBal,
-            estateAmount = null,
+            estateAmount = chequeTotal,
             shop = null,
         )
         val res = api.snapshot(player.uniqueId, req)
         if (res.isSuccess) return res.getOrNull() == true
-        val msg = res.exceptionOrNull()?.message ?: "資産スナップショットの送信に失敗しました。"
-        Messages.error(plugin, player, msg)
         return false
     }
 
@@ -79,4 +79,3 @@ class EstateService(
             total = total,
         )
 }
-
