@@ -6,7 +6,7 @@ import org.bukkit.entity.Player
 import org.bukkit.event.inventory.InventoryAction
 import org.bukkit.event.inventory.InventoryClickEvent
 import org.bukkit.inventory.ItemStack
-import red.man10.man10bank.service.CashExchangeService
+import red.man10.man10bank.service.AtmService
 import red.man10.man10bank.service.CashItemManager
 import red.man10.man10bank.ui.InventoryUI
 import red.man10.man10bank.ui.UIButton
@@ -22,7 +22,7 @@ import red.man10.man10bank.util.Messages
 class AtmDepositUI(
     private val player: Player,
     private val cashItems: CashItemManager,
-    private val exchange: CashExchangeService,
+    private val atmService: AtmService,
     previousUI: InventoryUI? = null,
 ) : InventoryUI(
     title = "現金を電子マネーにする",
@@ -77,7 +77,7 @@ class AtmDepositUI(
                 .mapNotNull { top.getItem(it) }
                 .toTypedArray()
 
-            val deposited = exchange.depositCashToVault(player, targets)
+            val deposited = atmService.depositCashToVault(player, targets)
             if (deposited > 0.0) {
                 Messages.send(p, "入金しました: ${BalanceFormats.coloredYen(deposited)}")
             }

@@ -43,7 +43,6 @@ class Man10Bank : JavaPlugin(), Listener {
     private lateinit var chequesApi: ChequesApiClient
     private lateinit var serverLoanApi: ServerLoanApiClient
     private lateinit var cashItemManager: CashItemManager
-    private lateinit var cashExchangeService: CashExchangeService
     private lateinit var atmService: red.man10.man10bank.service.AtmService
     private lateinit var uiService: UIService
     private lateinit var chequeService: ChequeService
@@ -106,6 +105,7 @@ class Man10Bank : JavaPlugin(), Listener {
         loanService = LoanService(this, scope, loanApi)
         bankService = BankService(this, bankApi, vaultManager)
         uiService = UIService(this)
+        atmService = red.man10.man10bank.service.AtmService(this, scope, atmApi, vaultManager, cashItemManager)
 
         // 起動時に現金アイテム設定を読み込む
         val loadedCash = cashItemManager.load()
@@ -139,7 +139,7 @@ class Man10Bank : JavaPlugin(), Listener {
         getCommand("mpay")?.setExecutor(PayCommand(this, scope, bankService))
         getCommand("ballog")?.setExecutor(BalLogCommand(scope, bankService))
         getCommand("bankop")?.setExecutor(BankOpCommand(this, scope, healthService, cashItemManager))
-        getCommand("atm")?.setExecutor(AtmCommand(this, scope, atmService, vaultManager, cashItemManager, cashExchangeService))
+        getCommand("atm")?.setExecutor(AtmCommand(this, scope, atmService, vaultManager, cashItemManager))
         getCommand("mcheque")?.setExecutor(ChequeCommand(this, scope, chequeService))
         getCommand("mchequeop")?.setExecutor(ChequeCommand(this, scope, chequeService))
         getCommand("mrevo")?.setExecutor(ServerLoanCommand(this, scope, serverLoanService))

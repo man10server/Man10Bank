@@ -10,7 +10,6 @@ import red.man10.man10bank.service.AtmService
 import red.man10.man10bank.util.BalanceFormats
 import red.man10.man10bank.util.DateFormats
 import red.man10.man10bank.command.BaseCommand
-import red.man10.man10bank.service.CashExchangeService
 import red.man10.man10bank.service.CashItemManager
 import red.man10.man10bank.service.VaultManager
 import red.man10.man10bank.ui.atm.AtmDepositUI
@@ -23,8 +22,7 @@ class AtmCommand(
     private val scope: CoroutineScope,
     private val atmService: AtmService,
     private val vault: VaultManager,
-    private val cashItemManager: CashItemManager,
-    private val cashExchangeService: CashExchangeService
+    private val cashItemManager: CashItemManager
 ) : BaseCommand(
     allowPlayer = true,
     allowConsole = false,
@@ -39,8 +37,8 @@ class AtmCommand(
         sender as Player
         val arg = args.getOrNull(0)
         when (arg) {
-            "deposit" -> AtmDepositUI(sender, cashItemManager, cashExchangeService).open()
-            "withdraw" -> AtmWithdrawUI(sender, cashItemManager, cashExchangeService, vault).open()
+            "deposit" -> AtmDepositUI(sender, cashItemManager, atmService).open()
+            "withdraw" -> AtmWithdrawUI(sender, cashItemManager, atmService, vault).open()
             "log" -> {
                 val page = args.getOrNull(1)?.toIntOrNull()?.coerceAtLeast(0) ?: 0
                 showLogs(sender, page)
@@ -84,7 +82,8 @@ class AtmCommand(
                 })
             } catch (e: Exception) {
                 val msg = e.message?.let { " 詳細: $it" } ?: ""
-                Messages.error(plugin, viewer, "ATM履歴の取得に失敗しました。対象: $targetName$msg")            }
+                Messages.error(plugin, viewer, "ATM履歴の取得に失敗しました。対象: $targetName $msg")
+            }
         }
     }
 

@@ -4,7 +4,7 @@ import net.kyori.adventure.text.Component
 import org.bukkit.Material
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
-import red.man10.man10bank.service.CashExchangeService
+import red.man10.man10bank.service.AtmService
 import red.man10.man10bank.service.CashItemManager
 import red.man10.man10bank.service.VaultManager
 import red.man10.man10bank.ui.InventoryUI
@@ -20,7 +20,7 @@ import red.man10.man10bank.util.Messages
 class AtmWithdrawUI(
     private val player: Player,
     private val cashItems: CashItemManager,
-    private val exchange: CashExchangeService,
+    private val atmService: AtmService,
     private val vaultManager: VaultManager,
 ) : InventoryUI(
     title = "電子マネーを現金にする",
@@ -62,7 +62,7 @@ class AtmWithdrawUI(
 
         val icon = base.clone()
         return UIButton(icon).onClick { p, _ ->
-            val item = exchange.withdrawVaultToCash(player, amount)
+            val item = atmService.withdrawVaultToCash(player, amount)
             if (item == null) {
                 Messages.warn(p, "残高不足、または引き出しできませんでした。")
                 return@onClick
@@ -74,4 +74,3 @@ class AtmWithdrawUI(
         }
     }
 }
-

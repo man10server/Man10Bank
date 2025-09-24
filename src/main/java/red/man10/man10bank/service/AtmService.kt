@@ -8,31 +8,29 @@ import org.bukkit.inventory.ItemStack
 import org.bukkit.plugin.java.JavaPlugin
 import red.man10.man10bank.api.AtmApiClient
 import red.man10.man10bank.api.model.request.AtmLogRequest
+import red.man10.man10bank.api.model.response.AtmLog
 import kotlin.math.floor
+import java.util.UUID
 
 /**
- * 現金とVault残高の交換を担当するサービス。
+ * ATM関連のサービス層。
+ * - API呼び出しの集約と、現金↔Vaultの交換処理を提供します。
  */
-class CashExchangeService(
+class AtmService(
     private val plugin: JavaPlugin,
     private val scope: CoroutineScope,
-    private val atmApi: AtmApiClient,
+    private val api: AtmApiClient,
     private val vault: VaultManager,
     private val cashItemManager: CashItemManager,
 ) {
-
-    private fun logAtmAsync(player: Player, amount: Double, deposit: Boolean) {
-        scope.launch(Dispatchers.IO) {
-            val req = AtmLogRequest(
-                uuid = player.uniqueId.toString(),
-                amount = amount,
-                deposit = deposit,
-            )
-            val result = atmApi.appendLog(req)
-            if (result.isFailure) {
-                plugin.logger.warning("ATMログ送信に失敗しました: ${result.exceptionOrNull()?.message}")
-            }
-        }
+    /**
+     * ATMログの取得。
+     * - 成功時: ログのリストを返す
+     * - 失敗時: 例外をスロー（ApiHttpException 等）
+     */
+    suspend fun logs(uuid: UUID, limit: Int = 100, offset: Int = 0): List<AtmLog> {
+        val result = api.getLogs(uuid, limit, offset)
+        return result.getOrElse { throw it }
     }
 
     /** 現金アイテムをVaultへ換金し、入金額を返す。 */
@@ -68,5 +66,19 @@ class CashExchangeService(
         if (!success) return null
         logAtmAsync(player, amount, false)
         return cashItemManager.getItemForAmount(amount)
+    }
+
+    private fun logAtmAsync(player: Player, amount: Double, deposit: Boolean) {
+        scope.launch(Dispatchers.IO) {
+            val req = AtmLogRequest(
+                uuid = player.uniqueId.toString(),
+                amount = amount,
+                deposit = deposit,
+            )
+            val result = api.appendLog(req)
+            if (result.isFailure) {
+                plugin.logger.warning("ATMログ送信に失敗しました: ${result.exceptionOrNull()?.message}")
+            }
+        }
     }
 }
