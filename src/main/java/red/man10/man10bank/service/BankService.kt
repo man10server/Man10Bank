@@ -75,12 +75,8 @@ class BankService(
         )
 
         if (!result.isSuccess) {
-            val ex = result.exceptionOrNull()
-            if (ex is InsufficientBalanceException) {
-                Messages.error(plugin, player, "銀行残高が不足しています。")
-            } else {
-                Messages.error(plugin, player, "出金に失敗しました: ${ex?.message ?: "不明なエラー"}")
-            }
+            val msg = result.exceptionOrNull()?.message ?: "出金に失敗しました。"
+            Messages.error(plugin, player, msg)
             return
         }
 
@@ -159,12 +155,8 @@ class BankService(
         )
 
         if (!withdraw.isSuccess) {
-            val ex = withdraw.exceptionOrNull()
-            if (ex is InsufficientBalanceException) {
-                Messages.error(plugin, sender, "銀行残高が不足しています。")
-            } else {
-                Messages.error(plugin, sender, "送金に失敗しました(出金失敗): ${ex?.message ?: "不明なエラー"}")
-            }
+            val msg = withdraw.exceptionOrNull()?.message ?: "送金に失敗しました(出金失敗)。"
+            Messages.error(plugin, sender, msg)
             return
         }
 
