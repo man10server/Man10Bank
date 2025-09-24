@@ -5,6 +5,7 @@ import org.bukkit.command.CommandSender
 import red.man10.man10bank.Man10Bank
 import red.man10.man10bank.command.BaseCommand
 import red.man10.man10bank.command.op.sub.HealthSubcommand
+import red.man10.man10bank.command.op.sub.HistorySubcommand
 import red.man10.man10bank.command.op.sub.SetCashSubcommand
 import red.man10.man10bank.service.CashItemManager
 import red.man10.man10bank.service.HealthService
@@ -31,7 +32,7 @@ class BankOpCommand(
         // 現金アイテム設定
         SetCashSubcommand(cashItemManager),
         // 資産履歴
-        red.man10.man10bank.command.op.sub.HistorySubcommand(plugin, estateService),
+        HistorySubcommand(plugin, scope, estateService),
     ).associateBy { it.name }
 
     override fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean {

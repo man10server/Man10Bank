@@ -1,5 +1,7 @@
 package red.man10.man10bank.command.op.sub
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.event.HoverEvent
 import org.bukkit.Bukkit
@@ -19,6 +21,7 @@ import red.man10.man10bank.util.Messages
  */
 class HistorySubcommand(
     private val plugin: Man10Bank,
+    private val scope: CoroutineScope,
     private val estateService: EstateService,
 ) : BankOpSubcommand {
     override val name: String = "history"
@@ -37,11 +40,11 @@ class HistorySubcommand(
         val offline = Bukkit.getOfflinePlayer(targetName)
         val uuid = offline.uniqueId
 
-        plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
+        scope.launch {
             val list = estateService.history(uuid, limit, offset)
             if (list.isEmpty()) {
                 Messages.warn(plugin, sender, "履歴が見つかりません（${targetName}, page=${page}）。")
-                return@Runnable
+                return@launch
             }
             // 見出し
             Messages.send(plugin, sender, "§e§l[資産履歴] §f対象: §b$targetName §fページ: §b$page")
@@ -72,8 +75,7 @@ class HistorySubcommand(
                     Messages.send(plugin, sender, "${dateText}: ${totalText}")
                 }
             }
-        })
+        }
         return true
     }
 }
-
