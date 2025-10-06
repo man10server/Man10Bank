@@ -5,6 +5,7 @@ import red.man10.man10bank.Man10Bank
 import red.man10.man10bank.api.BankApiClient
 import red.man10.man10bank.api.model.request.DepositRequest
 import red.man10.man10bank.api.model.request.WithdrawRequest
+import red.man10.man10bank.api.model.response.MoneyLog
 import red.man10.man10bank.command.balance.BalanceRegistry
 import red.man10.man10bank.util.BalanceFormats
 import red.man10.man10bank.util.errorMessage
@@ -208,7 +209,7 @@ class BankService(
     /**
      * 取引ログの取得（失敗時はProblemDetailsを表示し、nullを返す）。
      */
-    suspend fun getLogs(player: Player, limit: Int = 10, offset: Int = 0): List<red.man10.man10bank.api.model.response.MoneyLog>? {
+    suspend fun getLogs(player: Player, limit: Int = 10, offset: Int = 0): List<MoneyLog>? {
         val result = api.getLogs(player.uniqueId, limit, offset)
         if (result.isSuccess) return result.getOrNull()
         val msg = result.errorMessage()
