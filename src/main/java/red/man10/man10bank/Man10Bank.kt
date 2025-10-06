@@ -45,12 +45,12 @@ class Man10Bank : JavaPlugin(), Listener {
     private lateinit var serverEstateApi: red.man10.man10bank.api.ServerEstateApiClient
     private lateinit var estateApi: red.man10.man10bank.api.EstateApiClient
     private lateinit var cashItemManager: CashItemManager
-    private lateinit var atmService: red.man10.man10bank.service.AtmService
+    private lateinit var atmService: AtmService
     private lateinit var uiService: UIService
     private lateinit var chequeService: ChequeService
-    private lateinit var estateService: red.man10.man10bank.service.EstateService
+    private lateinit var estateService: EstateService
     private lateinit var serverLoanService: ServerLoanService
-    private lateinit var serverEstateService: red.man10.man10bank.service.ServerEstateService
+    private lateinit var serverEstateService: ServerEstateService
     private lateinit var loanApi: LoanApiClient
     private lateinit var loanService: LoanService
     private lateinit var bankService: BankService
@@ -108,12 +108,12 @@ class Man10Bank : JavaPlugin(), Listener {
         cashItemManager = CashItemManager(this)
         chequeService = ChequeService(this, scope, chequesApi)
         serverLoanService = ServerLoanService(this, serverLoanApi)
-        serverEstateService = red.man10.man10bank.service.ServerEstateService(this, serverEstateApi)
-        estateService = red.man10.man10bank.service.EstateService(this, scope, estateApi, vaultManager, cashItemManager, chequeService)
+        serverEstateService = ServerEstateService(this, serverEstateApi)
+        estateService = EstateService(this, scope, estateApi, vaultManager, cashItemManager, chequeService)
         loanService = LoanService(this, scope, loanApi)
         bankService = BankService(this, bankApi, vaultManager)
         uiService = UIService(this)
-        atmService = red.man10.man10bank.service.AtmService(this, scope, atmApi, vaultManager, cashItemManager)
+        atmService = AtmService(this, scope, atmApi, vaultManager, cashItemManager)
 
         // 起動時に現金アイテム設定を読み込む
         val loadedCash = cashItemManager.load()
