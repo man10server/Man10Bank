@@ -166,6 +166,7 @@ class Man10Bank : JavaPlugin(), Listener {
         server.pluginManager.registerEvents(chequeService, this)
         server.pluginManager.registerEvents(loanService, this)
         server.pluginManager.registerEvents(estateService, this)
+        server.pluginManager.registerEvents(cashItemManager, this)
     }
 
     private fun registerProviders() {

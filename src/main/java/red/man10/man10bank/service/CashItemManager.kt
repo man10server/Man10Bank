@@ -5,6 +5,11 @@ import org.bukkit.configuration.file.YamlConfiguration
 import org.bukkit.inventory.ItemStack
 import org.bukkit.persistence.PersistentDataType
 import org.bukkit.plugin.java.JavaPlugin
+import org.bukkit.event.Listener
+import org.bukkit.event.EventHandler
+import org.bukkit.event.block.Action
+import org.bukkit.event.player.PlayerInteractEvent
+import org.bukkit.inventory.EquipmentSlot
 import red.man10.man10bank.command.balance.BalanceRegistry
 import red.man10.man10bank.util.BalanceFormats
 import java.io.File
@@ -20,7 +25,7 @@ import java.io.IOException
  *   "1000": <ItemStack>
  *   "500.5": <ItemStack>
  */
-class CashItemManager(private val plugin: JavaPlugin) {
+class CashItemManager(private val plugin: JavaPlugin) : Listener {
 
     // 金額キー（文字列化） -> アイテム
     private val items: MutableMap<String, ItemStack> = mutableMapOf()
@@ -130,5 +135,24 @@ class CashItemManager(private val plugin: JavaPlugin) {
                 if (total <= 0.0) "" else "§b§l現金: ${BalanceFormats.coloredYen(total)}§r"
             }
         )
+    }
+
+    // -----------------
+    // イベントハンドラ
+    // -----------------
+    /**
+     * 現金アイテムを手に持って右クリックしたら /atm を開く。
+     * - 新旧通貨（PDC: STRING/DOUBLE）ともに getAmountForItem が非nullなら対象
+     * - 二重発火防止のためメインハンドのみ許可
+     */
+    @EventHandler
+    fun onRightClickCash(event: PlayerInteractEvent) {
+        val action = event.action
+        if (action != Action.RIGHT_CLICK_AIR && action != Action.RIGHT_CLICK_BLOCK) return
+
+        val item = event.item ?: return
+        if (getAmountForItem(item) != null) {
+            event.player.performCommand("atm")
+        }
     }
 }
