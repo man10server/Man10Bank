@@ -80,8 +80,13 @@ class CashItemManager(private val plugin: JavaPlugin) {
     fun getAmountForItem(item: ItemStack): Double? {
         val meta = item.itemMeta?: return null
         val pdc = meta.persistentDataContainer
-        if (!pdc.has(cashAmountKey, PersistentDataType.STRING)) return null
-        return pdc.get(cashAmountKey, PersistentDataType.STRING)?.toDoubleOrNull()
+        // まずは新形式（文字列）を確認
+        pdc.get(cashAmountKey, PersistentDataType.STRING)?.toDoubleOrNull()?.let { return it }
+
+        // 旧形式（DOUBLE, key: oldCashKey）にも対応
+        pdc.get(oldCashKey, PersistentDataType.DOUBLE)?.let { return it }
+
+        return null
     }
 
     // -----------------
