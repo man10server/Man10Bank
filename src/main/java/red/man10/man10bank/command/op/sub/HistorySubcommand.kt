@@ -55,7 +55,7 @@ class HistorySubcommand(
 
                 val hoverLines = buildString {
                     appendLine("内訳:")
-                    h.vault?.let { appendLine("・電子マネー(Vault): ${BalanceFormats.amount(it)} 円") }
+                    h.vault?.let { appendLine("・電子マネー: ${BalanceFormats.amount(it)} 円") }
                     h.bank?.let { appendLine("・銀行: ${BalanceFormats.amount(it)} 円") }
                     h.cash?.let { appendLine("・現金: ${BalanceFormats.amount(it)} 円") }
                     h.estateAmount?.let { appendLine("・小切手: ${BalanceFormats.amount(it)} 円") }

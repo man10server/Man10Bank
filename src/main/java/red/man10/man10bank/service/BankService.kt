@@ -32,17 +32,28 @@ class BankService(
 
     /** Vault -> Bank 入金処理（メッセージ送信込み）。 */
     suspend fun deposit(player: Player, amount: Double) {
+        // 金額は小数点以下を切り捨て（整数化）
+        val amt = normalizeAmount(amount)
+        if (amt <= 0.0) {
+            Messages.error(plugin, player, "金額が不正です。1円以上を指定してください。")
+            return
+        }
+        // 電子マネー(Vault) 未接続の場合は安全のため中断
+        if (!vault.isAvailable()) {
+            Messages.error(plugin, player, "電子マネーが利用できません。後でもう一度お試しください。")
+            return
+        }
         // Vault から引き落とし
-        val withdrew = vault.withdraw(player, amount)
+        val withdrew = vault.withdraw(player, amt)
         if (!withdrew) {
-            Messages.error(plugin, player, "Vaultからの引き落としに失敗しました。")
+            Messages.error(plugin, player, "電子マネーからの引き落としに失敗しました。")
             return
         }
         // Bank へ入金
         val result = api.deposit(
             depositRequest(
                 player = player,
-                amount = amount,
+                amount = amt,
                 note = "PlayerDepositOnCommand",
                 displayNote = "/depositによる入金",
             )
@@ -51,25 +62,40 @@ class BankService(
             val newBank = result.getOrNull() ?: 0.0
             Messages.send(plugin, player,
                 "入金に成功しました。" +
-                        "§b金額: ${BalanceFormats.coloredYen(amount)} " +
+                        "§b金額: ${BalanceFormats.coloredYen(amt)} " +
                         "§b銀行残高: ${BalanceFormats.coloredYen(newBank)} " +
                         "§b電子マネー: ${BalanceFormats.coloredYen(vault.getBalance(player))}"
             )
             return
         }
-        // 失敗したので Vault に返金
-        vault.deposit(player, amount)
+        // 失敗したので 電子マネー に返金
+        val refunded = vault.deposit(player, amt)
         val msg = result.errorMessage()
-        Messages.error(plugin, player, "入金に失敗しました: $msg 金額: ${BalanceFormats.coloredYen(amount)}")
+        if (!refunded) {
+            Messages.error(plugin, player, "入金に失敗しました: $msg 金額: ${BalanceFormats.coloredYen(amt)}。さらに電子マネーへの返金にも失敗しました。管理者に連絡してください。")
+        } else {
+            Messages.error(plugin, player, "入金に失敗しました: $msg 金額: ${BalanceFormats.coloredYen(amt)}")
+        }
     }
 
     /** Bank -> Vault 出金処理（メッセージ送信込み）。 */
     suspend fun withdraw(player: Player, amount: Double) {
+        // 金額は小数点以下を切り捨て（整数化）
+        val amt = normalizeAmount(amount)
+        if (amt <= 0.0) {
+            Messages.error(plugin, player, "金額が不正です。1円以上を指定してください。")
+            return
+        }
+        // 電子マネー(Vault) 未接続の場合は安全のため中断（銀行からの出金を行わない）
+        if (!vault.isAvailable()) {
+            Messages.error(plugin, player, "電子マネーが利用できません。後でもう一度お試しください。")
+            return
+        }
         // 銀行から出金
         val result = api.withdraw(
             withdrawRequest(
                 player = player,
-                amount = amount,
+                amount = amt,
                 note = "PlayerWithdrawOnCommand",
                 displayNote = "/withdrawによる出金",
             )
@@ -84,34 +110,34 @@ class BankService(
         val newBank = result.getOrNull() ?: 0.0
 
         // Vault に入金
-        val ok = vault.deposit(player, amount)
+        val ok = vault.deposit(player, amt)
         if (ok) {
             Messages.send(
                 plugin,
                 player,
                 "出金に成功しました。" +
-                        "§b金額: ${BalanceFormats.coloredYen(amount)} " +
+                        "§b金額: ${BalanceFormats.coloredYen(amt)} " +
                         "§b銀行残高: ${BalanceFormats.coloredYen(newBank)} " +
                         "§b電子マネー: ${BalanceFormats.coloredYen(vault.getBalance(player))}"
             )
             return
         }
 
-        // Vault への入金に失敗したら銀行に返金
-        Messages.error(plugin, player, "出金は成功しましたが、Vaultへの反映に失敗しました。銀行に返金します")
+        // 電子マネーへの入金に失敗したら銀行に返金
+        Messages.error(plugin, player, "出金は成功しましたが、電子マネーへの反映に失敗しました。銀行に返金します")
         val refundResult = api.deposit(
             depositRequest(
                 player = player,
-                amount = amount,
+                amount = amt,
                 note = "RefundForFailedVaultDeposit",
-                displayNote = "Vaultへの反映失敗による返金",
+                displayNote = "電子マネーへの反映失敗による返金",
             )
         )
         if (refundResult.isSuccess) {
             Messages.send(plugin, player, "返金に成功しました。銀行残高: ${BalanceFormats.coloredYen(refundResult.getOrNull() ?: 0.0)}")
         } else {
             val msg = refundResult.errorMessage()
-            Messages.error(plugin, player, "${BalanceFormats.coloredYen(amount)}円の返金に失敗しました。$msg")
+            Messages.error(plugin, player, "${BalanceFormats.coloredYen(amt)}円の返金に失敗しました。$msg")
         }
     }
 
@@ -142,7 +168,9 @@ class BankService(
      * - 送金元から出金 → 受取人へ入金 → 失敗時は送金元へ返金
      */
     suspend fun transfer(sender: Player, targetUuid: UUID, targetName: String, amount: Double) {
-        if (amount <= 0.0) {
+        // 金額は小数点以下を切り捨て（整数化）
+        val amt = normalizeAmount(amount)
+        if (amt <= 0.0) {
             Messages.error(plugin, sender, "金額が不正です。正の数を指定してください。")
             return
         }
@@ -150,7 +178,7 @@ class BankService(
         val withdraw = api.withdraw(
             withdrawRequest(
                 player = sender,
-                amount = amount,
+                amount = amt,
                 note = "TransferTo${targetName}",
                 displayNote = "${targetName}へ送金",
             )
@@ -167,7 +195,7 @@ class BankService(
             // 受取人用なので uuid は受取人
             DepositRequest(
                 uuid = targetUuid.toString(),
-                amount = amount,
+                amount = amt,
                 pluginName = plugin.name,
                 note = "TransferFrom${sender.name}",
                 displayNote = "${sender.name}からの送金",
@@ -177,11 +205,11 @@ class BankService(
 
         if (deposit.isSuccess) {
             Messages.send(plugin, sender,
-                "送金に成功しました。送金先: $targetName 金額: ${BalanceFormats.coloredYen(amount)}"
+                "送金に成功しました。送金先: $targetName 金額: ${BalanceFormats.coloredYen(amt)}"
             )
             // オンラインなら受取通知（銀行残高は省略）
             plugin.server.getPlayer(targetUuid)?.let {
-                Messages.send(plugin, it, "${sender.name} さんから ${BalanceFormats.coloredYen(amount)}の送金を受け取りました。")
+                Messages.send(plugin, it, "${sender.name} さんから ${BalanceFormats.coloredYen(amt)}の送金を受け取りました。")
             }
             return
         }
@@ -190,7 +218,7 @@ class BankService(
         val refund = api.deposit(
             depositRequest(
                 player = sender,
-                amount = amount,
+                amount = amt,
                 note = "RefundForFailedTransfer",
                 displayNote = "/mpay送金失敗の返金",
             )
@@ -202,7 +230,7 @@ class BankService(
             )
         } else {
             val msg = refund.errorMessage()
-            Messages.error(plugin, sender, "${BalanceFormats.coloredYen(amount)}の返金に失敗しました。 $msg")
+            Messages.error(plugin, sender, "${BalanceFormats.coloredYen(amt)}の返金に失敗しました。 $msg")
         }
     }
 
@@ -241,4 +269,10 @@ class BankService(
             displayNote = displayNote,
             server = plugin.serverName,
         )
+
+    /**
+     * 金額の正規化: 小数点以下を切り捨てて整数（Double）にする。
+     * 例) 10.9 -> 10.0, 10.1 -> 10.0
+     */
+    private fun normalizeAmount(amount: Double): Double = amount.toLong().toDouble()
 }
