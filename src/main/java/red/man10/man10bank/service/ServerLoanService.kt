@@ -36,8 +36,12 @@ class ServerLoanService(
             val loan = get(player).getOrNull()
             val payInfo = paymentInfo(player).getOrNull()
 
-            val borrowText = BalanceFormats.amount(loan?.borrowAmount ?: 0.0)
-            val paymentText = loan?.paymentAmount?.let { BalanceFormats.amount(it) } ?: "未設定"
+            if (loan == null || loan.borrowAmount!! <= 0.0) {
+                return@register ""
+            }
+
+            val borrowText = BalanceFormats.amount(loan.borrowAmount)
+            val paymentText = loan.paymentAmount?.let { BalanceFormats.amount(it) } ?: "未設定"
             val nextDateText = payInfo?.nextRepayDate?.let { DateFormats.toDate(it) } ?: "不明"
 
             "§b§lまんじゅうリボ: §c§l${borrowText}円§r\n" +
