@@ -155,7 +155,7 @@ class Man10Bank : JavaPlugin(), Listener {
         getCommand("mlend")?.setExecutor(red.man10.man10bank.command.loan.LendCommand(this, scope, loanService))
 
         // 残高系（/bal, /balance ほか別名にも割り当て）
-        listOf("bal", "balance", "money", "bank").forEach { cmd ->
+        listOf("mbal", "bal", "balance", "money", "bank").forEach { cmd ->
             getCommand(cmd)?.setExecutor(BalanceCommand(this, scope))
         }
     }
