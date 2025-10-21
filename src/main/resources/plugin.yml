@@ -27,19 +27,15 @@ commands:
     description: /bal
   atm:
     description: ATMメニューを開く
-    permission: man10bank.user
     usage: /atm
   mpay:
     description: 銀行からプレイヤーへ送金
-    permission: man10bank.user
     usage: /mpay <player> <amount>
   mcheque:
     description: 小切手（ユーザー向け）
-    permission: man10bank.user
     usage: /mcheque
   mchequeop:
     description: 小切手（運営向け）
-    permission: mchequeop
     usage: /mchequeop
   mbaltop:
     default: op
@@ -55,33 +51,16 @@ commands:
     description: vault pay
   deposit:
     description: VaultからBankへ入金
-    permission: man10bank.user
     usage: /deposit <金額|all>
   withdraw:
     description: BankからVaultへ出金
-    permission: man10bank.user
     usage: /withdraw <金額|all>
   bankop:
     default: op
     description: 管理用コマンド（ヘルスチェック/現金アイテム設定）
   mrevo:
     description: サーバーローン管理コマンド
-    permission: mrevo
     usage: /mrevo
   ballog:
     description: 銀行ログ閲覧コマンド
-    permission: ballog
     usage: /ballog [page]
-permissions:
-  man10bank.user:
-    description: Man10Bankのユーザー権限
-    default: true
-  mchequeop:
-    default: op
-    description: issue money
-  mcheque:
-    default: op
-    description: issue cheque
-  mrevo:
-    default: op
-    description: server loan system
