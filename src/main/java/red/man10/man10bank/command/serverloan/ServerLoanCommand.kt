@@ -123,21 +123,14 @@ class ServerLoanCommand(
         val paymentInfoRes = service.paymentInfo(player)
         val lines = mutableListOf("§e§n == Man10 Revolving Loan ==")
 
-        if (getRes.isFailure || limitRes.isFailure || paymentInfoRes.isFailure) {
-            val msg = getRes.exceptionOrNull()?.message ?: limitRes.exceptionOrNull()?.message ?: "情報の取得に失敗しました。"
-            lines += listOf("§c$msg")
-            Messages.sendMultiline(plugin, player, lines.joinToString("\n"))
-            return
-        }
-
         val loan = getRes.getOrNull()
         val info = paymentInfoRes.getOrNull()
         val borrow = BalanceFormats.coloredYen(loan?.borrowAmount?: 0.0)
         val payment = BalanceFormats.coloredYen(loan?.paymentAmount?: 0.0)
         val daily = BalanceFormats.coloredYen(info?.dailyInterestPerDay?: 0.0)
         val borrowLimit = BalanceFormats.coloredYen(limitRes.getOrNull() ?: 0.0)
-        val last = loan?.lastPayDate?.let { DateFormats.toDate(it) } ?: "-"
-        val next = info?.nextRepayDate?.let { DateFormats.toDate(it) } ?: "-"
+        val last = loan?.lastPayDate?.let { DateFormats.toDate(it) } ?: "なし"
+        val next = info?.nextRepayDate?.let { DateFormats.toDate(it) } ?: "なし"
         lines += listOf(
             "§b借入額: $borrow",
             "§b支払額: $payment",
