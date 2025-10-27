@@ -59,7 +59,7 @@ class ServerLoanCommand(
             "borrow" -> {
                 if (args.size < 2) { Messages.warn(player, "使い方: /mrevo borrow <金額>"); return true }
                 val amount = parseDouble(player, args[1]) ?: return true
-                handleBorrowWithConfirm(player, amount)
+                scope.launch { handleBorrowWithConfirm(player, amount) }
                 return true
             }
             "pay" -> {
@@ -96,10 +96,20 @@ class ServerLoanCommand(
     /**
      * /mrevo borrow の二重実行確認つき処理。
      */
-    private fun handleBorrowWithConfirm(player: Player, amount: Double) {
+    private suspend fun handleBorrowWithConfirm(player: Player, amount: Double) {
         val key = player.uniqueId
         val now = System.currentTimeMillis()
         val pending = borrowConfirmations[key]
+        val limit = service.borrowLimit(player).getOrNull()
+        if (limit == null) {
+            Messages.error(player, "借入上限の取得に失敗しました。")
+            return
+        }
+        if (amount > limit) {
+            Messages.error(player, "借入上限を超えています。上限: ${BalanceFormats.coloredYen(limit)}")
+            return
+        }
+
         if (pending == null || !pending.matches(amount) || pending.isExpired(now)) {
             borrowConfirmations[key] = PendingBorrow(amount, now + CONFIRM_WINDOW_MS)
             val guide = """
@@ -113,7 +123,7 @@ class ServerLoanCommand(
 
         // 確認済み
         borrowConfirmations.remove(key)
-        scope.launch { service.borrow(player, amount) }
+        service.borrow(player, amount)
         return
     }
 
