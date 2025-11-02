@@ -26,7 +26,8 @@ class EnableFeatureSubcommand(
         if (featureArg == "all") {
             toggles.enableAll()
             Messages.send(sender, "全機能を有効化しました。")
-            printDisabledList(sender)
+            // all の場合は現在の起動中機能一覧を表示
+            printEnabledList(sender)
             return true
         }
 
@@ -49,6 +50,16 @@ class EnableFeatureSubcommand(
         }
         val names = list.joinToString("、") { it.displayNameJa }
         Messages.warn(sender, "停止中の機能: $names")
+    }
+
+    private fun printEnabledList(sender: CommandSender) {
+        val list = FeatureToggleService.Feature.entries.filter { toggles.isEnabled(it) }
+        if (list.isEmpty()) {
+            Messages.send(sender, "現在、起動中の機能はありません。")
+            return
+        }
+        val names = list.joinToString("、") { it.displayNameJa }
+        Messages.send(sender, "起動中の機能: $names")
     }
 
     private fun parseFeature(arg: String): FeatureToggleService.Feature? = when (arg.lowercase()) {
