@@ -42,6 +42,17 @@ class DisableFeatureSubcommand(
         return true
     }
 
+    override fun tabComplete(sender: CommandSender, args: List<String>): List<String> {
+        // このサブコマンドは引数1つ（機能名）を想定。
+        if (args.size <= 1) {
+            return FeatureToggleService.Feature.entries
+                .filter { toggles.isEnabled(it) }
+                .map { it.key }
+                .sorted()
+        }
+        return emptyList()
+    }
+
     private fun printEnabledList(sender: CommandSender) {
         val list = FeatureToggleService.Feature.entries.filter { toggles.isEnabled(it) }
         if (list.isEmpty()) {

@@ -62,25 +62,13 @@ class BankOpCommand(
     }
 
     override fun tabComplete(sender: CommandSender, label: String, args: Array<out String>): List<String> {
-        // 第1引数: サブコマンド候補
+        // 第1引数はサブコマンド名を補完
         if (args.isEmpty()) return subcommands.keys.sorted()
         if (args.size == 1) return subcommands.keys.sorted()
 
-        // 第2引数: enable/disable のみ機能名候補を返す
-        val sub = args[0].lowercase()
-        if (args.size == 2) {
-            return when (sub) {
-                "enable" -> FeatureToggleService.Feature.entries
-                    .filter { !featureToggles.isEnabled(it) }
-                    .map { it.key }
-                    .sorted()
-                "disable" -> FeatureToggleService.Feature.entries
-                    .filter { featureToggles.isEnabled(it) }
-                    .map { it.key }
-                    .sorted()
-                else -> emptyList()
-            }
-        }
-        return emptyList()
+        // 第2引数以降は、該当サブコマンドに委譲
+        val sub = subcommands[args[0].lowercase()] ?: return emptyList()
+        val subArgs = args.drop(1)
+        return sub.tabComplete(sender, subArgs)
     }
 }
