@@ -16,13 +16,15 @@ import red.man10.man10bank.ui.atm.AtmDepositUI
 import red.man10.man10bank.ui.atm.AtmMainUI
 import red.man10.man10bank.ui.atm.AtmWithdrawUI
 import red.man10.man10bank.util.Messages
+import red.man10.man10bank.service.FeatureToggleService
 
 class AtmCommand(
     private val plugin: Man10Bank,
     private val scope: CoroutineScope,
     private val atmService: AtmService,
     private val vault: VaultManager,
-    private val cashItemManager: CashItemManager
+    private val cashItemManager: CashItemManager,
+    private val featureToggles: FeatureToggleService,
 ) : BaseCommand(
     allowPlayer = true,
     allowConsole = false,
@@ -35,6 +37,10 @@ class AtmCommand(
 
     override fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean {
         sender as Player
+        if (!featureToggles.isEnabled(FeatureToggleService.Feature.ATM)) {
+            Messages.error(plugin, sender, "ATM機能は現在停止中です。")
+            return true
+        }
         val arg = args.getOrNull(0)
         when (arg) {
             "deposit" -> AtmDepositUI(sender, cashItemManager, atmService).open()

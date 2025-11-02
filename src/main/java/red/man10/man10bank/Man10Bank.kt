@@ -54,6 +54,7 @@ class Man10Bank : JavaPlugin(), Listener {
     private lateinit var loanApi: LoanApiClient
     private lateinit var loanService: LoanService
     private lateinit var bankService: BankService
+    private lateinit var featureToggles: FeatureToggleService
 
     // サーバー識別名（configの serverName が空/未設定の場合はBukkitのサーバー名を使用）
     lateinit var serverName: String
@@ -106,12 +107,14 @@ class Man10Bank : JavaPlugin(), Listener {
 
         vaultManager = VaultManager(this)
         cashItemManager = CashItemManager(this)
-        chequeService = ChequeService(this, scope, chequesApi)
-        serverLoanService = ServerLoanService(this, serverLoanApi)
+        featureToggles = FeatureToggleService(this)
+
+        chequeService = ChequeService(this, scope, chequesApi, featureToggles)
+        serverLoanService = ServerLoanService(this, serverLoanApi, featureToggles)
         serverEstateService = ServerEstateService(this, serverEstateApi)
         estateService = EstateService(this, scope, estateApi, vaultManager, cashItemManager, chequeService)
-        loanService = LoanService(this, scope, loanApi)
-        bankService = BankService(this, bankApi, vaultManager)
+        loanService = LoanService(this, scope, loanApi, featureToggles)
+        bankService = BankService(this, bankApi, vaultManager, featureToggles)
         uiService = UIService(this)
         atmService = AtmService(this, scope, atmApi, vaultManager, cashItemManager)
 
@@ -147,12 +150,12 @@ class Man10Bank : JavaPlugin(), Listener {
         getCommand("mpay")?.setExecutor(PayCommand(this, scope, bankService))
         getCommand("ballog")?.setExecutor(BalLogCommand(scope, bankService))
         getCommand("mbaltop")?.setExecutor(red.man10.man10bank.command.balance.BalTopCommand(this, scope, estateService, serverEstateService))
-        getCommand("bankop")?.setExecutor(BankOpCommand(this, scope, healthService, cashItemManager, estateService))
-        getCommand("atm")?.setExecutor(AtmCommand(this, scope, atmService, vaultManager, cashItemManager))
+        getCommand("bankop")?.setExecutor(BankOpCommand(this, scope, healthService, cashItemManager, estateService, featureToggles))
+        getCommand("atm")?.setExecutor(AtmCommand(this, scope, atmService, vaultManager, cashItemManager, featureToggles))
         getCommand("mcheque")?.setExecutor(ChequeCommand(this, scope, chequeService))
         getCommand("mchequeop")?.setExecutor(ChequeCommand(this, scope, chequeService))
         getCommand("mrevo")?.setExecutor(ServerLoanCommand(this, scope, serverLoanService))
-        getCommand("mlend")?.setExecutor(red.man10.man10bank.command.loan.LendCommand(this, scope, loanService))
+        getCommand("mlend")?.setExecutor(red.man10.man10bank.command.loan.LendCommand(this, scope, loanService, featureToggles))
 
         // 残高系（/bal, /balance ほか別名にも割り当て）
         listOf("mbal", "bal", "balance", "money", "bank").forEach { cmd ->
