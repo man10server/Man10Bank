@@ -113,10 +113,10 @@ class Man10Bank : JavaPlugin(), Listener {
         serverLoanService = ServerLoanService(this, serverLoanApi, featureToggles)
         serverEstateService = ServerEstateService(this, serverEstateApi)
         estateService = EstateService(this, scope, estateApi, vaultManager, cashItemManager, chequeService)
-        loanService = LoanService(this, scope, loanApi, featureToggles)
+        loanService = LoanService(this, scope, loanApi)
         bankService = BankService(this, bankApi, vaultManager, featureToggles)
         uiService = UIService(this)
-        atmService = AtmService(this, scope, atmApi, vaultManager, cashItemManager, featureToggles)
+        atmService = AtmService(this, scope, atmApi, vaultManager, cashItemManager)
 
         // 起動時に現金アイテム設定を読み込む
         val loadedCash = cashItemManager.load()
@@ -151,11 +151,11 @@ class Man10Bank : JavaPlugin(), Listener {
         getCommand("ballog")?.setExecutor(BalLogCommand(scope, bankService))
         getCommand("mbaltop")?.setExecutor(red.man10.man10bank.command.balance.BalTopCommand(this, scope, estateService, serverEstateService))
         getCommand("bankop")?.setExecutor(BankOpCommand(this, scope, healthService, cashItemManager, estateService, featureToggles))
-        getCommand("atm")?.setExecutor(AtmCommand(this, scope, atmService, vaultManager, cashItemManager))
+        getCommand("atm")?.setExecutor(AtmCommand(this, scope, atmService, vaultManager, cashItemManager, featureToggles))
         getCommand("mcheque")?.setExecutor(ChequeCommand(this, scope, chequeService))
         getCommand("mchequeop")?.setExecutor(ChequeCommand(this, scope, chequeService))
         getCommand("mrevo")?.setExecutor(ServerLoanCommand(this, scope, serverLoanService))
-        getCommand("mlend")?.setExecutor(red.man10.man10bank.command.loan.LendCommand(this, scope, loanService))
+        getCommand("mlend")?.setExecutor(red.man10.man10bank.command.loan.LendCommand(this, scope, loanService, featureToggles))
 
         // 残高系（/bal, /balance ほか別名にも割り当て）
         listOf("mbal", "bal", "balance", "money", "bank").forEach { cmd ->
