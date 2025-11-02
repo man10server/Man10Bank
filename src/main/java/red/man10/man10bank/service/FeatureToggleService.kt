@@ -1,10 +1,11 @@
 package red.man10.man10bank.service
 
+import org.bukkit.plugin.java.JavaPlugin
+
 /**
- * 各機能の有効/無効を管理するシンプルなトグル管理クラス。
- * プラグイン再起動で初期化される（永続化はしない）。
+ * 各機能の有効/無効を管理し、config.yml に永続化するトグル管理クラス。
  */
-class FeatureToggleService {
+class FeatureToggleService(private val plugin: JavaPlugin) {
 
     enum class Feature(val key: String, val displayNameJa: String) {
         CHEQUE("cheque", "小切手"),
@@ -16,16 +17,45 @@ class FeatureToggleService {
 
     private val disabled: MutableSet<Feature> = mutableSetOf()
 
+    init {
+        loadFromConfig()
+    }
+
     fun isEnabled(feature: Feature): Boolean = !disabled.contains(feature)
 
     fun setEnabled(feature: Feature, enabled: Boolean) {
         if (enabled) disabled.remove(feature) else disabled.add(feature)
+        saveToConfig()
     }
 
-    fun disableAll() { disabled.addAll(Feature.entries) }
+    fun disableAll() {
+        disabled.addAll(Feature.entries)
+        saveToConfig()
+    }
 
-    fun enableAll() { disabled.clear() }
+    fun enableAll() {
+        disabled.clear()
+        saveToConfig()
+    }
 
     fun disabledFeatures(): List<Feature> = disabled.toList().sortedBy { it.ordinal }
-}
 
+    /** config.yml からトグル状態を読み込む。未設定は true(=有効) として扱う。 */
+    fun loadFromConfig() {
+        val conf = plugin.config
+        disabled.clear()
+        Feature.entries.forEach { f ->
+            val enabled = conf.getBoolean("features.${f.key}", true)
+            if (!enabled) disabled.add(f)
+        }
+    }
+
+    /** 現在のトグル状態を config.yml に保存する。 */
+    fun saveToConfig() {
+        val conf = plugin.config
+        Feature.entries.forEach { f ->
+            conf.set("features.${f.key}", isEnabled(f))
+        }
+        plugin.saveConfig()
+    }
+}
