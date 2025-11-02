@@ -23,7 +23,7 @@ class BankOpCommand(
     private val healthService: HealthService,
     cashItemManager: CashItemManager,
     estateService: red.man10.man10bank.service.EstateService,
-    featureToggles: FeatureToggleService,
+    private val featureToggles: FeatureToggleService,
 ) : BaseCommand(
     allowPlayer = true,
     allowConsole = true,
@@ -59,5 +59,28 @@ class BankOpCommand(
     private fun printUsage(sender: CommandSender) {
         Messages.send(sender, "使用方法: /bankop <subcommand>")
         subcommands.values.forEach { sc -> Messages.send(sender, sc.usage) }
+    }
+
+    override fun tabComplete(sender: CommandSender, label: String, args: Array<out String>): List<String> {
+        // 第1引数: サブコマンド候補
+        if (args.isEmpty()) return subcommands.keys.sorted()
+        if (args.size == 1) return subcommands.keys.sorted()
+
+        // 第2引数: enable/disable のみ機能名候補を返す
+        val sub = args[0].lowercase()
+        if (args.size == 2) {
+            return when (sub) {
+                "enable" -> FeatureToggleService.Feature.entries
+                    .filter { !featureToggles.isEnabled(it) }
+                    .map { it.key }
+                    .sorted()
+                "disable" -> FeatureToggleService.Feature.entries
+                    .filter { featureToggles.isEnabled(it) }
+                    .map { it.key }
+                    .sorted()
+                else -> emptyList()
+            }
+        }
+        return emptyList()
     }
 }
