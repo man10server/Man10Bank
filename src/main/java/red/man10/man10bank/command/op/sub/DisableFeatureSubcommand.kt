@@ -48,8 +48,10 @@ class DisableFeatureSubcommand(
             Messages.send(sender, "現在、起動中の機能はありません。")
             return
         }
-        val names = list.joinToString("、") { it.displayNameJa }
-        Messages.send(sender, "起動中の機能: $names")
+        Messages.send(sender, "起動中の機能:")
+        list.forEach { feature ->
+            Messages.send(sender, "・${feature.key}: ${feature.displayNameJa}")
+        }
     }
 
     private fun printDisabledList(sender: CommandSender) {
@@ -58,8 +60,10 @@ class DisableFeatureSubcommand(
             Messages.send(sender, "現在、停止中の機能はありません。")
             return
         }
-        val names = list.joinToString("、") { it.displayNameJa }
-        Messages.warn(sender, "停止中の機能: $names")
+        Messages.warn(sender, "停止中の機能:")
+        list.forEach { feature ->
+            Messages.send(sender, "・${feature.key}: ${feature.displayNameJa}")
+        }
     }
 
     private fun parseFeature(arg: String): FeatureToggleService.Feature? = when (arg.lowercase()) {
