@@ -19,7 +19,8 @@ class DisableFeatureSubcommand(
     override fun handle(sender: CommandSender, args: List<String>): Boolean {
         val featureArg = args.getOrNull(1)?.lowercase()
         if (featureArg.isNullOrBlank()) {
-            printDisabledList(sender)
+            // 引数なし: 現在 起動中(有効) の機能を表示
+            printEnabledList(sender)
             return true
         }
 
@@ -39,6 +40,16 @@ class DisableFeatureSubcommand(
         Messages.send(sender, "${feature.displayNameJa} を無効化しました。")
         printDisabledList(sender)
         return true
+    }
+
+    private fun printEnabledList(sender: CommandSender) {
+        val list = FeatureToggleService.Feature.entries.filter { toggles.isEnabled(it) }
+        if (list.isEmpty()) {
+            Messages.send(sender, "現在、起動中の機能はありません。")
+            return
+        }
+        val names = list.joinToString("、") { it.displayNameJa }
+        Messages.send(sender, "起動中の機能: $names")
     }
 
     private fun printDisabledList(sender: CommandSender) {
