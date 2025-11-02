@@ -22,6 +22,7 @@ import red.man10.man10bank.api.model.response.Loan
 import red.man10.man10bank.ui.loan.CollateralCollectUI
 import red.man10.man10bank.ui.loan.CollateralDebtorReleaseUI
 import red.man10.man10bank.util.BalanceFormats
+import red.man10.man10bank.service.FeatureToggleService
 import red.man10.man10bank.util.DateFormats
 import red.man10.man10bank.util.ItemStackBase64
 import red.man10.man10bank.util.Messages
@@ -39,6 +40,7 @@ class LoanService(
     private val plugin: Man10Bank,
     private val scope: CoroutineScope,
     private val api: LoanApiClient,
+    private val featureToggles: FeatureToggleService,
 ) : Listener {
 
     // 借金手形の識別用キー（PDC）
@@ -155,6 +157,13 @@ class LoanService(
         val player = event.player
         val item = event.item ?: return
         val id = getLoanId(item) ?: return
+
+        // ローン機能が停止中の場合は手形の使用も禁止
+        if (!featureToggles.isEnabled(FeatureToggleService.Feature.LOAN)) {
+            event.isCancelled = true
+            Messages.error(plugin, player, "プレイヤーローン機能は現在停止中です。")
+            return
+        }
 
         // 右クリックのみを対象
         val action = event.action

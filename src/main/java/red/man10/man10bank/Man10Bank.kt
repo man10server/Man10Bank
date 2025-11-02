@@ -113,7 +113,7 @@ class Man10Bank : JavaPlugin(), Listener {
         serverLoanService = ServerLoanService(this, serverLoanApi, featureToggles)
         serverEstateService = ServerEstateService(this, serverEstateApi)
         estateService = EstateService(this, scope, estateApi, vaultManager, cashItemManager, chequeService)
-        loanService = LoanService(this, scope, loanApi)
+        loanService = LoanService(this, scope, loanApi, featureToggles)
         bankService = BankService(this, bankApi, vaultManager, featureToggles)
         uiService = UIService(this)
         atmService = AtmService(this, scope, atmApi, vaultManager, cashItemManager)
