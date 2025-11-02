@@ -32,6 +32,7 @@ class ChequeService(
     private val plugin: JavaPlugin,
     private val scope: CoroutineScope,
     private val chequesApi: ChequesApiClient,
+    private val featureToggles: FeatureToggleService,
 ) : Listener {
 
     private val idKey = NamespacedKey(plugin, "cheque_id")
@@ -52,6 +53,12 @@ class ChequeService(
         val hasId = pdc.has(idKey, PersistentDataType.INTEGER) || pdc.has(oldChequeKey, PersistentDataType.INTEGER)
         if (!hasId) return
 
+        if (!featureToggles.isEnabled(FeatureToggleService.Feature.CHEQUE)) {
+            event.isCancelled = true
+            Messages.error(plugin, player, "小切手機能は現在停止中です。")
+            return
+        }
+
         event.isCancelled = true
         scope.launch(Dispatchers.IO) {
             val result = useCheque(player, item)
@@ -71,6 +78,10 @@ class ChequeService(
      * - APIで作成し、返ってきたIDと金額をPDCに埋め込み
      */
     suspend fun createCheque(p: Player, amount: Double, note: String?, isOP: Boolean): ItemStack? {
+        if (!featureToggles.isEnabled(FeatureToggleService.Feature.CHEQUE)) {
+            Messages.error(plugin, p, "小切手機能は現在停止中です。")
+            return null
+        }
         if (note != null && note.length >= 20) {
             return null
         }

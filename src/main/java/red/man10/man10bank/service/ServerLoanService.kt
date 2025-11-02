@@ -22,6 +22,7 @@ import red.man10.man10bank.util.errorMessage
 class ServerLoanService(
     private val plugin: Man10Bank,
     private val api: ServerLoanApiClient,
+    private val featureToggles: FeatureToggleService,
 ) {
 
     /**
@@ -61,6 +62,10 @@ class ServerLoanService(
      * - 戻り値: なし（メッセージ送信は本メソッド内で行う）
      */
     suspend fun borrow(player: Player, amount: Double) {
+        if (!featureToggles.isEnabled(FeatureToggleService.Feature.SERVER_LOAN)) {
+            Messages.error(plugin, player, "サーバーローン機能は現在停止中です。")
+            return
+        }
         if (amount <= 0.0) {
             Messages.error(plugin, player, "金額が不正です。正の数を指定してください。")
             return
@@ -84,6 +89,10 @@ class ServerLoanService(
      * - 戻り値: なし（メッセージ送信は本メソッド内で行う）
      */
     suspend fun repay(player: Player, amount: Double) {
+        if (!featureToggles.isEnabled(FeatureToggleService.Feature.SERVER_LOAN)) {
+            Messages.error(plugin, player, "サーバーローン機能は現在停止中です。")
+            return
+        }
         if (amount <= 0.0) {
             Messages.error(plugin, player, "金額が不正です。正の数を指定してください。")
             return
@@ -105,6 +114,10 @@ class ServerLoanService(
      * - 正の数のみ許容
      */
     suspend fun setPaymentAmount(player: Player, paymentAmount: Double?) {
+        if (!featureToggles.isEnabled(FeatureToggleService.Feature.SERVER_LOAN)) {
+            Messages.error(plugin, player, "サーバーローン機能は現在停止中です。")
+            return
+        }
         if (paymentAmount != null && paymentAmount <= 0.0) {
             Messages.error(plugin, player, "金額が不正です。正の数を指定してください。")
             return

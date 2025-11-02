@@ -39,6 +39,7 @@ class LoanService(
     private val plugin: Man10Bank,
     private val scope: CoroutineScope,
     private val api: LoanApiClient,
+    private val featureToggles: FeatureToggleService,
 ) : Listener {
 
     // 借金手形の識別用キー（PDC）
@@ -57,6 +58,11 @@ class LoanService(
         paybackInDays: Int,
         collaterals: List<ItemStack>?,
     ): Boolean {
+        if (!featureToggles.isEnabled(FeatureToggleService.Feature.LOAN)) {
+            Messages.error(plugin, lender, "プレイヤーローン機能は現在停止中です。")
+            Messages.error(plugin, borrower, "プレイヤーローン機能は現在停止中です。")
+            return false
+        }
         if (repayAmount <= 0.0) {
             Messages.error(plugin, lender, "返済金額が不正です。0より大きい値を指定してください。")
             return false
@@ -111,6 +117,10 @@ class LoanService(
      * - エラー時はプレイヤーに日本語で通知。
      */
     suspend fun getBorrowerLoans(player: Player, limit: Int = 100, offset: Int = 0): List<Loan> {
+        if (!featureToggles.isEnabled(FeatureToggleService.Feature.LOAN)) {
+            Messages.error(plugin, player, "プレイヤーローン機能は現在停止中です。")
+            return emptyList()
+        }
         val result = api.getBorrowerLoans(player.uniqueId, limit, offset)
         if (result.isSuccess) {
             return result.getOrNull().orEmpty()
@@ -125,6 +135,10 @@ class LoanService(
      * - APIの成功/失敗やUI表示までサービス層で処理する。
      */
     suspend fun releaseCollateral(id: Int, borrower: Player) {
+        if (!featureToggles.isEnabled(FeatureToggleService.Feature.LOAN)) {
+            Messages.error(plugin, borrower, "プレイヤーローン機能は現在停止中です。")
+            return
+        }
         val result = api.releaseCollateral(id, borrower.uniqueId.toString())
         if (result.isFailure) {
             val msg = result.errorMessage("担保の解放に失敗しました。")
@@ -166,6 +180,10 @@ class LoanService(
 
         // 手形の使用を処理
         event.isCancelled = true
+        if (!featureToggles.isEnabled(FeatureToggleService.Feature.LOAN)) {
+            Messages.error(plugin, player, "プレイヤーローン機能は現在停止中です。")
+            return
+        }
         scope.launch(kotlinx.coroutines.Dispatchers.IO) {
             repay(player, id, item)
         }

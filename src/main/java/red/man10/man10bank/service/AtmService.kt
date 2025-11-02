@@ -23,6 +23,7 @@ class AtmService(
     private val api: AtmApiClient,
     private val vault: VaultManager,
     private val cashItemManager: CashItemManager,
+    private val featureToggles: FeatureToggleService,
 ) {
     /**
      * ATMログの取得。
@@ -36,6 +37,10 @@ class AtmService(
 
     /** 現金アイテムをVaultへ換金し、入金額を返す。 */
     fun depositCashToVault(player: Player, stacks: Array<ItemStack>): Double {
+        if (!featureToggles.isEnabled(FeatureToggleService.Feature.ATM)) {
+            red.man10.man10bank.util.Messages.error(plugin, player, "ATM機能は現在停止中です。")
+            return 0.0
+        }
         if (!vault.isAvailable()) return 0.0
 
         val target = plugin.server.getOfflinePlayer(player.uniqueId)
@@ -60,6 +65,10 @@ class AtmService(
 
     /** Vault残高を現金アイテムへ変換し、作成したアイテムを返す。 */
     fun withdrawVaultToCash(player: Player, amount: Double): ItemStack? {
+        if (!featureToggles.isEnabled(FeatureToggleService.Feature.ATM)) {
+            red.man10.man10bank.util.Messages.error(plugin, player, "ATM機能は現在停止中です。")
+            return null
+        }
         if (!vault.isAvailable()) return null
         if (amount <= 0.0) return null
 
