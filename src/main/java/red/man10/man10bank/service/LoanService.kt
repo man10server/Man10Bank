@@ -43,7 +43,7 @@ class LoanService(
 
     // 借金手形の識別用キー（PDC）
     private val loanIdKey = NamespacedKey(plugin, "loan_id")
-    private val oldIdKey = NamespacedKey.fromString("id")!!
+    private val oldIdKey = NamespacedKey(plugin, "id")
 
     /**
      * ローン作成。
