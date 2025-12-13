@@ -3,6 +3,7 @@ package red.man10.man10bank.command.op.sub
 import org.bukkit.command.CommandSender
 import red.man10.man10bank.command.op.BankOpSubcommand
 import red.man10.man10bank.service.FeatureToggleService
+import red.man10.man10bank.service.FeatureToggleService.*
 import red.man10.man10bank.util.Messages
 
 /**
@@ -31,7 +32,7 @@ class EnableFeatureSubcommand(
             return true
         }
 
-        val feature = parseFeature(featureArg)
+        val feature = Feature.fromArg(featureArg)
         if (feature == null) {
             Messages.error(sender, "不明な機能名です。指定可能: cheque, transaction, serverloan, loan, atm, all")
             return true
@@ -45,7 +46,7 @@ class EnableFeatureSubcommand(
     override fun tabComplete(sender: CommandSender, args: List<String>): List<String> {
         // このサブコマンドは引数1つ（機能名）を想定。
         if (args.size <= 1) {
-            return FeatureToggleService.Feature.entries
+            return Feature.entries
                 .filter { !toggles.isEnabled(it) }
                 .map { it.key }
                 .sorted()
@@ -66,7 +67,7 @@ class EnableFeatureSubcommand(
     }
 
     private fun printEnabledList(sender: CommandSender) {
-        val list = FeatureToggleService.Feature.entries.filter { toggles.isEnabled(it) }
+        val list = Feature.entries.filter { toggles.isEnabled(it) }
         if (list.isEmpty()) {
             Messages.send(sender, "現在、起動中の機能はありません。")
             return
@@ -75,14 +76,5 @@ class EnableFeatureSubcommand(
         list.forEach { feature ->
             Messages.send(sender, "・${feature.key}: ${feature.displayNameJa}")
         }
-    }
-
-    private fun parseFeature(arg: String): FeatureToggleService.Feature? = when (arg.lowercase()) {
-        "cheque", "小切手" -> FeatureToggleService.Feature.CHEQUE
-        "transaction", "取引", "deposit", "withdraw", "pay" -> FeatureToggleService.Feature.TRANSACTION
-        "serverloan", "server-loan", "server_loan", "サーバーローン" -> FeatureToggleService.Feature.SERVER_LOAN
-        "loan", "プレイヤーローン" -> FeatureToggleService.Feature.LOAN
-        "atm" -> FeatureToggleService.Feature.ATM
-        else -> null
     }
 }

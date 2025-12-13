@@ -31,7 +31,7 @@ class DisableFeatureSubcommand(
             return true
         }
 
-        val feature = parseFeature(featureArg)
+        val feature = FeatureToggleService.Feature.fromArg(featureArg)
         if (feature == null) {
             Messages.error(sender, "不明な機能名です。指定可能: cheque, transaction, serverloan, loan, atm, all")
             return true
@@ -75,14 +75,5 @@ class DisableFeatureSubcommand(
         list.forEach { feature ->
             Messages.send(sender, "・${feature.key}: ${feature.displayNameJa}")
         }
-    }
-
-    private fun parseFeature(arg: String): FeatureToggleService.Feature? = when (arg.lowercase()) {
-        "cheque", "小切手" -> FeatureToggleService.Feature.CHEQUE
-        "transaction", "取引", "deposit", "withdraw", "pay" -> FeatureToggleService.Feature.TRANSACTION
-        "serverloan", "server-loan", "server_loan", "サーバーローン" -> FeatureToggleService.Feature.SERVER_LOAN
-        "loan", "プレイヤーローン" -> FeatureToggleService.Feature.LOAN
-        "atm" -> FeatureToggleService.Feature.ATM
-        else -> null
     }
 }

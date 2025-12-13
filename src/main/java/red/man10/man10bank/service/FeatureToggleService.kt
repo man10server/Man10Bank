@@ -10,9 +10,20 @@ class FeatureToggleService(private val plugin: JavaPlugin) {
     enum class Feature(val key: String, val displayNameJa: String) {
         CHEQUE("cheque", "小切手"),
         TRANSACTION("transaction", "取引（入金/出金/送金）"),
-        SERVER_LOAN("serverloan", "サーバーローン"),
+        SERVER_LOAN("serverloan", "Man10リボ"),
         LOAN("loan", "プレイヤーローン"),
-        ATM("atm", "ATM"),
+        ATM("atm", "ATM");
+
+        companion object {
+            fun fromArg(arg: String): Feature? = when (arg.lowercase()) {
+                "cheque", "小切手" -> CHEQUE
+                "transaction", "取引" -> TRANSACTION
+                "serverloan", "server-loan", "server_loan", "サーバーローン" -> SERVER_LOAN
+                "loan", "プレイヤーローン" -> LOAN
+                "atm" -> ATM
+                else -> null
+            }
+        }
     }
 
     private val disabled: MutableSet<Feature> = mutableSetOf()

@@ -63,7 +63,7 @@ class ServerLoanService(
      */
     suspend fun borrow(player: Player, amount: Double) {
         if (!featureToggles.isEnabled(FeatureToggleService.Feature.SERVER_LOAN)) {
-            Messages.error(plugin, player, "サーバーローン機能は現在停止中です。")
+            Messages.error(plugin, player, "Man10リボは現在停止中です。")
             return
         }
         if (amount <= 0.0) {
@@ -90,7 +90,7 @@ class ServerLoanService(
      */
     suspend fun repay(player: Player, amount: Double) {
         if (!featureToggles.isEnabled(FeatureToggleService.Feature.SERVER_LOAN)) {
-            Messages.error(plugin, player, "サーバーローン機能は現在停止中です。")
+            Messages.error(plugin, player, "Man10リボは現在停止中です。")
             return
         }
         if (amount <= 0.0) {
@@ -115,7 +115,7 @@ class ServerLoanService(
      */
     suspend fun setPaymentAmount(player: Player, paymentAmount: Double?) {
         if (!featureToggles.isEnabled(FeatureToggleService.Feature.SERVER_LOAN)) {
-            Messages.error(plugin, player, "サーバーローン機能は現在停止中です。")
+            Messages.error(plugin, player, "Man10リボは現在停止中です。")
             return
         }
         if (paymentAmount != null && paymentAmount <= 0.0) {
