@@ -12,6 +12,7 @@ import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerInteractEvent
+import org.bukkit.inventory.EquipmentSlot
 import org.bukkit.inventory.ItemFlag
 import org.bukkit.inventory.ItemStack
 import org.bukkit.persistence.PersistentDataType
@@ -166,12 +167,13 @@ class LoanService(
 
         // 手形の使用を処理
         event.isCancelled = true
+        val hand = event.hand ?: return
         scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            repay(player, id, item)
+            repay(player, id, hand)
         }
     }
 
-    private suspend fun repay(collector: Player, id: Int, usedItem: ItemStack?) {
+    private suspend fun repay(collector: Player, id: Int, hand: EquipmentSlot) {
         val result = api.repay(id, collector.uniqueId.toString())
 
         if (!result.isSuccess) {
@@ -224,13 +226,28 @@ class LoanService(
 
         val updatedNote = issueDebtNote(loan)
         plugin.server.scheduler.runTask(plugin, Runnable {
-            usedItem?.amount = 0
+            consumeNoteInHand(collector, hand, id)
             val leftover = collector.inventory.addItem(updatedNote)
             if (leftover.isNotEmpty()) {
                 leftover.values.forEach { collector.world.dropItemNaturally(collector.location, it) }
             }
             Messages.send(plugin, collector, "手形を更新しました。")
         })
+    }
+
+    private fun consumeNoteInHand(player: Player, hand: EquipmentSlot, loanId: Int) {
+        val inv = player.inventory
+        val current = if (hand == EquipmentSlot.OFF_HAND) inv.itemInOffHand else inv.itemInMainHand
+        val heldId = getLoanId(current) ?: return
+        if (heldId != loanId) return
+
+        val newAmount = current.amount - 1
+        val newStack = current.clone().apply { amount = newAmount }
+        if (hand == EquipmentSlot.OFF_HAND) {
+            inv.setItemInOffHand(if (newAmount > 0) newStack else null)
+        } else {
+            inv.setItemInMainHand(if (newAmount > 0) newStack else null)
+        }
     }
 
     private fun issueDebtNote(loan: Loan): ItemStack {
