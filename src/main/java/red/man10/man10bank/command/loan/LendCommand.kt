@@ -262,11 +262,12 @@ class LendCommand(
             Messages.error(sender, "この提案は見つからないか、あなたが貸し手ではありません。")
             return true
         }
+        remove(id)
         val borrower = Bukkit.getPlayer(proposal!!.borrower)
         if (borrower == null) {
             Messages.error(sender, "借り手がオフラインのため、キャンセルされました。")
             returnCollateralsToBorrower(proposal)
-            remove(id)
+
             return true
         }
         scope.launch {
@@ -274,7 +275,6 @@ class LendCommand(
             if (!result) {
                 returnCollateralsToBorrower(proposal)
             }
-            remove(id)
         }
         return true
     }
