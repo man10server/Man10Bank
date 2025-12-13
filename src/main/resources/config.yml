@@ -7,3 +7,11 @@ api:
     connectMs: 3000                    # 接続確立のタイムアウト
     socketMs: 10000                    # ソケット読み書きのタイムアウト
   retries: 2                           # 失敗時の自動リトライ回数（0で無効）
+
+# 機能トグル（true=有効 / false=無効）。未設定時はデフォルトで全て true。
+features:
+  cheque: true
+  transaction: true
+  serverloan: true
+  loan: true
+  atm: true

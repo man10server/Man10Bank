@@ -7,8 +7,11 @@ import red.man10.man10bank.command.BaseCommand
 import red.man10.man10bank.command.op.sub.HealthSubcommand
 import red.man10.man10bank.command.op.sub.HistorySubcommand
 import red.man10.man10bank.command.op.sub.SetCashSubcommand
+import red.man10.man10bank.command.op.sub.EnableFeatureSubcommand
+import red.man10.man10bank.command.op.sub.DisableFeatureSubcommand
 import red.man10.man10bank.service.CashItemManager
 import red.man10.man10bank.service.HealthService
+import red.man10.man10bank.service.FeatureToggleService
 import red.man10.man10bank.util.Messages
 
 /**
@@ -20,6 +23,7 @@ class BankOpCommand(
     private val healthService: HealthService,
     cashItemManager: CashItemManager,
     estateService: red.man10.man10bank.service.EstateService,
+    private val featureToggles: FeatureToggleService,
 ) : BaseCommand(
     allowPlayer = true,
     allowConsole = true,
@@ -33,6 +37,9 @@ class BankOpCommand(
         SetCashSubcommand(cashItemManager),
         // 資産履歴
         HistorySubcommand(plugin, scope, estateService),
+        // 機能 有効/無効 切り替え
+        EnableFeatureSubcommand(featureToggles),
+        DisableFeatureSubcommand(featureToggles),
     ).associateBy { it.name }
 
     override fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean {
@@ -52,5 +59,16 @@ class BankOpCommand(
     private fun printUsage(sender: CommandSender) {
         Messages.send(sender, "使用方法: /bankop <subcommand>")
         subcommands.values.forEach { sc -> Messages.send(sender, sc.usage) }
+    }
+
+    override fun tabComplete(sender: CommandSender, label: String, args: Array<out String>): List<String> {
+        // 第1引数はサブコマンド名を補完
+        if (args.isEmpty()) return subcommands.keys.sorted()
+        if (args.size == 1) return subcommands.keys.sorted()
+
+        // 第2引数以降は、該当サブコマンドに委譲
+        val sub = subcommands[args[0].lowercase()] ?: return emptyList()
+        val subArgs = args.drop(1)
+        return sub.tabComplete(sender, subArgs)
     }
 }

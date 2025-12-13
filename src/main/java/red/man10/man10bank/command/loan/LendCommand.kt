@@ -16,6 +16,7 @@ import red.man10.man10bank.ui.loan.CollateralViewUI
 import red.man10.man10bank.util.BalanceFormats
 import red.man10.man10bank.util.Messages
 import java.util.*
+import red.man10.man10bank.service.FeatureToggleService
 
 /**
  * プレイヤー間ローンの新規契約コマンド: /mlend <player> <金額> <返済金額> <返済日>
@@ -29,6 +30,7 @@ class LendCommand(
     private val plugin: Man10Bank,
     private val scope: CoroutineScope,
     private val loanService: LoanService,
+    private val featureToggles: FeatureToggleService,
 ) : BaseCommand(allowPlayer = true, allowConsole = false, allowGeneralUser = true) {
 
     data class Proposal(
@@ -63,6 +65,10 @@ class LendCommand(
 
     override fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean {
         if (sender !is Player) return true
+        if (!featureToggles.isEnabled(FeatureToggleService.Feature.LOAN)) {
+            Messages.error(plugin, sender, "プレイヤーローン機能は現在停止中です。")
+            return true
+        }
         if (args.isEmpty()) {
             Messages.send(sender, "使用方法: /mlend <player> <金額> <返済金額> <返済日(yyyy-MM-dd|日数)> ")
             return true
