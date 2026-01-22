@@ -268,11 +268,12 @@ class LendCommand(
             Messages.error(sender, "この提案は見つからないか、あなたが貸し手ではありません。")
             return true
         }
+        remove(id)
         val borrower = Bukkit.getPlayer(proposal!!.borrower)
         if (borrower == null) {
             Messages.error(sender, "借り手がオフラインのため、キャンセルされました。")
             returnCollateralsToBorrower(proposal)
-            remove(id)
+
             return true
         }
         scope.launch {
@@ -280,7 +281,6 @@ class LendCommand(
             if (!result) {
                 returnCollateralsToBorrower(proposal)
             }
-            remove(id)
         }
         return true
     }
@@ -341,18 +341,20 @@ class LendCommand(
      * 担保を借り手に返却（オンライン時）。
      */
     private fun returnCollateralsToBorrower(p: Proposal) {
-        val borrower = Bukkit.getPlayer(p.borrower) ?: return
-        val inv = borrower.inventory
-        if (p.collaterals.isEmpty()) return
-        var count = 0
-        for (stack in p.collaterals) {
-            val leftovers = inv.addItem(stack.clone())
-            if (leftovers.isNotEmpty()) {
-                leftovers.values.forEach { l -> borrower.world.dropItemNaturally(borrower.location, l) }
+        plugin.server.scheduler.runTask(plugin, Runnable {
+            val borrower = Bukkit.getPlayer(p.borrower) ?: return@Runnable
+            val inv = borrower.inventory
+            if (p.collaterals.isEmpty()) return@Runnable
+            var count = 0
+            for (stack in p.collaterals) {
+                val leftovers = inv.addItem(stack.clone())
+                if (leftovers.isNotEmpty()) {
+                    leftovers.values.forEach { l -> borrower.world.dropItemNaturally(borrower.location, l) }
+                }
+                count++
             }
-            count++
-        }
-        p.collaterals = emptyList()
-        Messages.send(borrower, "担保を返却しました（${count}件）。")
+            p.collaterals = emptyList()
+            Messages.send(borrower, "担保を返却しました（${count}件）。")
+        })
     }
 }
