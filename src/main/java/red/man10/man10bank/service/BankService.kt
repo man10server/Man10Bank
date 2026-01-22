@@ -21,6 +21,7 @@ class BankService(
     private val plugin: Man10Bank,
     private val api: BankApiClient,
     private val vault: VaultManager,
+    private val featureToggles: FeatureToggleService,
 ) {
     /** 残高表示プロバイダを登録（銀行）。 */
     fun registerBalanceProvider() {
@@ -32,6 +33,10 @@ class BankService(
 
     /** Vault -> Bank 入金処理（メッセージ送信込み）。 */
     suspend fun deposit(player: Player, amount: Double) {
+        if (!featureToggles.isEnabled(FeatureToggleService.Feature.TRANSACTION)) {
+            Messages.error(plugin, player, "取引機能（入金/出金/送金）は現在停止中です。")
+            return
+        }
         // 金額は小数点以下を切り捨て（整数化）
         val amt = normalizeAmount(amount)
         if (amt <= 0.0) {
@@ -80,6 +85,10 @@ class BankService(
 
     /** Bank -> Vault 出金処理（メッセージ送信込み）。 */
     suspend fun withdraw(player: Player, amount: Double) {
+        if (!featureToggles.isEnabled(FeatureToggleService.Feature.TRANSACTION)) {
+            Messages.error(plugin, player, "取引機能（入金/出金/送金）は現在停止中です。")
+            return
+        }
         // 金額は小数点以下を切り捨て（整数化）
         val amt = normalizeAmount(amount)
         if (amt <= 0.0) {
@@ -168,6 +177,10 @@ class BankService(
      * - 送金元から出金 → 受取人へ入金 → 失敗時は送金元へ返金
      */
     suspend fun transfer(sender: Player, targetUuid: UUID, targetName: String, amount: Double) {
+        if (!featureToggles.isEnabled(FeatureToggleService.Feature.TRANSACTION)) {
+            Messages.error(plugin, sender, "取引機能（入金/出金/送金）は現在停止中です。")
+            return
+        }
         // 金額は小数点以下を切り捨て（整数化）
         val amt = normalizeAmount(amount)
         if (amt <= 0.0) {
