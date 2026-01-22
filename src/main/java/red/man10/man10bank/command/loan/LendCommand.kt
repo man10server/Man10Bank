@@ -17,6 +17,7 @@ import red.man10.man10bank.util.BalanceFormats
 import red.man10.man10bank.util.Messages
 import java.util.*
 import red.man10.man10bank.service.FeatureToggleService
+import red.man10.man10bank.util.DateFormats
 
 /**
  * プレイヤー間ローンの新規契約コマンド: /mlend <player> <金額> <返済金額> <返済日>
@@ -70,7 +71,11 @@ class LendCommand(
             return true
         }
         if (args.isEmpty()) {
-            Messages.send(sender, "使用方法: /mlend <player> <金額> <返済金額> <返済日(yyyy-MM-dd|日数)> ")
+            Messages.send(
+                sender,
+                "使用方法: /mlend <player> <金額> <返済金額> <返済日(yyyy-MM-dd|日数)> " +
+                    "（一覧: /mlend list / 担保受取: /mlend release <id>）"
+            )
             return true
         }
 
@@ -84,6 +89,18 @@ class LendCommand(
             "list" -> handleBorrowerList(sender)
             "release" -> handleBorrowerRelease(sender, args)
             else -> handlePropose(sender, args)
+        }
+    }
+
+    override fun tabComplete(sender: CommandSender, label: String, args: Array<out String>): List<String> {
+        if (sender !is Player) return emptyList()
+        return when (args.size) {
+            1 -> {
+                val subcommands = listOf("list", "release")
+                val players = Bukkit.getOnlinePlayers().map { it.name }
+                (subcommands + players).distinct().sorted()
+            }
+            else -> emptyList()
         }
     }
 
@@ -316,10 +333,10 @@ class LendCommand(
                 val id = loan.id ?: -1
                 val lender = loan.lendPlayer
                 val amount = BalanceFormats.coloredYen(loan.amount ?: 0.0)
-                val deadline = loan.paybackDate?.let { red.man10.man10bank.util.DateFormats.toDateTime(it) } ?: "-"
+                val deadline = loan.paybackDate?.let { DateFormats.toDateTime(it) } ?: "-"
                 val hasCollateral = !loan.collateralItem.isNullOrBlank()
                 val collateral = if (hasCollateral) "§6担保未回収" else "§7担保なし"
-                lines += "§bID:${id} §f貸し手:${lender} §f支払額:${amount} §f期限:${deadline} §f[$collateral]"
+                lines += "§bID:${id} §f貸し手:${lender} §f支払額:${amount} §f期限:${deadline} §f[$collateral§f]"
             }
             Messages.sendMultiline(plugin, sender, lines.joinToString("\n"))
         }
