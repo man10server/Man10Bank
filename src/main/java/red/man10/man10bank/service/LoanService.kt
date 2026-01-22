@@ -69,7 +69,12 @@ class LoanService(
         }
 
         val paybackDateIso = OffsetDateTime.now(ZoneOffset.UTC).plusDays(paybackInDays.toLong()).toString()
-        val encoded = collaterals?.filter { !it.type.isAir }?.takeIf { it.isNotEmpty() }?.let { ItemStackBase64.encodeItems(it) }
+        val filtered = collaterals?.filter { !it.type.isAir }.orEmpty()
+        val encoded = if (filtered.isEmpty()) {
+            null
+        } else {
+            encodeCollateralItems(lender, borrower, filtered) ?: return false
+        }
 
         val body = LoanCreateRequest(
             lendUuid = lender.uniqueId.toString(),
@@ -139,7 +144,7 @@ class LoanService(
             Messages.warn(plugin, borrower, "受け取れる担保がありません。")
             return
         }
-        val items = ItemStackBase64.decodeItems(base64)
+        val items = decodeCollateralItems(borrower, id, base64, "borrower") ?: return
         if (items.isEmpty()) {
             Messages.warn(plugin, borrower, "担保データが不正です。")
             return
@@ -205,7 +210,7 @@ class LoanService(
                     Messages.warn(plugin, collector, "担保データが見つかりませんでした。")
                     return
                 }
-                val items = ItemStackBase64.decodeItems(base64)
+                val items = decodeCollateralItems(collector, id, base64, "collector") ?: return
                 if (items.isEmpty()) {
                     Messages.warn(plugin, collector, "担保アイテムが空です。")
                     return
@@ -268,6 +273,35 @@ class LoanService(
 
         item.itemMeta = meta
         return item
+    }
+
+    private fun encodeCollateralItems(lender: Player, borrower: Player, items: List<ItemStack>): String? {
+        return try {
+            ItemStackBase64.encodeItems(items)
+        } catch (e: Exception) {
+            val itemSummary = items.take(5).joinToString(",") { it.type.name }
+            val itemSuffix = if (items.size > 5) "..." else ""
+            plugin.logger.warning(
+                "担保アイテムのエンコードに失敗しました。loanId=未採番 lender=${lender.uniqueId} " +
+                    "borrower=${borrower.uniqueId} count=${items.size} items=$itemSummary$itemSuffix: ${e.message}"
+            )
+            Messages.error(plugin, lender, "担保アイテムの変換に失敗しました。")
+            Messages.error(plugin, borrower, "担保アイテムの変換に失敗しました。")
+            null
+        }
+    }
+
+    private fun decodeCollateralItems(player: Player, loanId: Int, base64: String, roleKey: String): List<ItemStack>? {
+        return try {
+            ItemStackBase64.decodeItems(base64)
+        } catch (e: Exception) {
+            plugin.logger.warning(
+                "担保アイテムのデコードに失敗しました。loanId=$loanId $roleKey=${player.uniqueId} " +
+                    "base64Length=${base64.length}: ${e.message}"
+            )
+            Messages.warn(plugin, player, "担保データが不正です。")
+            null
+        }
     }
 
     /**
