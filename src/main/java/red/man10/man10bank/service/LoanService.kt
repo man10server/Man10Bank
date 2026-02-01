@@ -11,6 +11,7 @@ import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
+import org.bukkit.event.block.Action.*
 import org.bukkit.event.player.PlayerInteractEvent
 import org.bukkit.inventory.ItemFlag
 import org.bukkit.inventory.ItemStack
@@ -173,7 +174,7 @@ class LoanService(
         // 右クリックのみを対象
         val action = event.action
         val isRightClick = when (action) {
-            org.bukkit.event.block.Action.RIGHT_CLICK_AIR, org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK -> true
+            RIGHT_CLICK_AIR, RIGHT_CLICK_BLOCK -> true
             else -> false
         }
         if (!isRightClick) return
@@ -285,6 +286,7 @@ class LoanService(
                 "担保アイテムのエンコードに失敗しました。loanId=未採番 lender=${lender.uniqueId} " +
                     "borrower=${borrower.uniqueId} count=${items.size} items=$itemSummary$itemSuffix: ${e.message}"
             )
+            e.printStackTrace()
             Messages.error(plugin, lender, "担保アイテムの変換に失敗しました。")
             Messages.error(plugin, borrower, "担保アイテムの変換に失敗しました。")
             null
@@ -299,6 +301,7 @@ class LoanService(
                 "担保アイテムのデコードに失敗しました。loanId=$loanId $roleKey=${player.uniqueId} " +
                     "base64Length=${base64.length}: ${e.message}"
             )
+            e.printStackTrace()
             Messages.warn(plugin, player, "担保データが不正です。")
             null
         }

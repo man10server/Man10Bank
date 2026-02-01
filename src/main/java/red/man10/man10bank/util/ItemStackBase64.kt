@@ -3,10 +3,6 @@ package red.man10.man10bank.util
 import org.bukkit.configuration.file.YamlConfiguration
 import org.bukkit.inventory.ItemStack
 import org.yaml.snakeyaml.external.biz.base64Coder.Base64Coder
-import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
-import java.io.DataInputStream
-import java.io.DataOutputStream
 import java.nio.charset.StandardCharsets
 import java.util.Base64
 
@@ -59,19 +55,10 @@ object ItemStackBase64 {
 
     /**
      * ItemStackのリストを Base64 文字列へエンコードする。
-     * - ItemStack.serializeAsBytes を連結し、Base64化する
+     * - ItemStack.serializeItemsAsBytes をBase64化する
      */
     fun encodeItems(items: List<ItemStack>): String {
-        val output = ByteArrayOutputStream()
-        DataOutputStream(output).use { data ->
-            data.writeInt(items.size)
-            for (item in items) {
-                val itemBytes = item.serializeAsBytes()
-                data.writeInt(itemBytes.size)
-                data.write(itemBytes)
-            }
-        }
-        return Base64Coder.encodeLines(output.toByteArray())
+        return Base64Coder.encodeLines(ItemStack.serializeItemsAsBytes(items))
     }
 
     /**
@@ -80,24 +67,7 @@ object ItemStackBase64 {
      */
     fun decodeItems(base64: String): List<ItemStack> {
         return try {
-            val bytes = Base64Coder.decodeLines(base64)
-            DataInputStream(ByteArrayInputStream(bytes)).use { data ->
-                val count = data.readInt()
-                if (count < 0) {
-                    throw IllegalArgumentException("ItemStackリストの件数が不正です: count=$count")
-                }
-                val items = ArrayList<ItemStack>(count)
-                repeat(count) { index ->
-                    val itemSize = data.readInt()
-                    if (itemSize < 0) {
-                        throw IllegalArgumentException("ItemStackサイズが不正です: index=$index size=$itemSize")
-                    }
-                    val itemBytes = ByteArray(itemSize)
-                    data.readFully(itemBytes)
-                    items.add(ItemStack.deserializeBytes(itemBytes))
-                }
-                items
-            }
+            ItemStack.deserializeItemsFromBytes(Base64Coder.decodeLines(base64)).toList()
         } catch (newError: Exception) {
             try {
                 oldDecodeItems(base64)
