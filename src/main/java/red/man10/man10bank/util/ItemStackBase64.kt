@@ -2,69 +2,103 @@ package red.man10.man10bank.util
 
 import org.bukkit.configuration.file.YamlConfiguration
 import org.bukkit.inventory.ItemStack
+import org.yaml.snakeyaml.external.biz.base64Coder.Base64Coder
 import java.nio.charset.StandardCharsets
 import java.util.Base64
 
 /**
  * ItemStack <-> Base64 変換ユーティリティ。
- * - Javaシリアライズ（BukkitObjectOutputStream等）は非推奨のため使用しない。
- * - BukkitのYAMLシリアライズ（ConfigurationSerializable）を用いて文字列化し、Base64で安全に転送可能にする。
+ * - ItemStack.serializeAsBytes を使用してBase64化する。
+ * - 旧形式（YAMLシリアライズ）は oldDecode で復元可能。
  */
 object ItemStackBase64 {
 
     /**
      * ItemStack を Base64 文字列へエンコードする。
-     * - YAMLへシリアライズ後、UTF-8バイト列をBase64化
      * - nullやAIR相当の判定は呼び出し側で行う想定
      */
     fun encode(item: ItemStack): String {
-        val yaml = YamlConfiguration()
-        yaml.set("i", item)
-        val serialized = yaml.saveToString()
-        val bytes = serialized.toByteArray(StandardCharsets.UTF_8)
-        return Base64.getEncoder().encodeToString(bytes)
+        val bytes = item.serializeAsBytes()
+        return Base64Coder.encodeLines(bytes)
     }
 
     /**
      * Base64 文字列から ItemStack へデコードする。
-     * - 失敗時は null を返す
+     * - 失敗時は旧形式のデコードを試み、最終的に例外を投げる
      */
-    fun decode(base64: String): ItemStack? = try {
+    fun decode(base64: String): ItemStack {
+        return try {
+            val bytes = Base64Coder.decodeLines(base64)
+            ItemStack.deserializeBytes(bytes)
+        } catch (newError: Exception) {
+            try {
+                oldDecode(base64)
+            } catch (oldError: Exception) {
+                oldError.addSuppressed(newError)
+                throw oldError
+            }
+        }
+    }
+
+    /**
+     * 旧形式のBase64文字列をItemStackへデコードする。
+     * - YAMLへシリアライズしたものをBase64化した形式に対応
+     */
+    fun oldDecode(base64: String): ItemStack {
         val bytes = Base64.getDecoder().decode(base64)
         val yamlText = String(bytes, StandardCharsets.UTF_8)
         val yaml = YamlConfiguration()
         yaml.loadFromString(yamlText)
-        yaml.getItemStack("i")
-    } catch (_: Exception) {
-        null
+        return yaml.getItemStack("i")
+            ?: throw IllegalArgumentException("旧形式のItemStackデコードに失敗しました: i が存在しません")
     }
 
     /**
      * ItemStackのリストを Base64 文字列へエンコードする。
-     * - YAMLのリストへシリアライズ後、UTF-8バイト列をBase64化
+     * - ItemStack.serializeItemsAsBytes をBase64化する
      */
     fun encodeItems(items: List<ItemStack>): String {
-        val yaml = YamlConfiguration()
-        yaml.set("l", items)
-        val serialized = yaml.saveToString()
-        val bytes = serialized.toByteArray(StandardCharsets.UTF_8)
-        return Base64.getEncoder().encodeToString(bytes)
+        return Base64Coder.encodeLines(ItemStack.serializeItemsAsBytes(items))
     }
 
     /**
      * Base64化されたItemStackリストを復元する。
-     * - 復元失敗時は空リストを返す
+     * - 失敗時は旧形式のデコードを試み、最終的に例外を投げる
      */
     fun decodeItems(base64: String): List<ItemStack> {
         return try {
-            val bytes = Base64.getDecoder().decode(base64)
-            val yamlText = String(bytes, StandardCharsets.UTF_8)
-            val yaml = YamlConfiguration()
-            yaml.loadFromString(yamlText)
-            val raw = yaml.getList("l") ?: return emptyList()
-            raw.mapNotNull { it as? ItemStack }
-        } catch (_: Exception) {
-            emptyList()
+            ItemStack.deserializeItemsFromBytes(Base64Coder.decodeLines(base64)).toList()
+        } catch (newError: Exception) {
+            try {
+                oldDecodeItems(base64)
+            } catch (oldError: Exception) {
+                oldError.addSuppressed(newError)
+                throw oldError
+            }
+        }
+    }
+
+    /**
+     * 旧形式のBase64文字列をItemStackリストへデコードする。
+     * - YAMLへシリアライズしたリストをBase64化した形式に対応
+     */
+    fun oldDecodeItems(base64: String): List<ItemStack> {
+        val bytes = Base64.getDecoder().decode(base64)
+        val yamlText = String(bytes, StandardCharsets.UTF_8)
+        val yaml = YamlConfiguration()
+        yaml.loadFromString(yamlText)
+        val raw = yaml.getList("l")
+            ?: throw IllegalArgumentException("旧形式のItemStackリストデコードに失敗しました: l が存在しません")
+        return raw.mapIndexed { index, entry ->
+            when (entry) {
+                is ItemStack -> entry
+                is String -> decode(entry)
+                is Map<*, *> -> {
+                    @Suppress("UNCHECKED_CAST")
+                    ItemStack.deserialize(entry as Map<String, Any>)
+                }
+                else -> throw IllegalArgumentException("旧形式のItemStack要素が不正です: index=$index type=${entry?.javaClass?.name}")
+            }
         }
     }
 }
