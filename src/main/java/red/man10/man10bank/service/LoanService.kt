@@ -299,6 +299,7 @@ class LoanService(
                 "担保アイテムのデコードに失敗しました。loanId=$loanId $roleKey=${player.uniqueId} " +
                     "base64Length=${base64.length}: ${e.message}"
             )
+            e.printStackTrace()
             Messages.warn(plugin, player, "担保データが不正です。")
             null
         }
