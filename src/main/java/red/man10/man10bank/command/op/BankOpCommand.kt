@@ -7,11 +7,13 @@ import red.man10.man10bank.command.BaseCommand
 import red.man10.man10bank.command.op.sub.HealthSubcommand
 import red.man10.man10bank.command.op.sub.HistorySubcommand
 import red.man10.man10bank.command.op.sub.SetCashSubcommand
+import red.man10.man10bank.command.op.sub.SetBankSubcommand
 import red.man10.man10bank.command.op.sub.EnableFeatureSubcommand
 import red.man10.man10bank.command.op.sub.DisableFeatureSubcommand
 import red.man10.man10bank.service.CashItemManager
 import red.man10.man10bank.service.HealthService
 import red.man10.man10bank.service.FeatureToggleService
+import red.man10.man10bank.service.BankService
 import red.man10.man10bank.util.Messages
 
 /**
@@ -24,6 +26,7 @@ class BankOpCommand(
     cashItemManager: CashItemManager,
     estateService: red.man10.man10bank.service.EstateService,
     private val featureToggles: FeatureToggleService,
+    bankService: BankService,
 ) : BaseCommand(
     allowPlayer = true,
     allowConsole = true,
@@ -37,6 +40,8 @@ class BankOpCommand(
         SetCashSubcommand(cashItemManager),
         // 資産履歴
         HistorySubcommand(plugin, scope, estateService),
+        // 管理者残高調整
+        SetBankSubcommand(scope, bankService),
         // 機能 有効/無効 切り替え
         EnableFeatureSubcommand(featureToggles),
         DisableFeatureSubcommand(featureToggles),

@@ -1,5 +1,6 @@
 package red.man10.man10bank.service
 
+import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 import red.man10.man10bank.Man10Bank
 import red.man10.man10bank.api.BankApiClient
@@ -11,6 +12,7 @@ import red.man10.man10bank.util.BalanceFormats
 import red.man10.man10bank.util.errorMessage
 import red.man10.man10bank.util.Messages
 import java.util.UUID
+import kotlin.math.abs
 
 /**
  * BankApiClient 向けのサービス。
@@ -151,6 +153,68 @@ class BankService(
     }
 
     /**
+     * 管理者用: 指定プレイヤーの銀行残高を指定額に調整する。
+     * - オフラインでも実行可能
+     * - 取引トグルの影響を受けない（管理者操作）
+     */
+    suspend fun setBalance(
+        sender: CommandSender,
+        targetUuid: UUID,
+        targetName: String,
+        amount: Double,
+        reason: String,
+    ) {
+        if (amount < 0.0) {
+            Messages.error(plugin, sender, "金額が不正です。0円以上を指定してください。")
+            return
+        }
+        val targetAmount = normalizeAmount(amount)
+        val currentResult = api.getBalance(targetUuid)
+        if (currentResult.isFailure) {
+            Messages.error(plugin, sender, "残高取得に失敗しました: ${currentResult.errorMessage()}")
+            return
+        }
+        val current = currentResult.getOrNull() ?: 0.0
+        if (targetAmount == current) {
+            Messages.send(plugin, sender, "残高は既に ${BalanceFormats.coloredYen(current)} です。")
+            return
+        }
+
+        val diff = targetAmount - current
+        val actor = sender.name
+        val reasonText = reason.trim()
+        val displayNote = if (reasonText.isBlank()) {
+            "管理者(${actor})による残高調整"
+        } else {
+            "管理者(${actor})による残高調整: $reasonText"
+        }
+        val note = "AdminSetBalanceBy${actor}"
+
+        val result = if (diff > 0.0) {
+            api.deposit(depositRequest(targetUuid, diff, note, displayNote))
+        } else {
+            api.withdraw(withdrawRequest(targetUuid, abs(diff), note, displayNote))
+        }
+
+        if (result.isSuccess) {
+            val newBalance = result.getOrNull() ?: targetAmount
+            val diffText = if (diff >= 0.0) {
+                "+${BalanceFormats.coloredYen(diff)}"
+            } else {
+                "-${BalanceFormats.coloredYen(abs(diff))}"
+            }
+            Messages.send(
+                plugin,
+                sender,
+                "残高を調整しました。対象: $targetName 変更: $diffText 変更後: ${BalanceFormats.coloredYen(newBalance)} 理由: $reasonText"
+            )
+        } else {
+            val msg = result.errorMessage()
+            Messages.error(plugin, sender, "残高調整に失敗しました: $msg")
+        }
+    }
+
+    /**
      * /deposit 用の金額解決（null または "all" 相当をインジケータとして扱い、Vault残高を返す）。
      * 条件を満たさない場合は null。
      */
@@ -273,9 +337,29 @@ class BankService(
             server = plugin.serverName,
         )
 
+    private fun depositRequest(uuid: UUID, amount: Double, note: String, displayNote: String): DepositRequest =
+        DepositRequest(
+            uuid = uuid.toString(),
+            amount = amount,
+            pluginName = plugin.name,
+            note = note,
+            displayNote = displayNote,
+            server = plugin.serverName,
+        )
+
     private fun withdrawRequest(player: Player, amount: Double, note: String, displayNote: String): WithdrawRequest =
         WithdrawRequest(
             uuid = player.uniqueId.toString(),
+            amount = amount,
+            pluginName = plugin.name,
+            note = note,
+            displayNote = displayNote,
+            server = plugin.serverName,
+        )
+
+    private fun withdrawRequest(uuid: UUID, amount: Double, note: String, displayNote: String): WithdrawRequest =
+        WithdrawRequest(
+            uuid = uuid.toString(),
             amount = amount,
             pluginName = plugin.name,
             note = note,
