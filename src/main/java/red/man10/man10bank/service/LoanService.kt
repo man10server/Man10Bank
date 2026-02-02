@@ -23,7 +23,6 @@ import red.man10.man10bank.api.model.response.Loan
 import red.man10.man10bank.ui.loan.CollateralCollectUI
 import red.man10.man10bank.ui.loan.CollateralDebtorReleaseUI
 import red.man10.man10bank.util.BalanceFormats
-import red.man10.man10bank.service.FeatureToggleService
 import red.man10.man10bank.util.DateFormats
 import red.man10.man10bank.util.ItemStackBase64
 import red.man10.man10bank.util.Messages
@@ -56,10 +55,15 @@ class LoanService(
     suspend fun create(
         lender: Player,
         borrower: Player,
+        borrowAmount: Double,
         repayAmount: Double,
         paybackInDays: Int,
         collaterals: List<ItemStack>?,
     ): Boolean {
+        if (borrowAmount <= 0) {
+            Messages.error(plugin, lender, "借入金額が不正です。0より大きい値を指定してください。")
+            return false
+        }
         if (repayAmount <= 0.0) {
             Messages.error(plugin, lender, "返済金額が不正です。0より大きい値を指定してください。")
             return false
@@ -80,7 +84,8 @@ class LoanService(
         val body = LoanCreateRequest(
             lendUuid = lender.uniqueId.toString(),
             borrowUuid = borrower.uniqueId.toString(),
-            amount = repayAmount,
+            borrowAmount = borrowAmount,
+            repayAmount = repayAmount,
             paybackDate = paybackDateIso,
             collateralItem = encoded,
         )
@@ -108,7 +113,7 @@ class LoanService(
                 leftover.values.forEach { lender.world.dropItemNaturally(lender.location, it) }
             }
             Messages.send(plugin, lender, "ローン手形を発行しました。")
-            Messages.send(plugin, borrower, "借入が確定しました。金額: ${BalanceFormats.coloredYen(repayAmount)}円")
+            Messages.send(plugin, borrower, "借入が確定しました。金額: ${BalanceFormats.coloredYen(borrowAmount)}円")
         })
         return true
     }

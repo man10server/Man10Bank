@@ -6,7 +6,8 @@ import kotlinx.serialization.Serializable
 data class LoanCreateRequest(
     val lendUuid: String,
     val borrowUuid: String,
-    val amount: Double,
+    val borrowAmount: Double,
+    val repayAmount: Double,
     val paybackDate: String, // ISO8601 date-time
     val collateralItem: String? = null,
 )

@@ -38,7 +38,7 @@ class LendCommand(
         val id: String,
         val lender: UUID,
         val borrower: UUID,
-        val amount: Double,           // 借入金額（情報表示用）
+        val borrowAmount: Double,           // 借入金額（情報表示用）
         val repayAmount: Double,      // 返済金額（APIへはこれを採用）
         val paybackDays: Int,
         var collaterals: List<ItemStack> = emptyList(),
@@ -147,7 +147,7 @@ class LendCommand(
             id = id,
             lender = sender.uniqueId,
             borrower = borrower.uniqueId,
-            amount = amount,
+            borrowAmount = amount,
             repayAmount = repayAmount,
             paybackDays = paybackDays,
         )
@@ -163,7 +163,7 @@ class LendCommand(
         val lines = listOf(
             "§e§l[借金の提案]",
             "借入相手: ${lender.name}",
-            "借入金額: ${BalanceFormats.coloredYen(p.amount)}",
+            "借入金額: ${BalanceFormats.coloredYen(p.borrowAmount)}",
             "返済金額: ${BalanceFormats.coloredYen(p.repayAmount)}",
             "返済期限: ${p.paybackDays} 日",
         )
@@ -247,7 +247,7 @@ class LendCommand(
         val lines = listOf(
             "§e§l[借金の最終確認]",
             "貸出相手: ${borrower.name}",
-            "借入金額: ${BalanceFormats.coloredYen(p.amount)}",
+            "借入金額: ${BalanceFormats.coloredYen(p.borrowAmount)}",
             "返済金額: ${BalanceFormats.coloredYen(p.repayAmount)}",
             "返済期限: ${p.paybackDays} 日",
             "担保点数: ${p.collaterals.size}",
@@ -294,7 +294,7 @@ class LendCommand(
             return true
         }
         scope.launch {
-            val result = loanService.create(sender, borrower, proposal.repayAmount, proposal.paybackDays, proposal.collaterals)
+            val result = loanService.create(sender, borrower, proposal.borrowAmount, proposal.repayAmount, proposal.paybackDays, proposal.collaterals)
             if (!result) {
                 returnCollateralsToBorrower(proposal)
             }
