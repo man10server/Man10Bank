@@ -7,8 +7,8 @@ import red.man10.man10bank.command.BaseCommand
 import red.man10.man10bank.command.op.sub.HealthSubcommand
 import red.man10.man10bank.command.op.sub.HistorySubcommand
 import red.man10.man10bank.command.op.sub.SetCashSubcommand
-import red.man10.man10bank.command.op.sub.SetBankSubcommand
-import red.man10.man10bank.command.op.sub.SetVaultSubcommand
+import red.man10.man10bank.command.op.sub.edit.EditBankSubCommand
+import red.man10.man10bank.command.op.sub.edit.EditVaultSubcommand
 import red.man10.man10bank.command.op.sub.EnableFeatureSubcommand
 import red.man10.man10bank.command.op.sub.DisableFeatureSubcommand
 import red.man10.man10bank.service.CashItemManager
@@ -44,9 +44,9 @@ class BankOpCommand(
         // 資産履歴
         HistorySubcommand(plugin, scope, estateService),
         // 管理者残高調整
-        SetBankSubcommand(scope, bankService),
+        EditBankSubCommand(scope, bankService),
         // 管理者電子マネー調整
-        SetVaultSubcommand(vaultManager),
+        EditVaultSubcommand(vaultManager),
         // 機能 有効/無効 切り替え
         EnableFeatureSubcommand(featureToggles),
         DisableFeatureSubcommand(featureToggles),

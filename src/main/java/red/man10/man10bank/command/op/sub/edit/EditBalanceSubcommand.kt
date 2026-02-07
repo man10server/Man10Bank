@@ -1,4 +1,4 @@
-package red.man10.man10bank.command.op.sub
+package red.man10.man10bank.command.op.sub.edit
 
 import org.bukkit.Bukkit
 import org.bukkit.OfflinePlayer

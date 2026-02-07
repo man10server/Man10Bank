@@ -1,4 +1,4 @@
-package red.man10.man10bank.command.op.sub
+package red.man10.man10bank.command.op.sub.edit
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -8,7 +8,7 @@ import red.man10.man10bank.service.BankService
 /**
  * /bankop editbank <player> <金額> <理由> - 指定プレイヤーの銀行残高を調整
  */
-class SetBankSubcommand(
+class EditBankSubCommand(
     private val scope: CoroutineScope,
     private val bankService: BankService,
 ) : EditBalanceSubcommand(

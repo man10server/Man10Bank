@@ -1,4 +1,4 @@
-package red.man10.man10bank.command.op.sub
+package red.man10.man10bank.command.op.sub.edit
 
 import org.bukkit.command.CommandSender
 import red.man10.man10bank.service.VaultManager
@@ -9,7 +9,7 @@ import kotlin.math.abs
 /**
  * /bankop editvault <player> <金額> <理由> - 指定プレイヤーの電子マネー残高を調整
  */
-class SetVaultSubcommand(
+class EditVaultSubcommand(
     private val vaultManager: VaultManager,
 ) : EditBalanceSubcommand(
     name = "editvault",
