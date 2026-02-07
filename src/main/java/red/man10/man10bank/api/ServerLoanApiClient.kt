@@ -34,6 +34,12 @@ class ServerLoanApiClient(private val client: HttpClient) {
         }.body()
     }
 
+    suspend fun setBorrowAmount(uuid: UUID, amount: Double): Result<ServerLoan> = runCatching {
+        client.post("/api/ServerLoan/${uuid}/borrow-amount") {
+            parameter("amount", amount)
+        }.body()
+    }
+
     suspend fun borrowLimit(uuid: UUID): Result<Double> = runCatching { client.get("/api/ServerLoan/${uuid}/borrow-limit").body() }
 
     suspend fun logs(uuid: UUID, limit: Int = 100, offset: Int = 0): Result<List<ServerLoanLog>> = runCatching {
