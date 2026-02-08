@@ -12,7 +12,7 @@ import red.man10.man10bank.util.BalanceFormats
 import red.man10.man10bank.util.errorMessage
 import red.man10.man10bank.util.DateFormats
 import red.man10.man10bank.util.Messages
-import red.man10.man10bank.util.errorMessage
+import java.util.UUID
 
 /**
  * サーバーローン機能のサービス（型のみ）。
@@ -131,6 +131,20 @@ class ServerLoanService(
             val msg = result.errorMessage()
             Messages.error(plugin, player, "支払額の更新に失敗しました: $msg")
         }
+    }
+
+    /**
+     * 借入額の設定（管理者/運営用途）。
+     * - amount は 0 円以上を許容
+     * - 小数点以下は切り捨てて API へ送信
+     * - 機能トグルの影響を受けない
+     */
+    suspend fun setBorrowAmount(uuid: UUID, amount: Double): Result<ServerLoan> {
+        if (amount < 0.0) {
+            return Result.failure(IllegalArgumentException("金額が不正です。0円以上を指定してください。"))
+        }
+        val normalized = amount.toLong().toDouble()
+        return api.setBorrowAmount(uuid, normalized)
     }
 
     /**
