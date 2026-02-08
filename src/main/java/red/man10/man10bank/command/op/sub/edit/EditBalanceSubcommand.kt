@@ -49,7 +49,12 @@ abstract class EditBalanceSubcommand(
             return true
         }
 
-        val offline = Bukkit.getOfflinePlayer(targetName)
+        val offline = Bukkit.getOfflinePlayerIfCached(targetName)
+
+        if (offline == null) {
+            Messages.error(sender,"${targetName}のログイン履歴が見つかりませんでした")
+            return true
+        }
         val displayName = offline.name ?: targetName
         executeEdit(sender, EditTarget(offline, displayName, amount, reason))
         return true
