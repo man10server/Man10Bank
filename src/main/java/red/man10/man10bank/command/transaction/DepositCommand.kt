@@ -18,6 +18,7 @@ class DepositCommand(
     allowPlayer = true,
     allowConsole = false,
     allowGeneralUser = true,
+    requiredPermission = "man10bank.deposit",
 ) {
 
     override fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean {

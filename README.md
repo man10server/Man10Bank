@@ -67,9 +67,36 @@ Man10サーバー用の総合的な銀行システムプラグインです。オ
 - `/ballog` - 銀行ログ確認
 
 ## 権限
-- `man10bank.op` - 管理者権限
-- `man10bank.use_cheque` - 小切手使用権限
-- `man10bank.issue_cheque` - 小切手発行権限
+
+### ワイルドカード
+
+| パーミッションノード | 説明 | デフォルト |
+|---|---|---|
+| `man10bank.*` | 全てのMan10Bank権限 | op |
+| `man10bank.user` | 全ユーザー向けコマンド権限（下記ユーザー権限を全て含む） | false |
+
+### ユーザー向け
+
+| パーミッションノード | 対象コマンド | デフォルト |
+|---|---|---|
+| `man10bank.balance` | `/bal`, `/balance`, `/mbal`, `/money`, `/bank` | false |
+| `man10bank.baltop` | `/mbaltop` | false |
+| `man10bank.deposit` | `/deposit` | false |
+| `man10bank.withdraw` | `/withdraw` | false |
+| `man10bank.pay` | `/mpay` | false |
+| `man10bank.ballog` | `/ballog` | false |
+| `man10bank.atm` | `/atm` | false |
+| `man10bank.cheque` | `/mcheque` | false |
+| `man10bank.serverloan` | `/mrevo` | false |
+| `man10bank.lend` | `/mlend` | false |
+
+### 管理者向け
+
+| パーミッションノード | 対象コマンド | デフォルト |
+|---|---|---|
+| `man10bank.admin` | `/bankop`（全サブコマンド） | op |
+| `man10bank.cheque.admin` | `/mchequeop` | op |
+| `man10bank.atm.logop` | `/atm logop` | op |
 
 ## インストール方法
 

@@ -28,6 +28,7 @@ class PayCommand(
     allowPlayer = true,
     allowConsole = false,
     allowGeneralUser = true,
+    requiredPermission = "man10bank.pay",
 ) {
 
     companion object {

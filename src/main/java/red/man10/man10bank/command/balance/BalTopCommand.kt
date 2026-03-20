@@ -20,7 +20,7 @@ class BalTopCommand(
     private val scope: CoroutineScope,
     private val estateService: EstateService,
     private val serverEstateService: red.man10.man10bank.service.ServerEstateService,
-) : BaseCommand(allowPlayer = true, allowConsole = true, allowGeneralUser = true) {
+) : BaseCommand(allowPlayer = true, allowConsole = true, allowGeneralUser = true, requiredPermission = "man10bank.baltop") {
 
     override fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean {
         val page = args.getOrNull(0)?.toIntOrNull()?.coerceAtLeast(1) ?: 1

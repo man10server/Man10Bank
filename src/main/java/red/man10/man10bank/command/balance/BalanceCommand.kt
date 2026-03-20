@@ -25,6 +25,7 @@ class BalanceCommand(
     allowPlayer = true,
     allowConsole = false,
     allowGeneralUser = true,
+    requiredPermission = "man10bank.balance",
 ) {
 
     override fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean {

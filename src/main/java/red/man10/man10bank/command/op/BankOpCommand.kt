@@ -36,7 +36,8 @@ class BankOpCommand(
 ) : BaseCommand(
     allowPlayer = true,
     allowConsole = true,
-    allowGeneralUser = false,
+    allowGeneralUser = true,
+    requiredPermission = "man10bank.admin",
 ) {
 
     private val subcommands: Map<String, BankOpSubcommand> = listOf(

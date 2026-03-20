@@ -19,6 +19,7 @@ class WithdrawCommand(
     allowPlayer = true,
     allowConsole = false,
     allowGeneralUser = true,
+    requiredPermission = "man10bank.withdraw",
 ) {
 
     override fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean {

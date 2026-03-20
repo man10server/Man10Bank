@@ -31,6 +31,7 @@ class ServerLoanCommand(
     allowPlayer = true,
     allowConsole = false,
     allowGeneralUser = true,
+    requiredPermission = "man10bank.serverloan",
 ) {
 
     companion object {

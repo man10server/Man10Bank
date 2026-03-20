@@ -11,56 +11,127 @@ main: red.man10.man10bank.Man10Bank
 api-version: 1.21
 commands:
   mbal:
-    default: op
     description: /bal
+    permission: man10bank.balance
   bal:
-    default: op
     description: /bal
+    permission: man10bank.balance
   balance:
-    default: op
     description: /bal
+    permission: man10bank.balance
   money:
-    default: op
     description: /bal
+    permission: man10bank.balance
   bank:
-    default: op
     description: /bal
+    permission: man10bank.balance
   atm:
     description: ATMメニューを開く
     usage: /atm
+    permission: man10bank.atm
   mpay:
     description: 銀行からプレイヤーへ送金
     usage: /mpay <player> <amount>
+    permission: man10bank.pay
   mcheque:
     description: 小切手（ユーザー向け）
     usage: /mcheque
+    permission: man10bank.cheque
   mchequeop:
     description: 小切手（運営向け）
     usage: /mchequeop
+    permission: man10bank.cheque.admin
   mbaltop:
-    default: op
     description: serverBalanceTop
+    permission: man10bank.baltop
   mloantop:
     default: op
     description: serverLoanTop
   mlend:
-    default: op
     description: player loan
+    permission: man10bank.lend
   pay:
     default: op
     description: vault pay
   deposit:
     description: VaultからBankへ入金
     usage: /deposit <金額|all>
+    permission: man10bank.deposit
   withdraw:
     description: BankからVaultへ出金
     usage: /withdraw <金額|all>
+    permission: man10bank.withdraw
   bankop:
-    default: op
     description: 管理用コマンド（ヘルスチェック/現金アイテム設定/機能オン・オフ）
+    permission: man10bank.admin
   mrevo:
     description: サーバーローン管理コマンド
     usage: /mrevo
+    permission: man10bank.serverloan
   ballog:
     description: 銀行ログ閲覧コマンド
     usage: /ballog [page]
+    permission: man10bank.ballog
+
+permissions:
+  man10bank.*:
+    description: 全てのMan10Bank権限
+    default: op
+    children:
+      man10bank.user: true
+      man10bank.admin: true
+      man10bank.cheque.admin: true
+      man10bank.atm.logop: true
+  man10bank.user:
+    description: 全ユーザー向けコマンド権限
+    default: false
+    children:
+      man10bank.balance: true
+      man10bank.baltop: true
+      man10bank.deposit: true
+      man10bank.withdraw: true
+      man10bank.pay: true
+      man10bank.ballog: true
+      man10bank.atm: true
+      man10bank.cheque: true
+      man10bank.serverloan: true
+      man10bank.lend: true
+  man10bank.balance:
+    description: 残高確認コマンド (/bal, /balance, /mbal, /money, /bank)
+    default: false
+  man10bank.baltop:
+    description: 富豪ランキング (/mbaltop)
+    default: false
+  man10bank.deposit:
+    description: 入金コマンド (/deposit)
+    default: false
+  man10bank.withdraw:
+    description: 出金コマンド (/withdraw)
+    default: false
+  man10bank.pay:
+    description: 送金コマンド (/mpay)
+    default: false
+  man10bank.ballog:
+    description: 銀行ログ閲覧 (/ballog)
+    default: false
+  man10bank.atm:
+    description: ATMコマンド (/atm)
+    default: false
+  man10bank.cheque:
+    description: 小切手コマンド (/mcheque)
+    default: false
+  man10bank.serverloan:
+    description: サーバーローン (/mrevo)
+    default: false
+  man10bank.lend:
+    description: プレイヤーローン (/mlend)
+    default: false
+  man10bank.admin:
+    description: 管理コマンド (/bankop)
+    default: op
+  man10bank.cheque.admin:
+    description: 運営小切手 (/mchequeop)
+    default: op
+  man10bank.atm.logop:
+    description: ATMログ閲覧（運営） (/atm logop)
+    default: op

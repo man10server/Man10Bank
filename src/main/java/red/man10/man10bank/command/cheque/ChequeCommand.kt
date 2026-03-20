@@ -19,6 +19,7 @@ class ChequeCommand(
     allowPlayer = true,
     allowConsole = false,
     allowGeneralUser = true,
+    requiredPermission = "man10bank.cheque",
 ) {
     override fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean {
         sender as Player
@@ -26,7 +27,7 @@ class ChequeCommand(
         val isOpLabel = label.equals("mchequeop", ignoreCase = true)
 
         // 運営用ラベルで実行した場合はOP権限を要求
-        if (isOpLabel && !sender.isOp) {
+        if (isOpLabel && !sender.hasPermission("man10bank.cheque.admin")) {
             Messages.error(sender, "このコマンドは管理者のみ実行できます。")
             return true
         }

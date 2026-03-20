@@ -29,6 +29,7 @@ class AtmCommand(
     allowPlayer = true,
     allowConsole = false,
     allowGeneralUser = true,
+    requiredPermission = "man10bank.atm",
 ) {
 
     companion object {
@@ -56,7 +57,7 @@ class AtmCommand(
                     Messages.warn(sender, "使い方: /atm logop <playerName> [page]")
                     return true
                 }
-                if (!sender.isOp) {
+                if (!sender.hasPermission("man10bank.atm.logop")) {
                     Messages.error(sender, "このコマンドは運営のみ実行できます。")
                     return true
                 }

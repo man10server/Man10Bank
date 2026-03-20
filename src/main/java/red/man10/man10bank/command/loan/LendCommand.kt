@@ -32,7 +32,7 @@ class LendCommand(
     private val scope: CoroutineScope,
     private val loanService: LoanService,
     private val featureToggles: FeatureToggleService,
-) : BaseCommand(allowPlayer = true, allowConsole = false, allowGeneralUser = true) {
+) : BaseCommand(allowPlayer = true, allowConsole = false, allowGeneralUser = true, requiredPermission = "man10bank.lend") {
 
     data class Proposal(
         val id: String,

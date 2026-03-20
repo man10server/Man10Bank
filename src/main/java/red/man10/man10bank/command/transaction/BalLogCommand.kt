@@ -20,6 +20,7 @@ class BalLogCommand(
     allowPlayer = true,
     allowConsole = false,
     allowGeneralUser = true,
+    requiredPermission = "man10bank.ballog",
 ) {
 
     override fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean {
