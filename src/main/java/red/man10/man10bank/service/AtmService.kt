@@ -38,8 +38,19 @@ class AtmService(
      * 現金アイテムをVaultへ換金し、入金額を返す（DESIGN 3.4）。
      * - 先に金額を集計するが、stack.amount を 0 にするのは vault.deposit 成功を確認した後にする。
      * - 入金失敗時はアイテムを一切消費せず（amount を変更しない）現金を手元に残す。
+     * - メインスレッド専用（DESIGN 3.5）。Bukkitインベントリ操作とVault入金を扱うため、
+     *   非同期から呼ぶと「入金成功後のアイテム消費」との間に競合が生じ、お金の増殖や消失を招く。
+     *   メインスレッド外からの呼び出しは何もせず 0.0 を返す。
      */
     fun depositCashToVault(player: Player, stacks: Array<ItemStack>): Double {
+        if (!plugin.server.isPrimaryThread) {
+            // 非同期呼び出しは整合性を壊すため拒否（金銭は一切動かさない）。
+            plugin.logger.severe(
+                "補償不要[ATM入金拒否] uuid=${player.uniqueId} 操作=Vault入金 " +
+                        "note=ATMDeposit 詳細=メインスレッド外から呼び出されたため処理を中止した"
+            )
+            return 0.0
+        }
         if (!vault.isAvailable()) return 0.0
 
         val target = plugin.server.getOfflinePlayer(player.uniqueId)
@@ -79,9 +90,20 @@ class AtmService(
      * Vault残高を現金アイテムへ変換してプレイヤーへ付与する（DESIGN 3.4）。
      * - 先に現金アイテムを生成し、付与可能であることを確認してから vault.withdraw する。
      * - addItem で入りきらなかった分があれば、その差額を即時 vault.deposit で返金する。
+     * - メインスレッド専用（DESIGN 3.5）。Bukkitインベントリ操作とVault出金を扱うため、
+     *   非同期から呼ぶと出金・付与・返金の間に競合が生じ、お金の増殖や消失を招く。
+     *   メインスレッド外からの呼び出しは何もせず 0.0 を返す。
      * @return 付与に成功して引き出せた金額（0.0 の場合は引き出し不成立）。
      */
     fun withdrawVaultToCash(player: Player, amount: Double): Double {
+        if (!plugin.server.isPrimaryThread) {
+            // 非同期呼び出しは整合性を壊すため拒否（金銭は一切動かさない）。
+            plugin.logger.severe(
+                "補償不要[ATM出金拒否] uuid=${player.uniqueId} 金額=${amount} 操作=Vault出金 " +
+                        "note=ATMWithdraw 詳細=メインスレッド外から呼び出されたため処理を中止した"
+            )
+            return 0.0
+        }
         if (!vault.isAvailable()) return 0.0
         if (amount <= 0.0) return 0.0
 
