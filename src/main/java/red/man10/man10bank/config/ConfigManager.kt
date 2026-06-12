@@ -2,6 +2,7 @@ package red.man10.man10bank.config
 
 import org.bukkit.configuration.file.FileConfiguration
 import org.bukkit.plugin.java.JavaPlugin
+import java.util.logging.Logger
 
 /**
  * プラグイン設定の読み取りを担当するクラス。
@@ -41,16 +42,20 @@ class ConfigManager(private val plugin: JavaPlugin) {
         // config.yml が無い場合は生成
         plugin.saveDefaultConfig()
         val conf = plugin.config
-        return readApiConfig(conf)
+        return readApiConfig(conf, plugin.logger)
     }
 
     /** 設定を再読み込みします。 */
     fun reload(): ApiConfig {
         plugin.reloadConfig()
-        return readApiConfig(plugin.config)
+        return readApiConfig(plugin.config, plugin.logger)
     }
 
-    private fun readApiConfig(conf: FileConfiguration): ApiConfig {
+    /**
+     * 設定パース本体。plugin フィールドに依存せず Logger を引数で受け取ることで、
+     * Bukkitサーバーに依存しない単体テストを可能にしている。
+     */
+    private fun readApiConfig(conf: FileConfiguration, logger: Logger): ApiConfig {
         val section = conf.getConfigurationSection("api")
         val baseUrl = section?.getString("baseUrl")?.trim().orEmpty()
         val apiKey = section?.getString("apiKey")?.trim().orEmpty().ifEmpty { null }
@@ -64,7 +69,7 @@ class ConfigManager(private val plugin: JavaPlugin) {
 
         require(baseUrl.isNotBlank()) { "config.yml の api.baseUrl が未設定です" }
 
-        warnIfInsecureConfig(baseUrl, apiKey)
+        warnIfInsecureConfig(baseUrl, apiKey, logger)
 
         return ApiConfig(
             baseUrl = baseUrl,
@@ -83,15 +88,15 @@ class ConfigManager(private val plugin: JavaPlugin) {
      * - apiKey 未設定: 認証ヘッダ無しで全リクエストが飛ぶため警告。
      * - baseUrl が http:// かつ localhost 以外: 平文通信の危険があるため警告。
      */
-    private fun warnIfInsecureConfig(baseUrl: String, apiKey: String?) {
+    private fun warnIfInsecureConfig(baseUrl: String, apiKey: String?, logger: Logger) {
         if (apiKey.isNullOrBlank()) {
-            plugin.logger.warning(
+            logger.warning(
                 "config.yml の api.apiKey が未設定です。認証ヘッダ無しでWebAPIへ接続します。" +
                     "サーバー側が認証を要求する場合は apiKey を設定してください。"
             )
         }
         if (isInsecureRemoteHttp(baseUrl)) {
-            plugin.logger.warning(
+            logger.warning(
                 "config.yml の api.baseUrl が http:// かつ localhost 以外です（$baseUrl）。" +
                     "通信が平文になります。本番環境では https:// の利用を推奨します。"
             )
