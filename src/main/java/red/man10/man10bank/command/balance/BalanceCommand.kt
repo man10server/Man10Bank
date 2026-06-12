@@ -21,6 +21,8 @@ import red.man10.man10bank.util.Messages
 class BalanceCommand(
     private val plugin: Man10Bank,
     private val scope: CoroutineScope,
+    private val vaultManager: VaultManager,
+    private val cashItemManager: CashItemManager,
 ) : BaseCommand(
     allowPlayer = true,
     allowConsole = false,
@@ -42,9 +44,16 @@ class BalanceCommand(
             return true
         }
 
+        // Bukkit/Vault 依存の値はメインスレッド（このexecuteはメインスレッド）で先に収集する（DESIGN 3.5）。
+        // 以降の非メインスレッド処理ではこの context を参照し、Bukkit API を直接呼ばない。
+        val context = BalanceRegistry.BalanceContext(
+            vaultBalance = vaultManager.getBalance(sender),
+            cashTotal = cashItemManager.countTotalCash(sender),
+        )
+
         scope.launch {
             val lines = mutableListOf("§e§l===== §kX§e§l${sender.name}のお金§kX §e§l=====")
-            lines.addAll(BalanceRegistry.buildLines(sender))
+            lines.addAll(BalanceRegistry.buildLines(sender, context))
 
             Bukkit.getScheduler().runTask(plugin, Runnable {
                 Messages.sendMultiline(sender, lines.joinToString("\n"))

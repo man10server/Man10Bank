@@ -53,12 +53,12 @@ class VaultManager(private val plugin: JavaPlugin) {
 
     /** 残高表示プロバイダの登録（電子マネー/Vault）。 */
     fun registerBalanceProvider() {
+        // Vault 残高はメインスレッドで収集済みの context から取得する（DESIGN 3.5）。
         BalanceRegistry.register(
             id = "vault",
             order = 10,
-            provider = { player ->
-                val cash = getBalance(player)
-                "§b§l電子マネー: ${BalanceFormats.coloredYen(cash)}§r"
+            provider = { _, context ->
+                "§b§l電子マネー: ${BalanceFormats.coloredYen(context.vaultBalance)}§r"
             }
         )
     }

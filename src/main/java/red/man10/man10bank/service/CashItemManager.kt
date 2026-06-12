@@ -127,11 +127,12 @@ class CashItemManager(private val plugin: JavaPlugin) : Listener {
 
     /** 残高表示プロバイダの登録（現金）。 */
     fun registerBalanceProvider() {
+        // 現金合計はメインスレッドで収集済みの context から取得する（DESIGN 3.5）。
         BalanceRegistry.register(
             id = "cash",
             order = 5,
-            provider = { player ->
-                val total = countTotalCash(player)
+            provider = { _, context ->
+                val total = context.cashTotal
                 if (total <= 0.0) "" else "§b§l現金: ${BalanceFormats.coloredYen(total)}§r"
             }
         )

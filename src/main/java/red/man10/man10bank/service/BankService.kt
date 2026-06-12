@@ -28,7 +28,8 @@ class BankService(
 ) {
     /** 残高表示プロバイダを登録（銀行）。 */
     fun registerBalanceProvider() {
-        BalanceRegistry.register(id = "bank", order = 20) { player ->
+        // 銀行残高はHTTP取得のみで context（Bukkit依存値）は不要。
+        BalanceRegistry.register(id = "bank", order = 20) { player, _ ->
             val bal = getBalance(player)?: 0.0
             if (bal <= 0.0) "" else "§b§l銀行: ${BalanceFormats.coloredYen(bal)}§r"
         }
