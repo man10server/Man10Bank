@@ -94,7 +94,8 @@ class ChequeService(
         val created = chequesApi.create(req)
         if (created.isFailure) {
             val msg = created.errorMessage()
-            Messages.error(p, "小切手の発行に失敗しました: $msg")
+            // createCheque は suspend で非メインスレッドから呼ばれ得るため、メインへディスパッチする3引数版を使う（DESIGN 3.5）。
+            Messages.error(plugin, p, "小切手の発行に失敗しました: $msg")
             return null
         }
         val cheque = created.getOrNull()?:return null

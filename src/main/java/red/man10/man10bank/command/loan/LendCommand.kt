@@ -16,6 +16,7 @@ import red.man10.man10bank.ui.loan.CollateralViewUI
 import red.man10.man10bank.util.BalanceFormats
 import red.man10.man10bank.util.Messages
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 import red.man10.man10bank.service.FeatureToggleService
 import red.man10.man10bank.util.DateFormats
 
@@ -49,7 +50,8 @@ class LendCommand(
     }
 
     companion object Store {
-        private val proposals: MutableMap<String, Proposal> = mutableMapOf()
+        // 提案Mapは l-confirm 等の非メインスレッドのコルーチンからも参照されるためスレッドセーフにする（DESIGN 3.5）。
+        private val proposals: MutableMap<String, Proposal> = ConcurrentHashMap()
 
         fun createProposal(p: Proposal) {
             proposals[p.id] = p

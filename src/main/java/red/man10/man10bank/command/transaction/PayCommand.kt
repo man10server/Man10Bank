@@ -11,6 +11,7 @@ import red.man10.man10bank.service.BankService
 import red.man10.man10bank.util.BalanceFormats
 import red.man10.man10bank.util.Messages
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * /mpay <player> <amount>
@@ -33,7 +34,8 @@ class PayCommand(
 
     companion object {
         private const val CONFIRM_WINDOW_MS = 30_000L
-        private val confirmations: MutableMap<UUID, Pending> = mutableMapOf()
+        // 確認待ちMapは複数スレッド（コマンド/コルーチン）から参照されるためスレッドセーフにする（DESIGN 3.5）。
+        private val confirmations: MutableMap<UUID, Pending> = ConcurrentHashMap()
     }
 
     private data class Pending(

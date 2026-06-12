@@ -13,6 +13,7 @@ import red.man10.man10bank.util.BalanceFormats
 import red.man10.man10bank.util.Messages
 import red.man10.man10bank.util.DateFormats
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * /mrevo コマンド。
@@ -36,7 +37,9 @@ class ServerLoanCommand(
 
     companion object {
         private const val CONFIRM_WINDOW_MS = 30_000L
-        private val borrowConfirmations: MutableMap<UUID, PendingBorrow> = mutableMapOf()
+        // 借入確認待ちMapは非メインスレッドのコルーチン(handleBorrowWithConfirm)からも読み書きされるため
+        // スレッドセーフにする（DESIGN 3.5）。
+        private val borrowConfirmations: MutableMap<UUID, PendingBorrow> = ConcurrentHashMap()
     }
 
     private data class PendingBorrow(
@@ -101,13 +104,15 @@ class ServerLoanCommand(
         val key = player.uniqueId
         val now = System.currentTimeMillis()
         val pending = borrowConfirmations[key]
+        // handleBorrowWithConfirm は scope.launch（非メインスレッド）から呼ばれるため、
+        // プレイヤー通知はメインへディスパッチする3引数版を使う（DESIGN 3.5）。
         val limit = service.borrowLimit(player).getOrNull()
         if (limit == null) {
-            Messages.error(player, "借入上限の取得に失敗しました。")
+            Messages.error(plugin, player, "借入上限の取得に失敗しました。")
             return
         }
         if (amount > limit) {
-            Messages.error(player, "借入上限を超えています。上限: ${BalanceFormats.coloredYen(limit)}")
+            Messages.error(plugin, player, "借入上限を超えています。上限: ${BalanceFormats.coloredYen(limit)}")
             return
         }
 
@@ -118,7 +123,7 @@ class ServerLoanCommand(
                 §7- 借入金額: §e§l${BalanceFormats.coloredYen(amount)}
                 §lもう一度同じコマンドを${CONFIRM_WINDOW_MS / 1000}秒以内に実行して確認してください
             """.trimIndent()
-            Messages.sendMultiline(player, guide)
+            Messages.sendMultiline(plugin, player, guide)
             return
         }
 
