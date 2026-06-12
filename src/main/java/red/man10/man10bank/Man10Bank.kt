@@ -60,6 +60,15 @@ class Man10Bank : JavaPlugin(), Listener {
     lateinit var serverName: String
         private set
 
+    /**
+     * 互換用 BankAPI 等から共有 BankApiClient を再利用するための公開アクセサ。
+     * - 本体が保持する単一の HttpClient を使う BankApiClient を返す。
+     * - 初期化前（onEnable 未完了）は null を返す。
+     * - 独自に HttpClient を生成させないことでコネクション/スレッドプールのリークを防ぐ。
+     */
+    val sharedBankApiClient: BankApiClient?
+        get() = if (this::bankApi.isInitialized) bankApi else null
+
     override fun onEnable() {
         // 初期化フロー
         configManager = ConfigManager(this)
