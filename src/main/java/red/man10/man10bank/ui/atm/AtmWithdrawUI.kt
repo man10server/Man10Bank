@@ -62,14 +62,13 @@ class AtmWithdrawUI(
 
         val icon = base.clone()
         return UIButton(icon).onClick { p, _ ->
-            val item = atmService.withdrawVaultToCash(player, amount)
-            if (item == null) {
-                Messages.warn(p, "残高不足、または引き出しできませんでした。")
+            // 出金とアイテム付与・返金補償は AtmService 側で原子的に処理する（DESIGN 3.4）。
+            val granted = atmService.withdrawVaultToCash(player, amount)
+            if (granted <= 0.0) {
+                Messages.warn(p, "残高不足、インベントリ満杯、または引き出しできませんでした。")
                 return@onClick
             }
-            val inv = p.inventory
-            inv.addItem(item)
-            Messages.send(p, "引き出しました: ${BalanceFormats.coloredYen(amount)}")
+            Messages.send(p, "引き出しました: ${BalanceFormats.coloredYen(granted)}")
             open()
         }
     }
