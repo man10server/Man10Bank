@@ -63,31 +63,49 @@ class EstateService(
     // -----------------
     @EventHandler
     fun onJoin(e: PlayerJoinEvent) {
-        scope.launch { snapshot(e.player) }
+        // イベントハンドラ（メインスレッド）で Bukkit/Vault 依存値を収集してから非同期送信する（DESIGN 3.5）。
+        dispatchSnapshot(e.player)
     }
 
     @EventHandler
     fun onQuit(e: PlayerQuitEvent) {
-        scope.launch { snapshot(e.player) }
+        dispatchSnapshot(e.player)
     }
 
     /**
-     * プレイヤーの現在資産をスナップショットとして送信。
-     * - CashItemManager: インベントリ+エンダーチェストの現金合計
-     * - VaultManager   : 電子マネー（Vault残高）
+     * メインスレッドで Bukkit/Vault 依存の資産値（現金・電子マネー・小切手合計）を収集し、
+     * HTTP 送信のみを非メインスレッドで実行する（DESIGN 3.5）。
      */
-    private suspend fun snapshot(player: Player): Boolean {
+    private fun dispatchSnapshot(player: Player) {
+        val uuid = player.uniqueId
         val cash = cashItemManager.countTotalCash(player)
         val vaultBal = vault.getBalance(player)
         val chequeTotal = chequeService.countTotalChequeAmount(player)
+        scope.launch { snapshot(uuid, cash, vaultBal, chequeTotal) }
+    }
+
+    /**
+     * プレイヤーの現在資産をスナップショットとして送信（HTTPのみ。Bukkit API には触れない）。
+     * - cash       : インベントリ+エンダーチェストの現金合計（メインスレッドで収集済み）
+     * - vaultBal   : 電子マネー（Vault残高、メインスレッドで収集済み）
+     * - chequeTotal: 小切手合計（メインスレッドで収集済み）
+     */
+    private suspend fun snapshot(
+        uuid: java.util.UUID,
+        cash: Double,
+        vaultBal: Double,
+        chequeTotal: Double,
+    ): Boolean {
         val req = EstateUpdateRequest(
             cash = cash,
             vault = vaultBal,
             estateAmount = chequeTotal,
             shop = null,
         )
-        val res = api.snapshot(player.uniqueId, req)
+        val res = api.snapshot(uuid, req)
         if (res.isSuccess) return res.getOrNull() == true
+        // 失敗時はログを残す（DESIGN 3.5: snapshot 失敗を握りつぶさない）。
+        plugin.logger.warning("資産スナップショットの送信に失敗しました: uuid=${uuid} ${res.exceptionOrNull()?.message ?: ""}")
         return false
     }
 

@@ -1,42 +1,23 @@
 package red.man10.man10bank.api
 
 import io.ktor.client.HttpClient
-import io.ktor.client.call.body
-import io.ktor.client.request.get
-import io.ktor.client.request.parameter
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.client.statement.bodyAsText
-import io.ktor.http.ContentType
-import io.ktor.http.contentType
 import red.man10.man10bank.api.model.request.EstateUpdateRequest
 import red.man10.man10bank.api.model.response.Estate
 import red.man10.man10bank.api.model.response.EstateHistory
+import red.man10.man10bank.api.model.response.SnapshotResponse
 import java.util.UUID
 
 /** /api/Estate 用のAPIクライアント */
 class EstateApiClient(private val client: HttpClient) {
 
-    suspend fun get(uuid: UUID): Result<Estate> = runCatching { client.get("/api/Estate/${uuid}").body() }
+    suspend fun get(uuid: UUID): Result<Estate> = client.getJson("/api/Estate/${uuid}")
 
-    suspend fun history(uuid: UUID, limit: Int = 100, offset: Int = 0): Result<List<EstateHistory>> = runCatching {
-        client.get("/api/Estate/${uuid}/history") {
-            if (limit >= 0) parameter("limit", limit)
-            if (offset >= 0) parameter("offset", offset)
-        }.body()
-    }
+    suspend fun history(uuid: UUID, limit: Int = 100, offset: Int = 0): Result<List<EstateHistory>> =
+        client.getJson("/api/Estate/${uuid}/history") { paging(limit, offset) }
 
-    suspend fun snapshot(uuid: UUID, body: EstateUpdateRequest): Result<Boolean> = runCatching {
-        client.post("/api/Estate/${uuid}/snapshot") {
-            contentType(ContentType.Application.Json)
-            setBody(body)
-        }.body()
-    }
+    suspend fun snapshot(uuid: UUID, body: EstateUpdateRequest): Result<Boolean> =
+        client.postJson<SnapshotResponse>("/api/Estate/${uuid}/snapshot", body).map { it.updated }
 
-    suspend fun ranking(limit: Int = 100, offset: Int = 0): Result<List<Estate>> = runCatching {
-        client.get("/api/Estate/ranking") {
-            if (limit >= 0) parameter("limit", limit)
-            if (offset >= 0) parameter("offset", offset)
-        }.body()
-    }
+    suspend fun ranking(limit: Int = 100, offset: Int = 0): Result<List<Estate>> =
+        client.getJson("/api/Estate/ranking") { paging(limit, offset) }
 }

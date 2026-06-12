@@ -8,8 +8,6 @@ import red.man10.man10bank.api.error.ApiHttpException
 import red.man10.man10bank.api.error.ProblemDetails
 import red.man10.man10bank.api.model.request.DepositRequest
 import red.man10.man10bank.api.model.request.WithdrawRequest
-import red.man10.man10bank.config.ConfigManager
-import red.man10.man10bank.net.HttpClientFactory
 import java.util.*
 
 /**
@@ -22,22 +20,49 @@ class BankAPI(private val plugin: JavaPlugin) {
     private val man10Bank: Man10Bank?
         get() = Bukkit.getPluginManager().getPlugin("Man10Bank") as? Man10Bank
 
-    private val apiClient: BankApiClient? by lazy {
-        val core = man10Bank ?: return@lazy null
-        val cfg = ConfigManager(core).load()
-        val http = HttpClientFactory.create(cfg)
-        BankApiClient(http)
-    }
+    /**
+     * 本体 Man10Bank が保持する共有 BankApiClient を取得する。
+     * - 独自に HttpClient を生成せず本体の単一クライアントを再利用するため、
+     *   コネクション/スレッドプールのリークが発生しない。
+     * - 本体未ロード時は null。
+     */
+    private val apiClient: BankApiClient?
+        get() = man10Bank?.sharedBankApiClient
 
     private fun serverName(): String = man10Bank?.serverName ?: plugin.server.name
 
-    // ============ 同期API（結果付き・推奨） ============
+    /**
+     * 同期メソッドがメインスレッドから呼ばれた場合に警告ログを出す。
+     * - HTTP往復の間サーバーTPSが停止するため、非同期版の利用を促す。
+     * - 推奨する非同期メソッド名は呼び出し側が明示する（メソッド名からの機械生成は
+     *   asyncTryTryDeposit / asyncTryGetBalance 等の実在しない名前を生むため）。
+     */
+    private fun warnIfPrimaryThread(method: String, suggestedAsync: String) {
+        if (Bukkit.isPrimaryThread()) {
+            plugin.logger.warning(
+                "BankAPI.$method がメインスレッドから呼び出されました。" +
+                    "HTTP通信の間サーバーがブロックされます。非同期版($suggestedAsync 等)の利用を推奨します。"
+            )
+        }
+    }
+
+    // ============ 同期API（結果付き・非推奨: メインスレッドをブロックしうる） ============
 
     /**
      * 出金を行い、結果を返します。
      * 失敗時は [BankTransactionResult.errorMessage] 等から理由を参照できます。
+     *
+     * 注意: 内部で runBlocking によるHTTP同期呼び出しを行うため、メインスレッドからは呼ばないでください
+     * （メインスレッドから呼ぶとサーバーがブロックされ、検知時は警告ログを出します）。
+     * 非同期版 [asyncTryWithdraw] の利用を推奨します。
      */
+    @Deprecated(
+        message = "メインスレッドをブロックしうる同期API。非同期版の asyncTryWithdraw を使用してください。",
+        replaceWith = ReplaceWith("asyncTryWithdraw(uuid, amount, note, displayNote, callback)"),
+        level = DeprecationLevel.WARNING,
+    )
     fun tryWithdraw(uuid: UUID, amount: Double, note: String, displayNote: String): BankTransactionResult {
+        warnIfPrimaryThread("tryWithdraw", "asyncTryWithdraw")
         val api = apiClient ?: return BankTransactionResult.unavailable()
         val req = WithdrawRequest(
             uuid = uuid.toString(),
@@ -53,8 +78,18 @@ class BankAPI(private val plugin: JavaPlugin) {
     /**
      * 入金を行い、結果を返します。
      * 失敗時は [BankTransactionResult.errorMessage] 等から理由を参照できます。
+     *
+     * 注意: 内部で runBlocking によるHTTP同期呼び出しを行うため、メインスレッドからは呼ばないでください
+     * （メインスレッドから呼ぶとサーバーがブロックされ、検知時は警告ログを出します）。
+     * 非同期版 [asyncTryDeposit] の利用を推奨します。
      */
+    @Deprecated(
+        message = "メインスレッドをブロックしうる同期API。非同期版の asyncTryDeposit を使用してください。",
+        replaceWith = ReplaceWith("asyncTryDeposit(uuid, amount, note, displayNote, callback)"),
+        level = DeprecationLevel.WARNING,
+    )
     fun tryDeposit(uuid: UUID, amount: Double, note: String, displayNote: String): BankTransactionResult {
+        warnIfPrimaryThread("tryDeposit", "asyncTryDeposit")
         val api = apiClient ?: return BankTransactionResult.unavailable()
         val req = DepositRequest(
             uuid = uuid.toString(),
@@ -70,42 +105,70 @@ class BankAPI(private val plugin: JavaPlugin) {
     // ============ 同期API（互換・非推奨） ============
 
     @Deprecated(
-        message = "失敗理由が取得できない。結果付きのtryWithdrawを使用してください。",
-        replaceWith = ReplaceWith("tryWithdraw(uuid, amount, note, displayNote).success"),
+        message = "失敗理由が取得できない、かつメインスレッドをブロックしうる。非同期版の asyncTryWithdraw を使用してください。",
+        replaceWith = ReplaceWith("asyncTryWithdraw(uuid, amount, note, displayNote, callback)"),
         level = DeprecationLevel.WARNING,
     )
+    @Suppress("DEPRECATION")
     fun withdraw(uuid: UUID, amount: Double, note: String, displayNote: String): Boolean =
         tryWithdraw(uuid, amount, note, displayNote).success
 
     @Deprecated(
-        message = "displayNoteが設定できない。結果付きのtryWithdrawを使用してください。",
-        replaceWith = ReplaceWith("tryWithdraw(uuid, amount, note, note).success"),
+        message = "displayNoteが設定できない、かつメインスレッドをブロックしうる。非同期版の asyncTryWithdraw を使用してください。",
+        replaceWith = ReplaceWith("asyncTryWithdraw(uuid, amount, note, note, callback)"),
         level = DeprecationLevel.WARNING,
     )
+    @Suppress("DEPRECATION")
     fun withdraw(uuid: UUID, amount: Double, note: String): Boolean =
         tryWithdraw(uuid, amount, note, note).success
 
     @Deprecated(
-        message = "失敗理由が取得できない。結果付きのtryDepositを使用してください。",
-        replaceWith = ReplaceWith("tryDeposit(uuid, amount, note, displayNote)"),
+        message = "失敗理由が取得できない、かつメインスレッドをブロックしうる。非同期版の asyncTryDeposit を使用してください。",
+        replaceWith = ReplaceWith("asyncTryDeposit(uuid, amount, note, displayNote, callback)"),
         level = DeprecationLevel.WARNING,
     )
+    @Suppress("DEPRECATION")
     fun deposit(uuid: UUID, amount: Double, note: String, displayNote: String) {
         tryDeposit(uuid, amount, note, displayNote)
     }
 
     @Deprecated(
-        message = "displayNoteが設定できない。結果付きのtryDepositを使用してください。",
-        replaceWith = ReplaceWith("tryDeposit(uuid, amount, note, note)"),
+        message = "displayNoteが設定できない、かつメインスレッドをブロックしうる。非同期版の asyncTryDeposit を使用してください。",
+        replaceWith = ReplaceWith("asyncTryDeposit(uuid, amount, note, note, callback)"),
         level = DeprecationLevel.WARNING,
     )
+    @Suppress("DEPRECATION")
     fun deposit(uuid: UUID, amount: Double, note: String) {
         tryDeposit(uuid, amount, note, note)
     }
 
-    fun getBalance(uuid: UUID): Double = runBlocking {
-        val api = apiClient ?: return@runBlocking 0.0
-        api.getBalance(uuid).getOrElse { 0.0 }
+    /**
+     * 残高を取得します（互換維持）。
+     *
+     * 重要: この関数は **取得失敗時にも 0.0 を返す** ため、本物の残高0と通信障害を区別できません。
+     * 残高チェック等の判定に使うと、通信障害時に残高0と誤認する危険があります。
+     * 失敗を区別したい場合は [getBalanceOrNull] を使用してください。
+     *
+     * また内部で runBlocking によるHTTP同期呼び出しを行うため、メインスレッドからは呼ばないでください
+     * （メインスレッドから呼ぶとサーバーがブロックされ、検知時は警告ログを出します）。
+     */
+    @Deprecated(
+        message = "失敗時0.0と残高0を区別できず、メインスレッドをブロックしうる。getBalanceOrNull を使用してください。",
+        replaceWith = ReplaceWith("getBalanceOrNull(uuid)"),
+        level = DeprecationLevel.WARNING,
+    )
+    fun getBalance(uuid: UUID): Double = getBalanceOrNull(uuid) ?: 0.0
+
+    /**
+     * 残高を取得します。取得に失敗した場合は null を返します（本物の残高0と区別可能）。
+     *
+     * 注意: 内部で runBlocking によるHTTP同期呼び出しを行うため、メインスレッドからは呼ばないでください
+     * （メインスレッドから呼ぶとサーバーがブロックされ、検知時は警告ログを出します）。
+     */
+    fun getBalanceOrNull(uuid: UUID): Double? {
+        warnIfPrimaryThread("getBalance", "asyncGetBalance")
+        val api = apiClient ?: return null
+        return runBlocking { api.getBalance(uuid) }.getOrNull()
     }
 
     // ============ 非同期API（結果付き・推奨） ============

@@ -34,39 +34,113 @@ class AtmService(
         return result.getOrElse { throw it }
     }
 
-    /** 現金アイテムをVaultへ換金し、入金額を返す。 */
+    /**
+     * 現金アイテムをVaultへ換金し、入金額を返す（DESIGN 3.4）。
+     * - 先に金額を集計するが、stack.amount を 0 にするのは vault.deposit 成功を確認した後にする。
+     * - 入金失敗時はアイテムを一切消費せず（amount を変更しない）現金を手元に残す。
+     * - メインスレッド専用（DESIGN 3.5）。Bukkitインベントリ操作とVault入金を扱うため、
+     *   非同期から呼ぶと「入金成功後のアイテム消費」との間に競合が生じ、お金の増殖や消失を招く。
+     *   メインスレッド外からの呼び出しは何もせず 0.0 を返す。
+     */
     fun depositCashToVault(player: Player, stacks: Array<ItemStack>): Double {
+        if (!plugin.server.isPrimaryThread) {
+            // 非同期呼び出しは整合性を壊すため拒否（金銭は一切動かさない）。
+            plugin.logger.severe(
+                "補償不要[ATM入金拒否] uuid=${player.uniqueId} 操作=Vault入金 " +
+                        "note=ATMDeposit 詳細=メインスレッド外から呼び出されたため処理を中止した"
+            )
+            return 0.0
+        }
         if (!vault.isAvailable()) return 0.0
 
         val target = plugin.server.getOfflinePlayer(player.uniqueId)
-        var total = 0.0
 
+        // 入金対象の現金スタックと合計額を先に集計（この時点ではアイテムを消費しない）。
+        val cashStacks = mutableListOf<ItemStack>()
+        var total = 0.0
         for (stack in stacks) {
             if (stack.amount <= 0 || stack.type.isAir) continue
             val amountPerItem = cashItemManager.getAmountForItem(stack) ?: continue
             total += amountPerItem * stack.amount
-            stack.amount = 0
+            cashStacks.add(stack)
         }
         if (total <= 0) return 0.0
         total = floor(total)
 
+        // 先に Vault へ入金し、成功を確認してから現金アイテムを消費する。
         val success = vault.deposit(target, total)
-        if (success) {
-            logAtmAsync(player, total, true)
-            return total
+        if (!success) {
+            // 入金失敗。アイテムは未消費のため現金は手元に残る（消失しない）。
+            plugin.logger.severe(
+                "補償不要[ATM入金失敗] uuid=${player.uniqueId} 金額=${total} 操作=Vault入金 " +
+                        "note=ATMDeposit 詳細=電子マネー入金に失敗したため現金は消費せず手元に残した"
+            )
+            return 0.0
         }
-        return 0.0
+
+        // 入金成功を確認できたので現金アイテムを消費する。
+        for (stack in cashStacks) {
+            stack.amount = 0
+        }
+        logAtmAsync(player, total, true)
+        return total
     }
 
-    /** Vault残高を現金アイテムへ変換し、作成したアイテムを返す。 */
-    fun withdrawVaultToCash(player: Player, amount: Double): ItemStack? {
-        if (!vault.isAvailable()) return null
-        if (amount <= 0.0) return null
+    /**
+     * Vault残高を現金アイテムへ変換してプレイヤーへ付与する（DESIGN 3.4）。
+     * - 先に現金アイテムを生成し、付与可能であることを確認してから vault.withdraw する。
+     * - addItem で入りきらなかった分があれば、その差額を即時 vault.deposit で返金する。
+     * - メインスレッド専用（DESIGN 3.5）。Bukkitインベントリ操作とVault出金を扱うため、
+     *   非同期から呼ぶと出金・付与・返金の間に競合が生じ、お金の増殖や消失を招く。
+     *   メインスレッド外からの呼び出しは何もせず 0.0 を返す。
+     * @return 付与に成功して引き出せた金額（0.0 の場合は引き出し不成立）。
+     */
+    fun withdrawVaultToCash(player: Player, amount: Double): Double {
+        if (!plugin.server.isPrimaryThread) {
+            // 非同期呼び出しは整合性を壊すため拒否（金銭は一切動かさない）。
+            plugin.logger.severe(
+                "補償不要[ATM出金拒否] uuid=${player.uniqueId} 金額=${amount} 操作=Vault出金 " +
+                        "note=ATMWithdraw 詳細=メインスレッド外から呼び出されたため処理を中止した"
+            )
+            return 0.0
+        }
+        if (!vault.isAvailable()) return 0.0
+        if (amount <= 0.0) return 0.0
 
-        val success = vault.withdraw(player, amount)
-        if (!success) return null
+        // 1) アイテム生成（未登録金種なら null）。生成できなければ Vault には一切触れない。
+        val item = cashItemManager.getItemForAmount(amount) ?: return 0.0
+
+        // 2) 残高確認込みの出金（不足時は false）。アイテム付与前に出金しておき、
+        //    付与に失敗した分は直後に返金して整合を保つ。
+        val withdrew = vault.withdraw(player, amount)
+        if (!withdrew) return 0.0
+
+        // 3) インベントリへ付与。入りきらなかった分（leftovers）は金額に換算して即時返金する。
+        val leftovers = player.inventory.addItem(item)
+        if (leftovers.isNotEmpty()) {
+            var refundAmount = 0.0
+            for (left in leftovers.values) {
+                val unit = cashItemManager.getAmountForItem(left) ?: continue
+                refundAmount += unit * left.amount
+            }
+            if (refundAmount > 0.0) {
+                val refunded = vault.deposit(player, refundAmount)
+                if (!refunded) {
+                    // 返金にも失敗。Vault が減ったまま現金も渡らない不整合のため構造化ログを残す（DESIGN 3.4/3.6）。
+                    plugin.logger.severe(
+                        "補償失敗[ATM出金返金] uuid=${player.uniqueId} 金額=${refundAmount} 操作=Vault返金 " +
+                                "note=ATMWithdraw 詳細=現金アイテムがインベントリに入りきらず返金にも失敗"
+                    )
+                }
+            }
+            val granted = amount - refundAmount
+            if (granted > 0.0) logAtmAsync(player, granted, false)
+            return if (granted > 0.0) granted else 0.0
+        }
+
+        // 全量付与成功
         logAtmAsync(player, amount, false)
-        return cashItemManager.getItemForAmount(amount)
+        return amount
     }
 
     private fun logAtmAsync(player: Player, amount: Double, deposit: Boolean) {
