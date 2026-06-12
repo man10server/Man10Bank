@@ -1,6 +1,7 @@
 package red.man10.man10bank
 
 import io.ktor.client.*
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -101,7 +102,12 @@ class Man10Bank : JavaPlugin(), Listener {
 
     private fun initRuntime(apiConfig: ConfigManager.ApiConfig) {
         httpClient = HttpClientFactory.create(apiConfig)
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        // 未捕捉例外（runCatching外のlaunch等）を握り潰さずログへ残す（DESIGN 3.5）。
+        val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
+            logger.severe("コルーチンで未捕捉の例外が発生しました: ${throwable.message}")
+            throwable.printStackTrace()
+        }
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + exceptionHandler)
     }
 
     private fun initServices() {
