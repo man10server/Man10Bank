@@ -3,6 +3,7 @@ package red.man10.man10bank.api
 import io.ktor.client.HttpClient
 import io.ktor.client.request.parameter
 import red.man10.man10bank.api.model.request.ServerLoanBorrowBodyRequest
+import red.man10.man10bank.api.model.response.BorrowLimitResponse
 import red.man10.man10bank.api.model.response.PaymentInfoResponse
 import red.man10.man10bank.api.model.response.ServerLoan
 import red.man10.man10bank.api.model.response.ServerLoanLog
@@ -31,7 +32,8 @@ class ServerLoanApiClient(private val client: HttpClient) {
             parameter("amount", amount)
         }
 
-    suspend fun borrowLimit(uuid: UUID): Result<Double> = client.getJson("/api/ServerLoan/${uuid}/borrow-limit")
+    suspend fun borrowLimit(uuid: UUID): Result<Double> =
+        client.getJson<BorrowLimitResponse>("/api/ServerLoan/${uuid}/borrow-limit").map { it.limit }
 
     suspend fun logs(uuid: UUID, limit: Int = 100, offset: Int = 0): Result<List<ServerLoanLog>> =
         client.getJson("/api/ServerLoan/${uuid}/logs") { paging(limit, offset) }
