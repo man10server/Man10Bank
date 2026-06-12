@@ -52,8 +52,8 @@ class BankService(
             Messages.error(plugin, player, "電子マネーが利用できません。後でもう一度お試しください。")
             return
         }
-        // Vault から引き落とし
-        val withdrew = vault.withdraw(player, amt)
+        // Vault から引き落とし（Economy操作はメインスレッドへディスパッチ）
+        val withdrew = vault.withdrawOnMain(player, amt)
         if (!withdrew) {
             Messages.error(plugin, player, "電子マネーからの引き落としに失敗しました。")
             return
@@ -73,12 +73,12 @@ class BankService(
                 "入金に成功しました。" +
                         "§b金額: ${BalanceFormats.coloredYen(amt)} " +
                         "§b銀行残高: ${BalanceFormats.coloredYen(newBank)} " +
-                        "§b電子マネー: ${BalanceFormats.coloredYen(vault.getBalance(player))}"
+                        "§b電子マネー: ${BalanceFormats.coloredYen(vault.getBalanceOnMain(player))}"
             )
             return
         }
         // 失敗したので 電子マネー に返金
-        val refunded = vault.deposit(player, amt)
+        val refunded = vault.depositOnMain(player, amt)
         val msg = result.errorMessage()
         if (!refunded) {
             // 補償（電子マネーへの返金）にも失敗。運用追跡のため構造化ログを残す（DESIGN 3.6）。
@@ -127,8 +127,8 @@ class BankService(
 
         val newBank = result.getOrNull() ?: 0.0
 
-        // Vault に入金
-        val ok = vault.deposit(player, amt)
+        // Vault に入金（Economy操作はメインスレッドへディスパッチ）
+        val ok = vault.depositOnMain(player, amt)
         if (ok) {
             Messages.send(
                 plugin,
@@ -136,7 +136,7 @@ class BankService(
                 "出金に成功しました。" +
                         "§b金額: ${BalanceFormats.coloredYen(amt)} " +
                         "§b銀行残高: ${BalanceFormats.coloredYen(newBank)} " +
-                        "§b電子マネー: ${BalanceFormats.coloredYen(vault.getBalance(player))}"
+                        "§b電子マネー: ${BalanceFormats.coloredYen(vault.getBalanceOnMain(player))}"
             )
             return
         }
@@ -230,9 +230,9 @@ class BankService(
      * /deposit 用の金額解決（null または "all" 相当をインジケータとして扱い、Vault残高を返す）。
      * 条件を満たさない場合は null。
      */
-    fun resolveDepositAmount(player: Player, arg: String?): Double? {
+    suspend fun resolveDepositAmount(player: Player, arg: String?): Double? {
         if (!vault.isAvailable()) return null
-        val vaultBal = vault.getBalance(player)
+        val vaultBal = vault.getBalanceOnMain(player)
         val amount = if (arg.isNullOrBlank() || arg.equals("all", ignoreCase = true)) vaultBal else arg.toDoubleOrNull() ?: -1.0
         if (amount > vaultBal) return null
         return if (amount > 0.0) amount else null
