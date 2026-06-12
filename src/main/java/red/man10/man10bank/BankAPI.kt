@@ -33,13 +33,15 @@ class BankAPI(private val plugin: JavaPlugin) {
 
     /**
      * 同期メソッドがメインスレッドから呼ばれた場合に警告ログを出す。
-     * - HTTP往復の間サーバーTPSが停止するため、非同期版(asyncTry*)の利用を促す。
+     * - HTTP往復の間サーバーTPSが停止するため、非同期版の利用を促す。
+     * - 推奨する非同期メソッド名は呼び出し側が明示する（メソッド名からの機械生成は
+     *   asyncTryTryDeposit / asyncTryGetBalance 等の実在しない名前を生むため）。
      */
-    private fun warnIfPrimaryThread(method: String) {
+    private fun warnIfPrimaryThread(method: String, suggestedAsync: String) {
         if (Bukkit.isPrimaryThread()) {
             plugin.logger.warning(
                 "BankAPI.$method がメインスレッドから呼び出されました。" +
-                    "HTTP通信の間サーバーがブロックされます。非同期版(asyncTry${method.replaceFirstChar { it.uppercase() }} 等)の利用を推奨します。"
+                    "HTTP通信の間サーバーがブロックされます。非同期版($suggestedAsync 等)の利用を推奨します。"
             )
         }
     }
@@ -60,7 +62,7 @@ class BankAPI(private val plugin: JavaPlugin) {
         level = DeprecationLevel.WARNING,
     )
     fun tryWithdraw(uuid: UUID, amount: Double, note: String, displayNote: String): BankTransactionResult {
-        warnIfPrimaryThread("tryWithdraw")
+        warnIfPrimaryThread("tryWithdraw", "asyncTryWithdraw")
         val api = apiClient ?: return BankTransactionResult.unavailable()
         val req = WithdrawRequest(
             uuid = uuid.toString(),
@@ -87,7 +89,7 @@ class BankAPI(private val plugin: JavaPlugin) {
         level = DeprecationLevel.WARNING,
     )
     fun tryDeposit(uuid: UUID, amount: Double, note: String, displayNote: String): BankTransactionResult {
-        warnIfPrimaryThread("tryDeposit")
+        warnIfPrimaryThread("tryDeposit", "asyncTryDeposit")
         val api = apiClient ?: return BankTransactionResult.unavailable()
         val req = DepositRequest(
             uuid = uuid.toString(),
@@ -164,7 +166,7 @@ class BankAPI(private val plugin: JavaPlugin) {
      * （メインスレッドから呼ぶとサーバーがブロックされ、検知時は警告ログを出します）。
      */
     fun getBalanceOrNull(uuid: UUID): Double? {
-        warnIfPrimaryThread("getBalance")
+        warnIfPrimaryThread("getBalance", "asyncGetBalance")
         val api = apiClient ?: return null
         return runBlocking { api.getBalance(uuid) }.getOrNull()
     }

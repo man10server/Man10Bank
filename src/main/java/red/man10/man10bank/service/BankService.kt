@@ -77,8 +77,18 @@ class BankService(
             )
             return
         }
-        // 失敗したので 電子マネー に返金
-        val refunded = vault.depositOnMain(player, amt)
+        // 失敗したので 電子マネー に返金。
+        // Economy実装が例外を投げた場合も返金失敗(false)とみなし、下の補償失敗処理へ進める
+        // （例外を握らないと「電子マネーは減ったまま銀行入金も失敗」の消失が残る）。
+        val refunded = try {
+            vault.depositOnMain(player, amt)
+        } catch (t: Throwable) {
+            plugin.logger.severe(
+                "補償例外[deposit返金] uuid=${player.uniqueId} 金額=${amt} 操作=Vault返金 " +
+                        "note=PlayerDepositOnCommand 詳細=銀行入金失敗後の電子マネー返金が例外で失敗: ${t.message}"
+            )
+            false
+        }
         val msg = result.errorMessage()
         if (!refunded) {
             // 補償（電子マネーへの返金）にも失敗。運用追跡のため構造化ログを残す（DESIGN 3.6）。
@@ -127,8 +137,18 @@ class BankService(
 
         val newBank = result.getOrNull() ?: 0.0
 
-        // Vault に入金（Economy操作はメインスレッドへディスパッチ）
-        val ok = vault.depositOnMain(player, amt)
+        // Vault に入金（Economy操作はメインスレッドへディスパッチ）。
+        // Economy実装が例外を投げた場合も「入金失敗(false)」と同じく銀行へ返金する補償へ進める
+        // （例外を握らないと返金ブロックを飛ばして「銀行は減ったまま電子マネー未反映」の消失が残る）。
+        val ok = try {
+            vault.depositOnMain(player, amt)
+        } catch (t: Throwable) {
+            plugin.logger.severe(
+                "補償実行[withdraw] uuid=${player.uniqueId} 金額=${amt} 操作=Vault入金 " +
+                        "note=PlayerWithdrawOnCommand 詳細=電子マネーへの入金が例外で失敗したため銀行へ返金する: ${t.message}"
+            )
+            false
+        }
         if (ok) {
             Messages.send(
                 plugin,
