@@ -1,0 +1,2 @@
+// Jar名のベースとなるプロジェクト名（ディレクトリ名ではなくこちらを使用）
+rootProject.name = 'Man10Bank'
