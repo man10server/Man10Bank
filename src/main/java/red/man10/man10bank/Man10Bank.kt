@@ -76,7 +76,7 @@ class Man10Bank : JavaPlugin(), Listener {
         val apiConfig = loadApiConfigOrDisable() ?: return
         initRuntime(apiConfig)
         initServerName()
-        initServices()
+        initServices(apiConfig)
         registerCommands()
         registerEvents()
         registerProviders()
@@ -110,8 +110,8 @@ class Man10Bank : JavaPlugin(), Listener {
         scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + exceptionHandler)
     }
 
-    private fun initServices() {
-        healthService = HealthService(HealthApiClient(httpClient))
+    private fun initServices(apiConfig: ConfigManager.ApiConfig) {
+        healthService = HealthService(HealthApiClient(httpClient), apiConfig)
         bankApi = BankApiClient(httpClient)
         atmApi = AtmApiClient(httpClient)
         chequesApi = ChequesApiClient(httpClient)
