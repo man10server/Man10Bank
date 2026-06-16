@@ -157,7 +157,9 @@ Vault(Economy) は `OfflinePlayer` を取るため、オフライン相手の操
 |------|------|
 | 入金 `depositPlayer(offline)` | **write-through のみで完結**（サービスが原子的に `+= amount`）。キャッシュ不要・真実は常に正しい。送金/報酬/売上など大半のユースケースはここで成立。 |
 | 読み `getBalance`/`has`（未キャッシュ） | 同期で HTTP を待てないため **ベストエフォート**。`0`/`false` を返しつつ非同期ロードし、次回呼び出しから正しい値を返す。既知の制約。 |
-| 出金 `withdrawPlayer`（未キャッシュ） | **(B) 楽観 write-through**。サーバーが行ロック下で `409 InsufficientFunds` を判定し、失格なら権威残高を再取得してキャッシュ補正＋構造化ログ（[4.4](#44-withdraw-の既知リスクと緩和)）。 |
+| 出金 `withdrawPlayer`（未キャッシュ＝オフライン/他サーバー在席） | **常に `FAILURE` で拒否**。オフライン（ローカル未キャッシュ）プレイヤーの電子マネー**減算は一律不可**（下記「オフライン減算の方針」）。 |
+
+**オフライン減算の方針（確定）**: オフライン（＝ローカル未キャッシュ）プレイヤーの電子マネーを**減らせるのは OP の管理コマンド（`set` 等 → `POST /api/Vault/set`）のみ**。Vault `withdrawPlayer`・ネイティブ非同期 `withdraw`・`/pay` 等の通常経路は、対象がオフラインなら**一律拒否**する（[4.1](#41-単一書き込み者の不変条件) の単一書き込み者を厳守）。現運用上、非管理経路でオフライン残高を減らす正当ケースが無いと判断したため。**入金（増加）はオフライン相手でも可**（前述 deposit）。実装は**プラグイン層で拒否**（対象がローカル未キャッシュなら service を呼ばず `FAILURE`）。service の `withdraw` は presence ゲートしない（join 直後の未登録で正当な出金を誤拒否しないため）。
 
 push されたオフライン対象の変更は全サーバーで無視され、次回 join 時のプリロードで反映される（[11](#11-障害エッジケース)）。
 
@@ -167,13 +169,13 @@ push されたオフライン対象の変更は全サーバーで無視され、
 
 | 入口 | 性質 | 主な利用者 | 整合性 |
 |------|------|-----------|--------|
-| `Man10Economy : Economy`（Vault） | **同期**（契約上 `EconomyResponse` を即返す） | 外部プラグイン（ショップ等） | **楽観**：キャッシュ＋fire-and-forget write-through。オフライン出金は [4.5](#45-オフライン時の扱い) の (B)。 |
-| `VaultService` のネイティブ API | **`suspend`・結果付き**（サーバーの確定応答を `await`） | Man10Bank 自身（`/pay`・ATM・`/deposit`）／Man10 対応プラグイン | **権威的**：`409` まで待って成否を返す＝楽観リスクなし。**オフライン相手でも厳密**。 |
+| `Man10Economy : Economy`（Vault） | **同期**（契約上 `EconomyResponse` を即返す） | 外部プラグイン（ショップ等） | **楽観**：オンラインはキャッシュ＋fire-and-forget write-through。未キャッシュのオフライン出金は [4.5](#45-オフライン時の扱い) のとおり `FAILURE` で拒否。 |
+| `VaultService` のネイティブ API | **`suspend`・結果付き**（サーバーの確定応答を `await`） | Man10Bank 自身（`/pay`・ATM・`/deposit`）／Man10 対応プラグイン | **権威的**：`409` まで待って成否を返す＝楽観リスクなし。**オフライン相手への入金は厳密に可、減算は不可**（[4.5](#45-オフライン時の扱い)）。 |
 
 →「非同期で操作できる関数を用意するのが正しいか？」は **Yes**。ただし Vault の同期契約は変えられないため、
 **ネイティブ非同期 API は“権威的な正道”を追加するものであり、Vault の楽観経路を置換するものではない**
-（外部の同期 Vault 呼び出しは楽観のまま）。`/pay` でオフライン相手へ送る等、Man10 制御下のフローは
-非同期 API を使えば **オフラインでも `409` を待って厳密化** できる。これは既存 [`BankAPI.md`](./BankAPI.md) が
+（外部の同期 Vault 呼び出しは楽観のまま）。`/pay` は送信者（オンライン）から引き、受取人（オフライン可）へ入金するため、
+非同期 API で `409`/成功を待って厳密化できる（オフライン相手の **減算** は発生しないため上記方針に抵触しない）。これは既存 [`BankAPI.md`](./BankAPI.md) が
 同期/非同期の結果付き API を併設しているのと同じ思想。
 
 ---
@@ -296,7 +298,7 @@ create table user_vault (
 | `POST deposit` | 原子的 `balance += amount`＋log＋`version++`＋push | `{ balance, version }` |
 | `POST withdraw` | 行ロック下で不足判定→`-= amount`。不足は `409` | `{ balance, version }` |
 | `POST transfer` | 電子マネー→電子マネー（`/pay`）を単一Txで。両者 push | `{ balance, version }` |
-| `POST set` | 管理用：絶対値設定（差分を log）＋push | `{ balance, version }` |
+| `POST set` | 管理用：絶対値設定（差分を log）＋push。**オフライン電子マネーを減らせる唯一の経路（OP コマンド）**（[4.5](#45-オフライン時の扱い)） | `{ balance, version }` |
 | `POST move`（電子マネー⇄銀行）| `user_vault` と `user_bank` を **1 Tx** で移動（ATM/`/deposit`/`/withdraw` 用） | 両残高 |
 | `GET  ws`（WebSocket upgrade） | **push＋presence の双方向チャネル**（[5](#5-サーバー間同期プッシュ)）。Read スコープ | WebSocket |
 
@@ -349,8 +351,12 @@ server.servicesManager.register(
 ```
 
 - `plugin.yml`: Vault より後にロードされるよう `softdepend: [Vault]`（既存）。`api-version 1.21`。
-- **競合回避**: EssentialsX 等の Economy Provider を必ず無効化する（`economy: false` 等）。同時登録は `ServicePriority` 勝負になり事故る（[11](#11-障害エッジケース)）。
-- 段階導入のため **config フラグ `vault.providerEnabled`** で登録の有無を切替可能にする（保留中の移行・ロールバック用）。
+- **競合回避**: EssentialsX 等の Economy Provider を必ず無効化する（`economy: false` 等）。同時登録は `ServicePriority` 勝負になり、意図しない Provider が実効になる。
+- **登録の検証とフェイルセーフ**: 登録後に `servicesManager.getRegistration(Economy)` の実効 Provider が `man10Economy` 自身であることを確認する。**実効 Provider が自分でない（＝競合）／登録時に例外が出た／Vault が不在 など、登録に失敗した場合は次を行う**:
+  1. **エラーログ（`severe`）** を出力する（競合相手の Provider 名・例外内容を含める）。
+  2. **サーバーをホワイトリスト化**（`server.setWhitelist(true)`）し、新規参加を遮断する（既にオンラインのプレイヤーは対象外）。
+  - 狙い: 誤った／壊れた Economy 下で取引が走ると、電子マネーが本来の `user_vault` ではなく別 Economy に流れ、**整合性が崩れて回復困難**になる。原因が解消されるまで一般プレイヤーの参加・取引を止める安全弁とする。
+- 段階導入のため **config フラグ `vault.providerEnabled`** で登録の有無を切替可能にする（保留中の移行・ロールバック用）。`false` の間は Provider 登録自体を行わないため、フェイルセーフ（ホワイトリスト化）も作動しない。
 
 ### 8.4 スレッドモデル
 
@@ -387,7 +393,7 @@ server.servicesManager.register(
 | write-through が `409 InsufficientFunds` | 楽観 withdraw の取消。権威で上書き＋ログ（[4.4](#44-withdraw-の既知リスクと緩和)）。 |
 | WebSocket 切断 | 指数バックオフで再接続→presence 再登録＋オンライン全員 full resync。切断中はサービスがその接続の presence を一括失効。 |
 | サーバークラッシュ | 真実は DB。再起動後 join 時にプリロードで回復。書き戻し中の喪失は write-through 即時化で最小化。 |
-| 二重 Provider 登録 | EssentialsX 等の economy を無効化。起動時に他 Provider 検出を警告ログ。 |
+| 二重 Provider 登録 / 登録失敗 | 登録後に実効 Provider が自分でない、または登録例外・Vault 不在を検出したら **エラーログ＋サーバーをホワイトリスト化**（`setWhitelist(true)`）して新規参加を遮断する（[8.3](#83-登録とロード順)）。 |
 | 対象がオフライン（どこにも居ない） | サービスが `user_vault` を原子更新＋push。受信側が居なければ無視。次回 join 時にプリロードで反映。操作別の扱いは [4.5](#45-オフライン時の扱い)。 |
 | 口座未作成 | `ensureAccount` を deposit/has の前段で冪等実行（行が無ければ 0 で作成）。 |
 | POST のタイムアウト後に実は成功 | 再取得で権威を確認（既存方針：POST はリトライしない、[`HttpClientFactory`](../src/main/java/red/man10/man10bank/net/HttpClientFactory.kt)）。 |
@@ -415,7 +421,7 @@ server.servicesManager.register(
 | 5 | 通貨表示 | **小数桁なし**（`fractionalDigits()=0`）で確定。`currencyName`/`format` は config 化（円表示）。 |
 | 7 | 送金コマンド | 銀行送金 `/mpay`（既存）は維持。電子マネー送金は **新規 `/pay` コマンド**を追加し `POST /api/Vault/transfer`（電子マネー→電子マネー）へ委譲する。 |
 | 8 | VaultUnlocked / 多通貨 | **非対応**。単一通貨固定とし、`currency` 予約列・予約フィールドは持たない。 |
-| 9 | オフライン時の扱い | [4.5](#45-オフライン時の扱い)/[4.6](#46-2つの入口同期と非同期) で確定。入金=write-through、読み=ベストエフォート、出金=**(B) 楽観**。厳密性が要る経路は **ネイティブ非同期 API** を使う。 |
+| 9 | オフライン時の扱い | [4.5](#45-オフライン時の扱い)/[4.6](#46-2つの入口同期と非同期) で確定。入金=write-through、読み=ベストエフォート（0/false）、**オフラインの減算は一律不可**（Vault/非同期とも拒否）。**例外は OP の `set` 等の管理コマンドのみ**。 |
 
 ### 13.2 継続検討（未決）
 
@@ -446,7 +452,7 @@ server.servicesManager.register(
 - [ ] `service/vault/VaultService.kt` / `VaultCache.kt` / `VaultSyncClient.kt`
 - [ ] `api/VaultApiClient.kt` ＋ `api/model/request|response`（balance+version）
 - [ ] `listener/VaultLifecycleListener.kt`（join: プリロード＋presence join 送信 / quit: drain＋presence quit 送信）
-- [ ] `Man10Bank.onEnable`：Provider 登録（`ServicePriority.High`）・WebSocket 接続開始（`VaultSyncClient`）・`VaultManager` 置換
+- [ ] `Man10Bank.onEnable`：Provider 登録（`ServicePriority.High`）＋登録検証・失敗時フェイルセーフ（エラーログ＋`setWhitelist(true)`）・WebSocket 接続開始（`VaultSyncClient`）・`VaultManager` 置換
 - [ ] 電子マネー送金コマンド `/pay`（新規。`VaultApiClient.transfer` 経由）＋ `plugin.yml` に `pay` 追加。銀行送金 `/mpay` は据え置き
 - [ ] `config.yml`：`vault.providerEnabled`・sync エンドポイント・通貨表示設定
 - [ ] `plugin.yml`：ロード順・他 economy 無効化の運用注記
