@@ -17,7 +17,6 @@ import red.man10.man10bank.service.HealthService
 import red.man10.man10bank.service.FeatureToggleService
 import red.man10.man10bank.service.BankService
 import red.man10.man10bank.service.ServerLoanService
-import red.man10.man10bank.service.VaultManager
 import red.man10.man10bank.util.Messages
 
 /**
@@ -32,7 +31,7 @@ class BankOpCommand(
     private val featureToggles: FeatureToggleService,
     bankService: BankService,
     serverLoanService: ServerLoanService,
-    vaultManager: VaultManager,
+    vaultService: red.man10.man10bank.service.vault.VaultService,
 ) : BaseCommand(
     allowPlayer = true,
     allowConsole = true,
@@ -51,8 +50,8 @@ class BankOpCommand(
         EditBankSubCommand(scope, bankService),
         // 管理者サーバーローン調整
         EditServerLoanSubCommand(plugin, scope, serverLoanService),
-        // 管理者電子マネー調整
-        EditVaultSubcommand(vaultManager),
+        // 管理者電子マネー調整（オフライン可: POST /api/Vault/set へ委譲）
+        EditVaultSubcommand(scope, vaultService),
         // 機能 有効/無効 切り替え
         EnableFeatureSubcommand(featureToggles),
         DisableFeatureSubcommand(featureToggles),

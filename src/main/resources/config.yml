@@ -15,3 +15,13 @@ features:
   serverloan: true
   loan: true
   atm: true
+
+# 電子マネー(Vault Provider)設定
+# Man10Bank 自身を Vault(Economy) の Provider 化し、電子マネー残高を man10bankservice の
+# user_vault で一元管理する。providerEnabled=true で登録する（段階導入/ロールバック用フラグ）。
+# 注意: 競合する他の Economy Provider（EssentialsX 等）は必ず無効化すること。
+#       登録の検証に失敗した場合は安全弁としてサーバーをホワイトリスト化し新規参加を遮断する。
+vault:
+  providerEnabled: true
+  currencyNameSingular: "円"
+  currencyNamePlural: "円"

@@ -37,6 +37,28 @@ class ConfigManager(private val plugin: JavaPlugin) {
         val retries: Int = DEFAULT_RETRIES,
     )
 
+    /**
+     * 電子マネー(Vault Provider)設定（VaultProvider 8.3）。
+     * - providerEnabled: Man10Bank を Vault(Economy) Provider として登録するか（段階導入/ロールバック用）。
+     * - currencyNameSingular/Plural: Economy.currencyName* が返す通貨名。
+     */
+    data class VaultConfig(
+        val providerEnabled: Boolean = true,
+        val currencyNameSingular: String = "円",
+        val currencyNamePlural: String = "円",
+    )
+
+    /** 電子マネー(Vault Provider)設定を読み込む。 */
+    fun loadVaultConfig(): VaultConfig = readVaultConfig(plugin.config)
+
+    private fun readVaultConfig(conf: FileConfiguration): VaultConfig {
+        val section = conf.getConfigurationSection("vault")
+        val providerEnabled = section?.getBoolean("providerEnabled", true) ?: true
+        val singular = section?.getString("currencyNameSingular")?.trim()?.ifBlank { null } ?: "円"
+        val plural = section?.getString("currencyNamePlural")?.trim()?.ifBlank { null } ?: "円"
+        return VaultConfig(providerEnabled, singular, plural)
+    }
+
     /** 設定を読み込み、必要ならデフォルトを保存します。 */
     fun load(): ApiConfig {
         // config.yml が無い場合は生成

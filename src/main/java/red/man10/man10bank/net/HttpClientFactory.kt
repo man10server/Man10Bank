@@ -5,6 +5,7 @@ import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.*
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.ContentType
@@ -85,6 +86,10 @@ object HttpClientFactory {
             }
 
             install(ContentNegotiation) { json(jsonFormat) }
+
+            // 電子マネー(Vault Provider)の push/presence 用に WebSocket を有効化する。
+            // REST 利用には影響しない。
+            install(WebSockets)
 
             install(HttpTimeout) {
                 // タイムアウトはすべてミリ秒単位

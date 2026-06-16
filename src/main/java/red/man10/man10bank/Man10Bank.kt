@@ -27,7 +27,16 @@ import red.man10.man10bank.api.ServerLoanApiClient
 import red.man10.man10bank.command.serverloan.ServerLoanCommand
 import red.man10.man10bank.api.LoanApiClient
 import red.man10.man10bank.command.transaction.BalLogCommand
+import red.man10.man10bank.command.transaction.VaultPayCommand
+import red.man10.man10bank.api.VaultApiClient
+import red.man10.man10bank.economy.Man10Economy
+import red.man10.man10bank.listener.VaultLifecycleListener
 import red.man10.man10bank.service.*
+import red.man10.man10bank.service.vault.VaultCache
+import red.man10.man10bank.service.vault.VaultService
+import red.man10.man10bank.service.vault.VaultSyncClient
+import net.milkbowl.vault.economy.Economy
+import org.bukkit.plugin.ServicePriority
 
 class Man10Bank : JavaPlugin(), Listener {
 
@@ -57,6 +66,15 @@ class Man10Bank : JavaPlugin(), Listener {
     private lateinit var bankService: BankService
     private lateinit var featureToggles: FeatureToggleService
 
+    // 電子マネー(Vault Provider)スタック
+    private lateinit var vaultCache: VaultCache
+    private lateinit var vaultApi: VaultApiClient
+    private lateinit var vaultService: VaultService
+    private lateinit var vaultSync: VaultSyncClient
+    private lateinit var man10Economy: Man10Economy
+    private lateinit var vaultConfig: ConfigManager.VaultConfig
+    private var vaultProviderRegistered: Boolean = false
+
     // サーバー識別名（configの serverName が空/未設定の場合はBukkitのサーバー名を使用）
     lateinit var serverName: String
         private set
@@ -79,12 +97,17 @@ class Man10Bank : JavaPlugin(), Listener {
         initServices(apiConfig)
         registerCommands()
         registerEvents()
+        registerVaultProvider()
         registerProviders()
         runStartupHealthCheck()
     }
 
     override fun onDisable() {
-        // スコープとクライアントをクリーンアップ
+        // Vault(Economy) Provider 登録を解除（登録していた場合のみ）。
+        if (vaultProviderRegistered && this::man10Economy.isInitialized) {
+            server.servicesManager.unregister(Economy::class.java, man10Economy)
+        }
+        // スコープとクライアントをクリーンアップ（同期WebSocketのループも scope.cancel で停止する）。
         if (this::scope.isInitialized) scope.cancel()
         if (this::httpClient.isInitialized) httpClient.close()
     }
@@ -133,6 +156,14 @@ class Man10Bank : JavaPlugin(), Listener {
         uiService = UIService(this)
         atmService = AtmService(this, scope, atmApi, vaultManager, cashItemManager)
 
+        // 電子マネー(Vault Provider)スタックを構築する。
+        vaultConfig = configManager.loadVaultConfig()
+        vaultCache = VaultCache()
+        vaultApi = VaultApiClient(httpClient)
+        vaultService = VaultService(this, serverName, scope, vaultApi, vaultCache)
+        man10Economy = Man10Economy(this, vaultService, vaultConfig.currencyNameSingular, vaultConfig.currencyNamePlural)
+        vaultSync = VaultSyncClient(this, scope, httpClient, vaultService, apiConfig.baseUrl, serverName)
+
         // 起動時に現金アイテム設定を読み込む
         val loadedCash = cashItemManager.load()
         if (loadedCash.isNotEmpty()) {
@@ -165,12 +196,14 @@ class Man10Bank : JavaPlugin(), Listener {
         getCommand("mpay")?.setExecutor(PayCommand(this, scope, bankService))
         getCommand("ballog")?.setExecutor(BalLogCommand(scope, bankService))
         getCommand("mbaltop")?.setExecutor(red.man10.man10bank.command.balance.BalTopCommand(this, scope, estateService, serverEstateService))
-        getCommand("bankop")?.setExecutor(BankOpCommand(this, scope, healthService, cashItemManager, estateService, featureToggles, bankService, serverLoanService, vaultManager))
+        getCommand("bankop")?.setExecutor(BankOpCommand(this, scope, healthService, cashItemManager, estateService, featureToggles, bankService, serverLoanService, vaultService))
         getCommand("atm")?.setExecutor(AtmCommand(this, scope, atmService, vaultManager, cashItemManager, featureToggles))
         getCommand("mcheque")?.setExecutor(ChequeCommand(this, scope, chequeService))
         getCommand("mchequeop")?.setExecutor(ChequeCommand(this, scope, chequeService))
         getCommand("mrevo")?.setExecutor(ServerLoanCommand(this, scope, serverLoanService))
         getCommand("mlend")?.setExecutor(red.man10.man10bank.command.loan.LendCommand(this, scope, loanService, featureToggles))
+        // 電子マネー送金 /pay（同一サーバー在席者のみ）
+        getCommand("pay")?.setExecutor(VaultPayCommand(this, scope, vaultService))
 
         // 残高系（/bal, /balance ほか別名にも割り当て）
         // Bukkit/Vault 依存値はメインスレッドで先に収集するため Vault/現金マネージャを渡す（DESIGN 3.5）。
@@ -186,6 +219,62 @@ class Man10Bank : JavaPlugin(), Listener {
         server.pluginManager.registerEvents(loanService, this)
         server.pluginManager.registerEvents(estateService, this)
         server.pluginManager.registerEvents(cashItemManager, this)
+        // 電子マネーキャッシュの join/quit ライフサイクル
+        server.pluginManager.registerEvents(VaultLifecycleListener(scope, vaultService, vaultSync), this)
+    }
+
+    /**
+     * Man10Bank を Vault(Economy) Provider として登録する（VaultProvider 8.3）。
+     * - vault.providerEnabled=false の間は登録もフェイルセーフも行わない（段階導入/ロールバック）。
+     * - 登録後に実効 Provider が自分自身であることを検証する。
+     *   検証失敗（競合/例外/Vault不在）時は severe ログを出し、サーバーをホワイトリスト化して
+     *   新規参加を遮断する安全弁を作動させる（誤った Economy 下での取引による整合性崩壊を防ぐ）。
+     * - 登録成功時は同期 WebSocket を開始し、VaultManager を Man10Economy へ張り直す
+     *   （内部利用者も単一の真実=user_vault を参照させる）。
+     */
+    private fun registerVaultProvider() {
+        if (!vaultConfig.providerEnabled) {
+            logger.info("vault.providerEnabled=false のため Vault(Economy) Provider 登録をスキップします。")
+            return
+        }
+
+        if (server.pluginManager.getPlugin("Vault") == null) {
+            failVaultRegistration("Vault プラグインが見つかりません（不在）。")
+            return
+        }
+
+        try {
+            server.servicesManager.register(Economy::class.java, man10Economy, this, ServicePriority.High)
+        } catch (t: Throwable) {
+            failVaultRegistration("Provider 登録時に例外が発生しました: ${t.message}")
+            return
+        }
+
+        // 実効 Provider が自分自身であることを検証する（競合検知）。
+        val effective = server.servicesManager.getRegistration(Economy::class.java)?.provider
+        if (effective !== man10Economy) {
+            failVaultRegistration("実効 Economy Provider が Man10Bank ではありません（競合相手: ${effective?.name}）。")
+            return
+        }
+
+        vaultProviderRegistered = true
+        logger.info("Man10Bank を Vault(Economy) Provider として登録しました。")
+
+        // 内部利用者(VaultManager 経由)も Man10Economy=user_vault を参照させる。
+        vaultManager.hook()
+
+        // 同期 WebSocket を開始（presence + push 受信、切断時は自動再接続）。
+        vaultSync.start()
+    }
+
+    /** Vault Provider 登録失敗時の安全弁: severe ログ＋ホワイトリスト化で新規参加を遮断する。 */
+    private fun failVaultRegistration(detail: String) {
+        logger.severe(
+            "Vault(Economy) Provider 登録に失敗しました: $detail " +
+                "誤った Economy 下での取引で電子マネー整合性が崩れるのを防ぐため、" +
+                "サーバーをホワイトリスト化して新規参加を遮断します。原因解消後に解除してください。"
+        )
+        server.setWhitelist(true)
     }
 
     private fun registerProviders() {
