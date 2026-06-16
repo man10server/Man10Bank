@@ -1,6 +1,7 @@
 package red.man10.man10bank
 
 import io.ktor.client.*
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -60,13 +61,22 @@ class Man10Bank : JavaPlugin(), Listener {
     lateinit var serverName: String
         private set
 
+    /**
+     * 互換用 BankAPI 等から共有 BankApiClient を再利用するための公開アクセサ。
+     * - 本体が保持する単一の HttpClient を使う BankApiClient を返す。
+     * - 初期化前（onEnable 未完了）は null を返す。
+     * - 独自に HttpClient を生成させないことでコネクション/スレッドプールのリークを防ぐ。
+     */
+    val sharedBankApiClient: BankApiClient?
+        get() = if (this::bankApi.isInitialized) bankApi else null
+
     override fun onEnable() {
         // 初期化フロー
         configManager = ConfigManager(this)
         val apiConfig = loadApiConfigOrDisable() ?: return
         initRuntime(apiConfig)
         initServerName()
-        initServices()
+        initServices(apiConfig)
         registerCommands()
         registerEvents()
         registerProviders()
@@ -92,11 +102,16 @@ class Man10Bank : JavaPlugin(), Listener {
 
     private fun initRuntime(apiConfig: ConfigManager.ApiConfig) {
         httpClient = HttpClientFactory.create(apiConfig)
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        // 未捕捉例外（runCatching外のlaunch等）を握り潰さずログへ残す（DESIGN 3.5）。
+        val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
+            logger.severe("コルーチンで未捕捉の例外が発生しました: ${throwable.message}")
+            throwable.printStackTrace()
+        }
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + exceptionHandler)
     }
 
-    private fun initServices() {
-        healthService = HealthService(HealthApiClient(httpClient))
+    private fun initServices(apiConfig: ConfigManager.ApiConfig) {
+        healthService = HealthService(HealthApiClient(httpClient), apiConfig)
         bankApi = BankApiClient(httpClient)
         atmApi = AtmApiClient(httpClient)
         chequesApi = ChequesApiClient(httpClient)
@@ -158,8 +173,9 @@ class Man10Bank : JavaPlugin(), Listener {
         getCommand("mlend")?.setExecutor(red.man10.man10bank.command.loan.LendCommand(this, scope, loanService, featureToggles))
 
         // 残高系（/bal, /balance ほか別名にも割り当て）
+        // Bukkit/Vault 依存値はメインスレッドで先に収集するため Vault/現金マネージャを渡す（DESIGN 3.5）。
         listOf("mbal", "bal", "balance", "money", "bank").forEach { cmd ->
-            getCommand(cmd)?.setExecutor(BalanceCommand(this, scope))
+            getCommand(cmd)?.setExecutor(BalanceCommand(this, scope, vaultManager, cashItemManager))
         }
     }
 

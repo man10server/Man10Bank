@@ -5,6 +5,7 @@ import org.bukkit.entity.Player
 import red.man10.man10bank.Man10Bank
 import red.man10.man10bank.api.BankApiClient
 import red.man10.man10bank.api.model.request.DepositRequest
+import red.man10.man10bank.api.model.request.TransferRequest
 import red.man10.man10bank.api.model.request.WithdrawRequest
 import red.man10.man10bank.api.model.response.MoneyLog
 import red.man10.man10bank.command.balance.BalanceRegistry
@@ -27,7 +28,8 @@ class BankService(
 ) {
     /** 残高表示プロバイダを登録（銀行）。 */
     fun registerBalanceProvider() {
-        BalanceRegistry.register(id = "bank", order = 20) { player ->
+        // 銀行残高はHTTP取得のみで context（Bukkit依存値）は不要。
+        BalanceRegistry.register(id = "bank", order = 20) { player, _ ->
             val bal = getBalance(player)?: 0.0
             if (bal <= 0.0) "" else "§b§l銀行: ${BalanceFormats.coloredYen(bal)}§r"
         }
@@ -50,8 +52,8 @@ class BankService(
             Messages.error(plugin, player, "電子マネーが利用できません。後でもう一度お試しください。")
             return
         }
-        // Vault から引き落とし
-        val withdrew = vault.withdraw(player, amt)
+        // Vault から引き落とし（Economy操作はメインスレッドへディスパッチ）
+        val withdrew = vault.withdrawOnMain(player, amt)
         if (!withdrew) {
             Messages.error(plugin, player, "電子マネーからの引き落としに失敗しました。")
             return
@@ -71,14 +73,29 @@ class BankService(
                 "入金に成功しました。" +
                         "§b金額: ${BalanceFormats.coloredYen(amt)} " +
                         "§b銀行残高: ${BalanceFormats.coloredYen(newBank)} " +
-                        "§b電子マネー: ${BalanceFormats.coloredYen(vault.getBalance(player))}"
+                        "§b電子マネー: ${BalanceFormats.coloredYen(vault.getBalanceOnMain(player))}"
             )
             return
         }
-        // 失敗したので 電子マネー に返金
-        val refunded = vault.deposit(player, amt)
+        // 失敗したので 電子マネー に返金。
+        // Economy実装が例外を投げた場合も返金失敗(false)とみなし、下の補償失敗処理へ進める
+        // （例外を握らないと「電子マネーは減ったまま銀行入金も失敗」の消失が残る）。
+        val refunded = try {
+            vault.depositOnMain(player, amt)
+        } catch (t: Throwable) {
+            plugin.logger.severe(
+                "補償例外[deposit返金] uuid=${player.uniqueId} 金額=${amt} 操作=Vault返金 " +
+                        "note=PlayerDepositOnCommand 詳細=銀行入金失敗後の電子マネー返金が例外で失敗: ${t.message}"
+            )
+            false
+        }
         val msg = result.errorMessage()
         if (!refunded) {
+            // 補償（電子マネーへの返金）にも失敗。運用追跡のため構造化ログを残す（DESIGN 3.6）。
+            plugin.logger.severe(
+                "補償失敗[deposit返金] uuid=${player.uniqueId} 金額=${amt} 操作=Vault返金 " +
+                        "note=PlayerDepositOnCommand 詳細=銀行入金失敗後の電子マネー返金に失敗: ${msg}"
+            )
             Messages.error(plugin, player, "入金に失敗しました: $msg 金額: ${BalanceFormats.coloredYen(amt)}。さらに電子マネーへの返金にも失敗しました。管理者に連絡してください。")
         } else {
             Messages.error(plugin, player, "入金に失敗しました: $msg 金額: ${BalanceFormats.coloredYen(amt)}")
@@ -120,8 +137,18 @@ class BankService(
 
         val newBank = result.getOrNull() ?: 0.0
 
-        // Vault に入金
-        val ok = vault.deposit(player, amt)
+        // Vault に入金（Economy操作はメインスレッドへディスパッチ）。
+        // Economy実装が例外を投げた場合も「入金失敗(false)」と同じく銀行へ返金する補償へ進める
+        // （例外を握らないと返金ブロックを飛ばして「銀行は減ったまま電子マネー未反映」の消失が残る）。
+        val ok = try {
+            vault.depositOnMain(player, amt)
+        } catch (t: Throwable) {
+            plugin.logger.severe(
+                "補償実行[withdraw] uuid=${player.uniqueId} 金額=${amt} 操作=Vault入金 " +
+                        "note=PlayerWithdrawOnCommand 詳細=電子マネーへの入金が例外で失敗したため銀行へ返金する: ${t.message}"
+            )
+            false
+        }
         if (ok) {
             Messages.send(
                 plugin,
@@ -129,7 +156,7 @@ class BankService(
                 "出金に成功しました。" +
                         "§b金額: ${BalanceFormats.coloredYen(amt)} " +
                         "§b銀行残高: ${BalanceFormats.coloredYen(newBank)} " +
-                        "§b電子マネー: ${BalanceFormats.coloredYen(vault.getBalance(player))}"
+                        "§b電子マネー: ${BalanceFormats.coloredYen(vault.getBalanceOnMain(player))}"
             )
             return
         }
@@ -147,7 +174,12 @@ class BankService(
         if (refundResult.isSuccess) {
             Messages.send(plugin, player, "返金に成功しました。銀行残高: ${BalanceFormats.coloredYen(refundResult.getOrNull() ?: 0.0)}")
         } else {
+            // 補償（銀行への返金）に失敗。出金済みかつ電子マネー未反映の不整合が残るため構造化ログを残す（DESIGN 3.6）。
             val msg = refundResult.errorMessage()
+            plugin.logger.severe(
+                "補償失敗[withdraw返金] uuid=${player.uniqueId} 金額=${amt} 操作=銀行返金 " +
+                        "note=RefundForFailedVaultDeposit 詳細=出金成功・電子マネー反映失敗後の銀行返金に失敗: ${msg}"
+            )
             Messages.error(plugin, player, "${BalanceFormats.coloredYen(amt)}円の返金に失敗しました。$msg")
         }
     }
@@ -218,9 +250,9 @@ class BankService(
      * /deposit 用の金額解決（null または "all" 相当をインジケータとして扱い、Vault残高を返す）。
      * 条件を満たさない場合は null。
      */
-    fun resolveDepositAmount(player: Player, arg: String?): Double? {
+    suspend fun resolveDepositAmount(player: Player, arg: String?): Double? {
         if (!vault.isAvailable()) return null
-        val vaultBal = vault.getBalance(player)
+        val vaultBal = vault.getBalanceOnMain(player)
         val amount = if (arg.isNullOrBlank() || arg.equals("all", ignoreCase = true)) vaultBal else arg.toDoubleOrNull() ?: -1.0
         if (amount > vaultBal) return null
         return if (amount > 0.0) amount else null
@@ -238,7 +270,10 @@ class BankService(
 
     /**
      * 振り込み（送金）処理。
-     * - 送金元から出金 → 受取人へ入金 → 失敗時は送金元へ返金
+     * - サーバー側の単一トランザクションで「送金元出金＋送金先入金＋MoneyLog2件」を処理する
+     *   `POST /api/Bank/transfer`（DESIGN 1.5/3.3）に委譲する。
+     * - クライアント側の出金→入金→返金補償ロジックは廃止した（部分失敗が原理的に起きない）。
+     * - 失敗時は ApiHttpException の ProblemDetails.code で種別を判定し日本語メッセージを表示する。
      */
     suspend fun transfer(sender: Player, targetUuid: UUID, targetName: String, amount: Double) {
         if (!featureToggles.isEnabled(FeatureToggleService.Feature.TRANSACTION)) {
@@ -251,38 +286,29 @@ class BankService(
             Messages.error(plugin, sender, "金額が不正です。正の数を指定してください。")
             return
         }
-        // 1) 送金元から出金
-        val withdraw = api.withdraw(
-            withdrawRequest(
-                player = sender,
-                amount = amt,
-                note = "TransferTo${targetName}",
-                displayNote = "${targetName}へ送金",
-            )
-        )
-
-        if (!withdraw.isSuccess) {
-            val msg = withdraw.errorMessage("送金に失敗しました(出金失敗)。")
-            Messages.error(plugin, sender, "送金に失敗しました(出金失敗)。$msg")
+        if (sender.uniqueId == targetUuid) {
+            Messages.error(plugin, sender, "自分自身へは送金できません。")
             return
         }
 
-        // 2) 受取人へ入金
-        val deposit = api.deposit(
-            // 受取人用なので uuid は受取人
-            DepositRequest(
-                uuid = targetUuid.toString(),
+        // サーバーへ送金を委譲（単一トランザクション）。成功時は送金元の新残高が返る。
+        val result = api.transfer(
+            TransferRequest(
+                fromUuid = sender.uniqueId.toString(),
+                toUuid = targetUuid.toString(),
                 amount = amt,
                 pluginName = plugin.name,
-                note = "TransferFrom${sender.name}",
-                displayNote = "${sender.name}からの送金",
+                note = "TransferTo${targetName}",
+                displayNote = "${targetName}へ送金",
                 server = plugin.serverName,
             )
         )
 
-        if (deposit.isSuccess) {
+        if (result.isSuccess) {
+            val newBalance = result.getOrNull() ?: 0.0
             Messages.send(plugin, sender,
-                "送金に成功しました。送金先: $targetName 金額: ${BalanceFormats.coloredYen(amt)}"
+                "送金に成功しました。送金先: $targetName 金額: ${BalanceFormats.coloredYen(amt)} " +
+                        "§b銀行残高: ${BalanceFormats.coloredYen(newBalance)}"
             )
             // オンラインなら受取通知（銀行残高は省略）
             plugin.server.getPlayer(targetUuid)?.let {
@@ -291,24 +317,9 @@ class BankService(
             return
         }
 
-        // 3) 受取失敗時は送金元へ返金
-        val refund = api.deposit(
-            depositRequest(
-                player = sender,
-                amount = amt,
-                note = "RefundForFailedTransfer",
-                displayNote = "/mpay送金失敗の返金",
-            )
-        )
-
-        if (refund.isSuccess) {
-            Messages.error(plugin, sender,
-                "送金に失敗しました(入金失敗)。金額は返金されました。返金後残高は銀行でご確認ください。"
-            )
-        } else {
-            val msg = refund.errorMessage()
-            Messages.error(plugin, sender, "${BalanceFormats.coloredYen(amt)}の返金に失敗しました。 $msg")
-        }
+        // 失敗時は ApiHttpException.code（InsufficientFunds 等）で日本語化された文言を表示する。
+        val msg = result.errorMessage("送金に失敗しました。")
+        Messages.error(plugin, sender, "送金に失敗しました: $msg")
     }
 
     /**

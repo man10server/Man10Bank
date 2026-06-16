@@ -9,6 +9,7 @@ import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpMethod
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 import red.man10.man10bank.api.error.ApiHttpException
@@ -27,8 +28,13 @@ import red.man10.man10bank.config.ConfigManager.ApiConfig
  *   - connectMs: 接続確立のタイムアウト（`connectTimeoutMillis`）。
  *   - socketMs : 読み書きのタイムアウト（`socketTimeoutMillis`）。
  * - retries: 0 より大きい場合は `HttpRequestRetry` を有効化し指数バックオフで再試行します。
+ *   ただし冪等メソッド(GET/HEAD)のみが再試行対象で、POST等の非冪等メソッドは
+ *   二重実行（二重入金/二重出金）を防ぐため一切リトライしません。
  */
 object HttpClientFactory {
+    // 冪等メソッド集合。これらのみリトライ対象とする。
+    private val IDEMPOTENT_METHODS = setOf(HttpMethod.Get, HttpMethod.Head)
+
     // JSONフォーマットは使い回してコストを下げる
     private val jsonFormat = Json {
         ignoreUnknownKeys = true
@@ -56,16 +62,24 @@ object HttpClientFactory {
 
             HttpResponseValidator {
                 handleResponseExceptionWithRequest { cause, _ ->
-                    val clientException = cause as? ClientRequestException?: return@handleResponseExceptionWithRequest
-                    val response = clientException.response
+                    // 4xx(ClientRequestException) と 5xx(ServerResponseException) の両方を正規化する。
+                    // どちらも ResponseException を継承し response を持つ。
+                    val responseException = cause as? ResponseException ?: return@handleResponseExceptionWithRequest
+                    val response = responseException.response
                     val text = runCatching { response.bodyAsText() }.getOrNull()
+                    // ProblemDetails のパースに失敗しても生本文を失わないよう先頭500文字を保持する。
+                    val rawBody = text?.takeIf { it.isNotBlank() }?.take(500)
                     val problemDetails = runCatching {
                         jsonFormat.decodeFromString(ProblemDetails.serializer(), text ?: "")
                     }.getOrNull()
+                    val message = problemDetails?.title
+                        ?: rawBody
+                        ?: "HTTP ${response.status.value} ${response.status.description}"
                     throw ApiHttpException(
                         status = response.status,
                         problem = problemDetails,
-                        message = problemDetails?.title?:"HTTP ${response.status.value} ${response.status.description}"
+                        rawBody = rawBody,
+                        message = message,
                     )
                 }
             }
@@ -84,7 +98,14 @@ object HttpClientFactory {
             if (retries > 0) {
                 install(HttpRequestRetry) {
                     maxRetries = retries
-                    retryOnExceptionOrServerErrors(retries)
+                    // 冪等メソッド(GET/HEAD)のみリトライする。
+                    // POST等の非冪等メソッドは二重入金/二重出金を防ぐため一切リトライしない。
+                    retryIf { request, response ->
+                        request.method in IDEMPOTENT_METHODS && response.status.value >= 500
+                    }
+                    retryOnExceptionIf { request, _ ->
+                        request.method in IDEMPOTENT_METHODS
+                    }
                     exponentialDelay()
                 }
             }

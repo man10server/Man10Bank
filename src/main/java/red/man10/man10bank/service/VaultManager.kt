@@ -1,5 +1,6 @@
 package red.man10.man10bank.service
 
+import kotlinx.coroutines.CompletableDeferred
 import net.milkbowl.vault.economy.Economy
 import org.bukkit.OfflinePlayer
 import org.bukkit.plugin.RegisteredServiceProvider
@@ -11,6 +12,8 @@ import red.man10.man10bank.util.BalanceFormats
  * Vault(Economy) 連携のシンプルなマネージャー。
  * - hook(): サービスから Economy を取得して保持
  * - deposit/withdraw/getBalance/format の薄いラッパーを提供
+ * - 同期メソッド(deposit/withdraw/getBalance)はメインスレッドから呼ぶこと。
+ *   コルーチン(IOスレッド)からは *OnMain 版を使う(Economy実装はスレッドセーフが保証されない)。
  */
 class VaultManager(private val plugin: JavaPlugin) {
 
@@ -51,14 +54,37 @@ class VaultManager(private val plugin: JavaPlugin) {
         return econ.withdrawPlayer(player, amount).transactionSuccess()
     }
 
+    /** 残高取得（メインスレッドへディスパッチして実行）。コルーチンからはこちらを使う。 */
+    suspend fun getBalanceOnMain(player: OfflinePlayer): Double = onMainThread { getBalance(player) }
+
+    /** 入金（メインスレッドへディスパッチして実行）。コルーチンからはこちらを使う。 */
+    suspend fun depositOnMain(player: OfflinePlayer, amount: Double): Boolean = onMainThread { deposit(player, amount) }
+
+    /** 出金（メインスレッドへディスパッチして実行）。コルーチンからはこちらを使う。 */
+    suspend fun withdrawOnMain(player: OfflinePlayer, amount: Double): Boolean = onMainThread { withdraw(player, amount) }
+
+    // Vault(Economy) 実装はスレッドセーフが保証されないため、メインスレッドで実行して結果を待つ（DESIGN 3.5）
+    private suspend fun <T> onMainThread(block: () -> T): T {
+        if (plugin.server.isPrimaryThread) return block()
+        val deferred = CompletableDeferred<T>()
+        plugin.server.scheduler.runTask(plugin, Runnable {
+            try {
+                deferred.complete(block())
+            } catch (t: Throwable) {
+                deferred.completeExceptionally(t)
+            }
+        })
+        return deferred.await()
+    }
+
     /** 残高表示プロバイダの登録（電子マネー/Vault）。 */
     fun registerBalanceProvider() {
+        // Vault 残高はメインスレッドで収集済みの context から取得する（DESIGN 3.5）。
         BalanceRegistry.register(
             id = "vault",
             order = 10,
-            provider = { player ->
-                val cash = getBalance(player)
-                "§b§l電子マネー: ${BalanceFormats.coloredYen(cash)}§r"
+            provider = { _, context ->
+                "§b§l電子マネー: ${BalanceFormats.coloredYen(context.vaultBalance)}§r"
             }
         )
     }

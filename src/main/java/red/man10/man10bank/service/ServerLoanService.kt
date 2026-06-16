@@ -33,7 +33,8 @@ class ServerLoanService(
      * 以上3行を1つのProviderでまとめて表示します。
      */
     fun registerBalanceProvider() {
-        BalanceRegistry.register(id = "serverloan", order = 30) { player ->
+        // リボ情報はHTTP取得のみで context（Bukkit依存値）は不要。
+        BalanceRegistry.register(id = "serverloan", order = 30) { player, _ ->
             val loan = get(player).getOrNull()
             val payInfo = paymentInfo(player).getOrNull()
 
