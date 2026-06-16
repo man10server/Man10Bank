@@ -6,7 +6,7 @@ plugins {
 }
 
 group = 'red.man10'
-version = '1.0'
+version = '0.2.0'
 
 def kotlinVersion = '2.1.20'
 def coroutinesVersion = '1.9.0'
