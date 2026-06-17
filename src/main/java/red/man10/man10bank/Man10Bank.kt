@@ -196,7 +196,7 @@ class Man10Bank : JavaPlugin(), Listener {
         getCommand("mpay")?.setExecutor(PayCommand(this, scope, bankService))
         getCommand("ballog")?.setExecutor(BalLogCommand(scope, bankService))
         getCommand("mbaltop")?.setExecutor(red.man10.man10bank.command.balance.BalTopCommand(this, scope, estateService, serverEstateService))
-        getCommand("bankop")?.setExecutor(BankOpCommand(this, scope, healthService, cashItemManager, estateService, featureToggles, bankService, serverLoanService, vaultService))
+        getCommand("bankop")?.setExecutor(BankOpCommand(this, scope, healthService, cashItemManager, estateService, featureToggles, bankService, serverLoanService))
         getCommand("atm")?.setExecutor(AtmCommand(this, scope, atmService, vaultManager, cashItemManager, featureToggles))
         getCommand("mcheque")?.setExecutor(ChequeCommand(this, scope, chequeService))
         getCommand("mchequeop")?.setExecutor(ChequeCommand(this, scope, chequeService))
@@ -204,6 +204,8 @@ class Man10Bank : JavaPlugin(), Listener {
         getCommand("mlend")?.setExecutor(red.man10.man10bank.command.loan.LendCommand(this, scope, loanService, featureToggles))
         // 電子マネー送金 /pay（同一サーバー在席者のみ）
         getCommand("pay")?.setExecutor(VaultPayCommand(this, scope, vaultService))
+        // 管理用 電子マネー残高操作 /meco（give/take/set）
+        getCommand("meco")?.setExecutor(red.man10.man10bank.command.op.MecoCommand(this, scope, vaultService))
 
         // 残高系（/bal, /balance ほか別名にも割り当て）
         // Bukkit/Vault 依存値はメインスレッドで先に収集するため Vault/現金マネージャを渡す（DESIGN 3.5）。

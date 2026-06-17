@@ -4,7 +4,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import net.milkbowl.vault.economy.EconomyResponse
 import org.bukkit.OfflinePlayer
-import org.bukkit.command.CommandSender
 import org.bukkit.plugin.java.JavaPlugin
 import red.man10.man10bank.api.VaultApiClient
 import red.man10.man10bank.api.model.request.VaultDepositRequest
@@ -15,10 +14,11 @@ import red.man10.man10bank.api.model.request.VaultTransferRequest
 import red.man10.man10bank.api.model.request.VaultWithdrawRequest
 import red.man10.man10bank.api.model.response.VaultBalanceResponse
 import red.man10.man10bank.api.model.response.VaultMoveResponse
-import red.man10.man10bank.util.BalanceFormats
-import red.man10.man10bank.util.Messages
 import red.man10.man10bank.util.errorMessage
 import java.util.UUID
+
+/** 管理用の電子マネー操作種別（/meco give|take|set）。 */
+enum class VaultAdminOp { GIVE, TAKE, SET }
 
 /**
  * 電子マネーの単一窓口（VaultProvider 8.1）。
@@ -169,60 +169,37 @@ class VaultService(
     }
 
     /**
-     * 管理用: 絶対値設定（オフライン可）。確定結果でキャッシュを補正する（在席時のみ）。
+     * 管理用: 電子マネー残高を操作し、確定結果を返す（/meco give|take|set）。
+     * - GIVE/TAKE は相対加減算（POST /api/Vault/deposit, /withdraw）。在席判定は呼び出し側で行う。
+     * - SET は絶対値設定（POST /api/Vault/set）。オフライン（当該サーバー未キャッシュ）でも実行できる
+     *   唯一の正規経路（VaultProvider 4.5）。
+     * - 金額検証: GIVE/TAKE は正の数、SET は 0 以上。範囲外は呼び出さず失敗を返す。
+     * - 成功時は確定残高+version でキャッシュを補正する（reconcile は在席時のみ反映、未キャッシュは無視）。
      */
-    suspend fun set(uuid: UUID, amount: Double, note: String, displayNote: String): Result<VaultBalanceResponse> {
+    suspend fun adminOperate(
+        uuid: UUID,
+        op: VaultAdminOp,
+        amount: Double,
+        note: String,
+        displayNote: String,
+    ): Result<VaultBalanceResponse> {
         val amt = normalize(amount)
-        if (amt < 0.0) return Result.failure(IllegalArgumentException("金額が不正です。"))
+        val invalid = if (op == VaultAdminOp.SET) amt < 0.0 else amt <= 0.0
+        if (invalid) return Result.failure(IllegalArgumentException("金額が不正です。"))
 
-        val result = api.set(
-            VaultSetRequest(
-                uuid = uuid.toString(),
-                amount = amt,
-                pluginName = plugin.name,
-                note = note,
-                displayNote = displayNote,
-                server = serverName,
+        val result = when (op) {
+            VaultAdminOp.GIVE -> api.deposit(
+                VaultDepositRequest(uuid.toString(), amt, plugin.name, note, displayNote, serverName)
             )
-        )
+            VaultAdminOp.TAKE -> api.withdraw(
+                VaultWithdrawRequest(uuid.toString(), amt, plugin.name, note, displayNote, serverName)
+            )
+            VaultAdminOp.SET -> api.set(
+                VaultSetRequest(uuid.toString(), amt, plugin.name, note, displayNote, serverName)
+            )
+        }
         result.onSuccess { res -> cache.reconcile(uuid, res.balance, res.version) }
         return result
-    }
-
-    /**
-     * 管理用: 指定プレイヤーの電子マネー残高を指定額へ調整する（メッセージ送信込み）。
-     * - オフライン（当該サーバー未キャッシュ）でも実行可能な唯一の正規経路（POST /api/Vault/set。VaultProvider 4.5）。
-     * - /bankop editvault から呼ばれる。
-     */
-    suspend fun setBalance(
-        sender: CommandSender,
-        targetUuid: UUID,
-        targetName: String,
-        amount: Double,
-        reason: String,
-    ) {
-        if (amount < 0.0) {
-            Messages.error(plugin, sender, "金額が不正です。0円以上を指定してください。")
-            return
-        }
-        val targetAmount = normalize(amount)
-        val reasonText = reason.trim()
-        val displayNote = if (reasonText.isBlank()) {
-            "管理者(${sender.name})による電子マネー残高調整"
-        } else {
-            "管理者(${sender.name})による電子マネー残高調整: $reasonText"
-        }
-
-        val result = set(targetUuid, targetAmount, "AdminSetVault", displayNote)
-        if (result.isSuccess) {
-            val newBalance = result.getOrNull()?.balance ?: targetAmount
-            Messages.send(
-                plugin, sender,
-                "電子マネー残高を設定しました。対象: $targetName 変更後: ${BalanceFormats.coloredYen(newBalance)} 理由: $reasonText"
-            )
-        } else {
-            Messages.error(plugin, sender, "電子マネー残高の調整に失敗しました: ${result.errorMessage()}")
-        }
     }
 
     // === ライフサイクル ===
