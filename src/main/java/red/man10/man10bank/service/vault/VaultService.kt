@@ -14,6 +14,7 @@ import red.man10.man10bank.api.model.request.VaultTransferRequest
 import red.man10.man10bank.api.model.request.VaultWithdrawRequest
 import red.man10.man10bank.api.model.response.VaultBalanceResponse
 import red.man10.man10bank.api.model.response.VaultMoveResponse
+import red.man10.man10bank.util.Messages
 import red.man10.man10bank.util.errorMessage
 import java.io.IOException
 import java.util.UUID
@@ -322,15 +323,44 @@ class VaultService(
             result.onSuccess { res ->
                 cache.reconcile(uuid, res.balance, res.version)
             }.onFailure { ex ->
+                // 追跡用のエラーID。同一IDをログとプレイヤー通知の双方へ出し、突き合わせられるようにする。
+                val errorId = newErrorId()
+                // 誰が(MinecraftID/uuid)・いくらの取引で(金額)失敗したかを追跡できるよう、ログにIDと氏名も残す。
                 plugin.logger.severe(
-                    "write-through失敗[${if (deposit) "deposit" else "withdraw"}] uuid=$uuid 金額=$amount " +
+                    "write-through失敗[${if (deposit) "deposit" else "withdraw"}] エラーID=$errorId " +
+                        "MinecraftID=${name.ifBlank { "(不明)" }} uuid=$uuid 金額=$amount " +
                         "詳細=権威残高を再取得してキャッシュを補正します: ${result.errorMessage()}"
                 )
                 // 接続レベル障害なら即 fail-closed＋WS 再接続を促す（切断検知を待たずに楽観経路の漏れを止める。VaultProvider 4.6 ②）。
                 signalConnectionLossIfTransport(ex)
                 reconcileFromAuthority(uuid)
+                // 在席中のプレイヤーへエラー発生とエラーIDを通知する（オフライン時はログのみで追跡）。
+                // 通知はベストエフォートのため、金額補正（reconcile）を確実に実行した後、最後に行う。
+                notifyWriteFailure(uuid, errorId)
             }
         }
+    }
+
+    /** 追跡用の短いエラーID（8桁英大文字）。ログとプレイヤー通知の突き合わせに使う。 */
+    private fun newErrorId(): String = UUID.randomUUID().toString().take(8).uppercase()
+
+    /**
+     * write-through 失敗を在席中のプレイヤーへ通知する（VaultProvider 4.4）。
+     * - 通知内容は「Man10Bank 上でエラーが発生したこと＋エラーID」。同IDは severe ログにも出ており突き合わせ可能。
+     * - [scope]（IO）から呼ばれるため、在席判定と送信はメインスレッドのタスクで行う。
+     * - オフライン（不在）なら送らない（追跡はログのエラーIDで担保）。
+     * - ベストエフォート: 無効化中などで runTask が失敗しても、呼び出し元（金額補正）へ例外を波及させない。
+     */
+    private fun notifyWriteFailure(uuid: UUID, errorId: String) {
+        runCatching {
+            plugin.server.scheduler.runTask(plugin, Runnable {
+                val player = plugin.server.getPlayer(uuid) ?: return@Runnable
+                Messages.error(
+                    player,
+                    "Man10Bank上でエラーが発生しました。エラーIDを管理者にお伝えください。 エラーID: §e§l$errorId",
+                )
+            })
+        }.onFailure { plugin.logger.fine("エラー通知のディスパッチに失敗しました（無効化中など）: ${it.message}") }
     }
 
     /** 権威残高を再取得してキャッシュを補正する（楽観ドリフトの矯正）。 */

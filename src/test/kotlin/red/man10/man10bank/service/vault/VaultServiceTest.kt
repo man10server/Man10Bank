@@ -232,6 +232,32 @@ class VaultServiceTest {
     }
 
     @Test
+    @DisplayName("write-through失敗: 在席プレイヤーへエラーID付きで通知する（誰がいくらの取引で失敗したか追跡可能）")
+    fun writeThroughFailureNotifiesOnlinePlayer() {
+        val p = server.addPlayer()
+        cache.preload(p.uniqueId, 1000.0, 1)
+        // 接続中だが REST 書き込みが接続レベル障害で失敗する状況を模す。
+        val service = newThrowingService(connected = true, error = java.net.ConnectException("Connection refused"))
+
+        val res = service.deposit(p, 100.0)
+
+        // 楽観経路なので即 SUCCESS だが、非同期 write-through は失敗する。
+        assertTrue(res.transactionSuccess(), "楽観経路は即 SUCCESS を返す")
+        // write-through は scope(IO) で非同期に走り、プレイヤー通知はメインスレッドへディスパッチされる。
+        // MockBukkit はティックでスケジュール済みタスクを実行するため、到達するまでティックを進めて待つ。
+        var message: String? = null
+        var tries = 0
+        while (message == null && tries < 50) {
+            server.scheduler.performTicks(1)
+            message = p.nextMessage()
+            if (message == null) Thread.sleep(10)
+            tries++
+        }
+        assertTrue(message != null && message.contains("エラーID"), "プレイヤーへエラーIDを通知する: $message")
+        assertTrue(message!!.contains("Man10Bank"), "Man10Bank 上でエラーが起きた旨を通知する")
+    }
+
+    @Test
     @DisplayName("move: 成功で電子マネー側キャッシュを確定値に補正し、叩く先は /api/Vault/move のみ（補償の二重書き込みが無い）")
     fun moveReconcilesAndHitsSingleEndpoint() = runBlocking {
         val uuid = UUID.randomUUID()
