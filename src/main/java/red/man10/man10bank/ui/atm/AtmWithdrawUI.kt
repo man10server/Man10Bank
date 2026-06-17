@@ -10,7 +10,6 @@ import red.man10.man10bank.service.VaultManager
 import red.man10.man10bank.ui.InventoryUI
 import red.man10.man10bank.ui.UIButton
 import red.man10.man10bank.util.BalanceFormats
-import red.man10.man10bank.util.Messages
 
 /**
  * 電子マネーを現金に引き出すUI。
@@ -61,15 +60,10 @@ class AtmWithdrawUI(
         base.lore(lore)
 
         val icon = base.clone()
-        return UIButton(icon).onClick { p, _ ->
-            // 出金とアイテム付与・返金補償は AtmService 側で原子的に処理する（DESIGN 3.4）。
-            val granted = atmService.withdrawVaultToCash(player, amount)
-            if (granted <= 0.0) {
-                Messages.warn(p, "残高不足、インベントリ満杯、または引き出しできませんでした。")
-                return@onClick
-            }
-            Messages.send(p, "引き出しました: ${BalanceFormats.coloredYen(granted)}")
-            open()
+        return UIButton(icon).onClick { _, _ ->
+            // 出金・現金付与・返金は AtmService が確定応答方式で処理する（確定→アイテム付与の順。VaultProvider 4.6）。
+            // 完了後（メインスレッド）に UI を開き直して残高表示を更新する。
+            atmService.withdrawVaultToCash(player, amount) { open() }
         }
     }
 }

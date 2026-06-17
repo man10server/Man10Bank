@@ -10,8 +10,6 @@ import red.man10.man10bank.service.AtmService
 import red.man10.man10bank.service.CashItemManager
 import red.man10.man10bank.ui.InventoryUI
 import red.man10.man10bank.ui.UIButton
-import red.man10.man10bank.util.BalanceFormats
-import red.man10.man10bank.util.Messages
 
 /**
  * 現金を電子マネーへ入金するUI。
@@ -29,13 +27,11 @@ class AtmDepositUI(
     size = 54,
     onClose = object : OnClose() {
         override fun onClose(ui: InventoryUI, event: org.bukkit.event.inventory.InventoryCloseEvent) {
-            // クローズ時に入金処理を実行（ボタンクリックで既に処理済みならスキップ）
+            // クローズ時に入金処理を実行（ボタンクリックで既に処理済みならスキップ）。
+            // 入金の確定/返却・メッセージは AtmService 側が確定応答方式で行う。
             val self = ui as AtmDepositUI
             if (self.depositProcessed) return
-            val deposited = self.depositFromMenu()
-            if (deposited > 0.0) {
-                Messages.send(self.player, "入金しました: ${BalanceFormats.coloredYen(deposited)}")
-            }
+            self.depositFromMenu()
             self.depositProcessed = true
         }
     },
@@ -85,11 +81,8 @@ class AtmDepositUI(
             }
         }
         return UIButton(icon).onClick { p, _ ->
-            // 預け入れ領域(0..44)のアイテムを対象に入金
-            val deposited = depositFromMenu()
-            if (deposited > 0.0) {
-                Messages.send(p, "入金しました: ${BalanceFormats.coloredYen(deposited)}")
-            }
+            // 預け入れ領域(0..44)のアイテムを対象に入金（確定/メッセージは AtmService が行う）。
+            depositFromMenu()
             depositProcessed = true
             p.closeInventory()
         }
@@ -98,13 +91,13 @@ class AtmDepositUI(
     /**
      * 預け入れ領域(0..44)の現金を入金する処理を関数化。
      * - 呼び出し元: 入金ボタン押下時 / メニュークローズ時
-     * - 戻り値: 入金額（失敗時0.0）
+     * - 確定応答方式: AtmService が現金を確保→確定入金→（失敗時）返却まで行う。
      */
-    fun depositFromMenu(): Double {
+    fun depositFromMenu() {
         val top = this.getInventory()
         val targets = (0 until 45)
             .mapNotNull { top.getItem(it) }
             .toTypedArray()
-        return atmService.depositCashToVault(player, targets)
+        atmService.depositCashToVault(player, targets)
     }
 }

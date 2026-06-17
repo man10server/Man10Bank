@@ -119,6 +119,17 @@ class Man10EconomyTest {
     }
 
     @Test
+    @DisplayName("fail-closed: 未接続なら（キャッシュ済みでも）deposit/withdraw とも FAILURE・残高不変")
+    fun failClosedWhenDisconnected() {
+        val p = server.addPlayer()
+        cache.preload(p.uniqueId, 1000.0, 1)
+        service.setConnected(false)
+        assertFalse(economy.depositPlayer(p, 100.0).transactionSuccess())
+        assertFalse(economy.withdrawPlayer(p, 100.0).transactionSuccess())
+        assertEquals(1000.0, economy.getBalance(p), "未接続でも読みは継続するが書きは反映されない")
+    }
+
+    @Test
     @DisplayName("未キャッシュ（オフライン/他サーバー在席）は deposit/withdraw とも FAILURE")
     fun offlineRejected() {
         val p = server.addPlayer() // キャッシュには載せない

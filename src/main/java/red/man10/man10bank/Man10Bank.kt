@@ -147,20 +147,23 @@ class Man10Bank : JavaPlugin(), Listener {
         cashItemManager = CashItemManager(this)
         featureToggles = FeatureToggleService(this)
 
+        // 電子マネー(Vault Provider)の中核を先に構築する。
+        // BankService(/deposit /withdraw の move 委譲)と AtmService(確定応答入出金)が VaultService に依存するため。
+        vaultConfig = configManager.loadVaultConfig()
+        vaultCache = VaultCache()
+        vaultApi = VaultApiClient(httpClient)
+        vaultService = VaultService(this, serverName, scope, vaultApi, vaultCache)
+
         chequeService = ChequeService(this, scope, chequesApi, featureToggles)
         serverLoanService = ServerLoanService(this, serverLoanApi, featureToggles)
         serverEstateService = ServerEstateService(this, serverEstateApi)
         estateService = EstateService(this, scope, estateApi, vaultManager, cashItemManager, chequeService)
         loanService = LoanService(this, scope, loanApi, featureToggles)
-        bankService = BankService(this, bankApi, vaultManager, featureToggles)
+        bankService = BankService(this, bankApi, vaultService, featureToggles)
         uiService = UIService(this)
-        atmService = AtmService(this, scope, atmApi, vaultManager, cashItemManager)
+        atmService = AtmService(this, scope, atmApi, vaultService, cashItemManager)
 
-        // 電子マネー(Vault Provider)スタックを構築する。
-        vaultConfig = configManager.loadVaultConfig()
-        vaultCache = VaultCache()
-        vaultApi = VaultApiClient(httpClient)
-        vaultService = VaultService(this, serverName, scope, vaultApi, vaultCache)
+        // Economy アダプタと同期 WebSocket（VaultService 構築後に張る）。
         man10Economy = Man10Economy(this, vaultService, vaultConfig.currencyNameSingular, vaultConfig.currencyNamePlural)
         vaultSync = VaultSyncClient(this, scope, httpClient, vaultService, apiConfig.baseUrl, serverName)
 

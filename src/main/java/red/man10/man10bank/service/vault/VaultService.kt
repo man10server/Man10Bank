@@ -72,6 +72,9 @@ class VaultService(
     fun deposit(player: OfflinePlayer, amount: Double): EconomyResponse {
         val amt = normalize(amount)
         if (amt <= 0.0) return failure("金額が不正です。")
+        // サービス未接続中は楽観更新を行わず即 FAILURE（真実優先・fail-closed。VaultProvider 4.6）。
+        // 未確定の電子マネーを SUCCESS として外部(ショップ等)に渡すと、write-through 不達で増殖の原因になる。
+        if (!isReady()) return failure("電子マネーに接続できないため操作できません。後でもう一度お試しください。")
         val uuid = player.uniqueId
         if (!cache.contains(uuid)) {
             return failure("対象がオフラインのため電子マネーを操作できません。")
@@ -90,6 +93,8 @@ class VaultService(
     fun withdraw(player: OfflinePlayer, amount: Double): EconomyResponse {
         val amt = normalize(amount)
         if (amt <= 0.0) return failure("金額が不正です。")
+        // サービス未接続中は楽観更新を行わず即 FAILURE（真実優先・fail-closed。VaultProvider 4.6）。
+        if (!isReady()) return failure("電子マネーに接続できないため操作できません。後でもう一度お試しください。")
         val uuid = player.uniqueId
         if (!cache.contains(uuid)) {
             return failure("対象がオフラインのため電子マネーを操作できません。")
@@ -103,12 +108,17 @@ class VaultService(
 
     /** 口座を冪等作成する（createPlayerAccount）。非同期で ensure を投入しキャッシュへ反映する。 */
     fun ensureAccount(uuid: UUID, name: String): Boolean {
+        // 未接続中は作成を試みない（接続後の resync / 次回 join のプリロードで反映される。VaultProvider 4.6）。
+        if (!isReady()) return true
         scope.launch {
             api.ensureAccount(uuid).onSuccess { res ->
                 // 既にオンライン（在席）のときだけキャッシュへ載せる。
                 if (plugin.server.getPlayer(uuid) != null) {
                     cache.preload(uuid, res.balance, res.version)
                 }
+            }.onFailure {
+                // 失敗は診断のため記録する（口座作成は冪等なので致命ではない）。
+                plugin.logger.fine("口座の冪等作成に失敗しました uuid=$uuid: ${it.message}")
             }
         }
         return true
@@ -123,6 +133,8 @@ class VaultService(
     suspend fun transfer(fromUuid: UUID, toUuid: UUID, amount: Double, note: String, displayNote: String): Result<Double> {
         val amt = normalize(amount)
         if (amt <= 0.0) return Result.failure(IllegalArgumentException("金額が不正です。"))
+        // 待てる確定経路も未接続なら早期失敗（fail-closed の一貫性。VaultProvider 4.6）。
+        if (!isReady()) return Result.failure(IllegalStateException("電子マネーに接続できません。"))
 
         val result = api.transfer(
             VaultTransferRequest(
@@ -152,6 +164,8 @@ class VaultService(
     ): Result<VaultMoveResponse> {
         val amt = normalize(amount)
         if (amt <= 0.0) return Result.failure(IllegalArgumentException("金額が不正です。"))
+        // 待てる確定経路も未接続なら早期失敗（fail-closed の一貫性。VaultProvider 4.6）。
+        if (!isReady()) return Result.failure(IllegalStateException("電子マネーに接続できません。"))
 
         val result = api.move(
             VaultMoveRequest(
@@ -165,6 +179,34 @@ class VaultService(
             )
         )
         result.onSuccess { res -> cache.reconcile(uuid, res.vaultBalance, res.vaultVersion) }
+        return result
+    }
+
+    /**
+     * 入金を確定（REST await）して結果を返す（ATM 等の確定応答経路。VaultProvider 4.6）。
+     * 楽観 [deposit] と異なり SUCCESS を即返さず、サービス側 user_vault が確定してから返す。
+     * これにより「現金消費後に入金が不達」という増殖/消失を防ぐ。
+     * 成功時のみ確定残高+version でキャッシュを補正する。未接続/失敗は Result.failure。
+     */
+    suspend fun depositConfirmed(uuid: UUID, amount: Double, note: String, displayNote: String): Result<VaultBalanceResponse> {
+        val amt = normalize(amount)
+        if (amt <= 0.0) return Result.failure(IllegalArgumentException("金額が不正です。"))
+        if (!isReady()) return Result.failure(IllegalStateException("電子マネーに接続できません。"))
+        val result = api.deposit(VaultDepositRequest(uuid.toString(), amt, plugin.name, note, displayNote, serverName))
+        result.onSuccess { res -> cache.reconcile(uuid, res.balance, res.version) }
+        return result
+    }
+
+    /**
+     * 出金を確定（REST await）。サービス側が行ロック下で残高を再チェックし、不足は 409。
+     * 成功時のみ確定残高+version でキャッシュを補正する。未接続/不足/失敗は Result.failure。
+     */
+    suspend fun withdrawConfirmed(uuid: UUID, amount: Double, note: String, displayNote: String): Result<VaultBalanceResponse> {
+        val amt = normalize(amount)
+        if (amt <= 0.0) return Result.failure(IllegalArgumentException("金額が不正です。"))
+        if (!isReady()) return Result.failure(IllegalStateException("電子マネーに接続できません。"))
+        val result = api.withdraw(VaultWithdrawRequest(uuid.toString(), amt, plugin.name, note, displayNote, serverName))
+        result.onSuccess { res -> cache.reconcile(uuid, res.balance, res.version) }
         return result
     }
 
@@ -186,6 +228,8 @@ class VaultService(
         val amt = normalize(amount)
         val invalid = if (op == VaultAdminOp.SET) amt < 0.0 else amt <= 0.0
         if (invalid) return Result.failure(IllegalArgumentException("金額が不正です。"))
+        // 管理操作も未接続なら早期失敗（fail-closed の一貫性。VaultProvider 4.6）。
+        if (!isReady()) return Result.failure(IllegalStateException("電子マネーに接続できません。"))
 
         val result = when (op) {
             VaultAdminOp.GIVE -> api.deposit(
