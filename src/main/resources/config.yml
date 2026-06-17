@@ -7,6 +7,7 @@ api:
     connectMs: 3000                    # 接続確立のタイムアウト
     socketMs: 10000                    # ソケット読み書きのタイムアウト
   retries: 2                           # 失敗時の自動リトライ回数（0で無効）
+  wsPingIntervalMs: 10000              # 電子マネー同期WebSocketのping間隔。小さいほどサービス切断検知が速い（0以下で無効）
 
 # 機能トグル（true=有効 / false=無効）。未設定時はデフォルトで全て true。
 features:

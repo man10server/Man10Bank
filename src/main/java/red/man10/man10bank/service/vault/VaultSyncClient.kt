@@ -5,6 +5,7 @@ import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.client.request.url
 import io.ktor.websocket.Frame
 import io.ktor.websocket.WebSocketSession
+import io.ktor.websocket.close
 import io.ktor.websocket.readText
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -65,6 +66,18 @@ class VaultSyncClient(
     suspend fun stop() {
         job?.cancelAndJoin()
         job = null
+    }
+
+    /**
+     * 接続レベル障害を検知した側（[VaultService] の write-through 等）からの要求で、
+     * 現在のセッションを閉じて再接続ループを促す（VaultProvider 4.6 ②）。
+     * セッションを閉じると受信ループが終了し、`connectAndRun` の finally で `setConnected(false)` →
+     * バックオフ後に再接続を試みる。サービスが生きていれば即 `true` に復帰するため固着しない。
+     * 未接続中（session==null）は何もしない。
+     */
+    fun requestReconnect() {
+        val active = session ?: return
+        scope.launch { runCatching { active.close() } }
     }
 
     /** join 時に presence 登録する（接続済みなら即送信。未接続でも再接続時の resync で回復する）。 */

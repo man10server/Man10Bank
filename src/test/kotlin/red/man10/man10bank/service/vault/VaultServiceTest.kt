@@ -67,6 +67,16 @@ class VaultServiceTest {
         return service
     }
 
+    /** エンジンが例外を投げる（接続レベル障害を模す）サービスを作る。 */
+    private fun newThrowingService(connected: Boolean, error: Throwable): VaultService {
+        val engine = MockEngine { throw error }
+        val client = HttpClientFactory.create(config(), engine)
+        clients.add(client)
+        val service = VaultService(plugin, "test", CoroutineScope(Dispatchers.Unconfined), VaultApiClient(client), cache)
+        service.setConnected(connected)
+        return service
+    }
+
     @BeforeEach
     fun setup() {
         server = MockBukkit.mock()
@@ -189,6 +199,36 @@ class VaultServiceTest {
 
         assertTrue(r.isFailure)
         assertTrue(requestPaths.isEmpty())
+    }
+
+    @Test
+    @DisplayName("接続レベル障害: 即 fail-closed（connected=false）にし、WS 再接続を促す")
+    fun transportFailureFlipsConnectedAndRequestsReconnect() = runBlocking {
+        var reconnectRequested = false
+        val service = newThrowingService(connected = true, error = java.net.ConnectException("Connection refused"))
+        service.setReconnectRequester { reconnectRequested = true }
+        assertTrue(service.isReady(), "前提: 接続中")
+
+        val r = service.move(UUID.randomUUID(), 100.0, VaultMoveDirection.VaultToBank, "n", "d")
+
+        assertTrue(r.isFailure)
+        assertFalse(service.isReady(), "接続レベル障害で connected=false に倒す")
+        assertTrue(reconnectRequested, "WS 再接続を促す")
+    }
+
+    @Test
+    @DisplayName("HTTPエラー(409=サービスは応答)では fail-closed にしない（固着回避）")
+    fun httpErrorDoesNotFlipConnected() = runBlocking {
+        var reconnectRequested = false
+        val body = """{"title":"残高が不足しています","status":409,"code":"InsufficientFunds"}"""
+        val service = newService(connected = true, body = body, status = HttpStatusCode.Conflict)
+        service.setReconnectRequester { reconnectRequested = true }
+
+        val r = service.withdrawConfirmed(UUID.randomUUID(), 100.0, "n", "d")
+
+        assertTrue(r.isFailure)
+        assertTrue(service.isReady(), "4xx/5xx は接続生存とみなし connected を維持する")
+        assertFalse(reconnectRequested)
     }
 
     @Test

@@ -20,6 +20,11 @@ class ConfigManager(private val plugin: JavaPlugin) {
         const val DEFAULT_SOCKET_MS: Long = 10_000
         /** 失敗時の自動リトライ回数の既定値。 */
         const val DEFAULT_RETRIES: Int = 2
+        /**
+         * 同期 WebSocket のクライアント側 ping 間隔の既定値（ミリ秒。0以下で無効）。
+         * サーバーが無言で落ちた場合の切断検知をこの間隔程度に短縮する（VaultProvider 4.6）。
+         */
+        const val DEFAULT_WS_PING_MS: Long = 10_000
     }
 
     /** WebAPI のタイムアウト設定 */
@@ -35,6 +40,8 @@ class ConfigManager(private val plugin: JavaPlugin) {
         val apiKey: String?,
         val timeouts: ApiTimeouts = ApiTimeouts(),
         val retries: Int = DEFAULT_RETRIES,
+        /** 同期 WebSocket のクライアント側 ping 間隔（ミリ秒。0以下で無効）。切断検知の上限を縮める。 */
+        val wsPingIntervalMs: Long = DEFAULT_WS_PING_MS,
     )
 
     /**
@@ -88,6 +95,7 @@ class ConfigManager(private val plugin: JavaPlugin) {
         val socketMs = timeouts?.getLong("socketMs", DEFAULT_SOCKET_MS) ?: DEFAULT_SOCKET_MS
 
         val retries = section?.getInt("retries", DEFAULT_RETRIES) ?: DEFAULT_RETRIES
+        val wsPingIntervalMs = section?.getLong("wsPingIntervalMs", DEFAULT_WS_PING_MS) ?: DEFAULT_WS_PING_MS
 
         require(baseUrl.isNotBlank()) { "config.yml の api.baseUrl が未設定です" }
 
@@ -102,6 +110,7 @@ class ConfigManager(private val plugin: JavaPlugin) {
                 socketMs = socketMs,
             ),
             retries = retries,
+            wsPingIntervalMs = wsPingIntervalMs,
         )
     }
 

@@ -15,6 +15,7 @@ import red.man10.man10bank.api.model.request.VaultWithdrawRequest
 import red.man10.man10bank.api.model.response.VaultBalanceResponse
 import red.man10.man10bank.api.model.response.VaultMoveResponse
 import red.man10.man10bank.util.errorMessage
+import java.io.IOException
 import java.util.UUID
 
 /** 管理用の電子マネー操作種別（/meco give|take|set）。 */
@@ -41,13 +42,37 @@ class VaultService(
     @Volatile
     private var connected = false
 
+    /** 接続レベル障害を検知したときに WebSocket の再接続を促すフック（[VaultSyncClient.requestReconnect]）。 */
+    @Volatile
+    private var reconnectRequester: (() -> Unit)? = null
+
     /** 同期接続（WebSocket）の状態。[VaultSyncClient] から更新する。 */
     fun setConnected(value: Boolean) {
         connected = value
     }
 
+    /** 接続レベル障害検知時に WebSocket 再接続を促すフックを登録する（[Man10Bank] が配線する）。 */
+    fun setReconnectRequester(requester: () -> Unit) {
+        reconnectRequester = requester
+    }
+
     /** Economy.isEnabled 用。プラグイン有効かつ同期接続済み。 */
     fun isReady(): Boolean = plugin.isEnabled && connected
+
+    /**
+     * 接続レベル（トランスポート）の失敗なら、WebSocket の切断検知を待たずに **即 fail-closed** にし、
+     * WS 再接続を促す（VaultProvider 4.6 ②）。`IOException`（Connection refused / connect・request timeout 等）が対象。
+     * `ApiHttpException`（4xx/5xx＝サービスは応答している）は対象外。
+     * 復帰可否の判断は再接続に委ねるため、一過性ブリップでも固着しない（成功すれば即 connected=true に戻る）。
+     */
+    private fun signalConnectionLossIfTransport(ex: Throwable?) {
+        // 例外がラップされている場合に備え cause 連鎖も見る（深さは安全のため上限を設ける）。
+        val isTransport = generateSequence(ex) { it.cause }.take(10).any { it is IOException }
+        if (isTransport) {
+            setConnected(false)
+            reconnectRequester?.invoke()
+        }
+    }
 
     // === 同期 Vault 契約 ===
 
@@ -148,6 +173,7 @@ class VaultService(
             )
         )
         result.onSuccess { res -> cache.reconcile(fromUuid, res.balance, res.version) }
+            .onFailure { signalConnectionLossIfTransport(it) }
         return result.map { it.balance }
     }
 
@@ -179,6 +205,7 @@ class VaultService(
             )
         )
         result.onSuccess { res -> cache.reconcile(uuid, res.vaultBalance, res.vaultVersion) }
+            .onFailure { signalConnectionLossIfTransport(it) }
         return result
     }
 
@@ -194,6 +221,7 @@ class VaultService(
         if (!isReady()) return Result.failure(IllegalStateException("電子マネーに接続できません。"))
         val result = api.deposit(VaultDepositRequest(uuid.toString(), amt, plugin.name, note, displayNote, serverName))
         result.onSuccess { res -> cache.reconcile(uuid, res.balance, res.version) }
+            .onFailure { signalConnectionLossIfTransport(it) }
         return result
     }
 
@@ -207,6 +235,7 @@ class VaultService(
         if (!isReady()) return Result.failure(IllegalStateException("電子マネーに接続できません。"))
         val result = api.withdraw(VaultWithdrawRequest(uuid.toString(), amt, plugin.name, note, displayNote, serverName))
         result.onSuccess { res -> cache.reconcile(uuid, res.balance, res.version) }
+            .onFailure { signalConnectionLossIfTransport(it) }
         return result
     }
 
@@ -243,6 +272,7 @@ class VaultService(
             )
         }
         result.onSuccess { res -> cache.reconcile(uuid, res.balance, res.version) }
+            .onFailure { signalConnectionLossIfTransport(it) }
         return result
     }
 
@@ -296,6 +326,8 @@ class VaultService(
                     "write-through失敗[${if (deposit) "deposit" else "withdraw"}] uuid=$uuid 金額=$amount " +
                         "詳細=権威残高を再取得してキャッシュを補正します: ${result.errorMessage()}"
                 )
+                // 接続レベル障害なら即 fail-closed＋WS 再接続を促す（切断検知を待たずに楽観経路の漏れを止める。VaultProvider 4.6 ②）。
+                signalConnectionLossIfTransport(ex)
                 reconcileFromAuthority(uuid)
             }
         }
@@ -307,6 +339,7 @@ class VaultService(
             cache.reconcile(uuid, res.balance, res.version)
         }.onFailure {
             plugin.logger.severe("権威残高の再取得にも失敗しました uuid=$uuid: ${it.message}")
+            signalConnectionLossIfTransport(it)
         }
     }
 

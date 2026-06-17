@@ -166,6 +166,8 @@ class Man10Bank : JavaPlugin(), Listener {
         // Economy アダプタと同期 WebSocket（VaultService 構築後に張る）。
         man10Economy = Man10Economy(this, vaultService, vaultConfig.currencyNameSingular, vaultConfig.currencyNamePlural)
         vaultSync = VaultSyncClient(this, scope, httpClient, vaultService, apiConfig.baseUrl, serverName)
+        // 接続レベル障害を REST 側が検知したら、切断検知を待たず WS を再接続させて即 fail-closed にする（VaultProvider 4.6 ②）。
+        vaultService.setReconnectRequester { vaultSync.requestReconnect() }
 
         // 起動時に現金アイテム設定を読み込む
         val loadedCash = cashItemManager.load()
