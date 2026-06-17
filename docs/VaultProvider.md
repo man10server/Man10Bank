@@ -35,6 +35,7 @@ Man10BankService を唯一の真実（source of truth）にする **非同期・
 - [12. 金額・型の扱い](#12-金額型の扱い)
 - [13. 障害・エッジケース](#13-障害エッジケース)
 - [14. セキュリティ](#14-セキュリティ)
+- [15. 既知のリスク](#15-既知のリスク)
 
 ---
 
@@ -800,3 +801,28 @@ ATM の現金 <-> 電子マネー変換は Vault API を呼ばず、VaultService
 - Paper -> Man10BankService の API キーは `config.yml` / 環境変数管理とし、コミットしない。
 - `serverName` / `sessionId` はクライアント自己申告だけを信用せず、認証情報またはサーバー登録情報と紐づける。
 - `operationId`、`sessionId`、`serverName`、`source` は監査ログに残す。
+
+---
+
+## 15. 既知のリスク
+
+実装前に、次の点は仕様判断または運用上の許容を明確にする。
+
+- 外部 Vault API 経路は `SUCCESS` を返した時点では DB コミット済みではない。外部ショップが商品を渡した後に Man10BankService 側で失敗した場合、自動補償は汎用的にできない。
+- Provider が `SUCCESS` を返した後、未送信操作を永続キューへ退避する前に Paper プロセスがクラッシュすると、その取引は失われ得る。完全保証が必要なら、同期成功前に永続化する設計へ変更する必要がある。
+- 正の未確定差分を `availableBalance` に含めると、DB 未確定の入金を即座に出金可能額として使える。入金確定前の再消費を許容するか、`availableBalance` から正の pending を除外するかを決める必要がある。
+- `pendingDelta` を単一の合計値だけで管理すると、複数の未確定操作のうち一部だけ成功・失敗した場合の消し込みが曖昧になる。実装では `operationId` ごとの pending ledger を保持する必要がある。
+- `operationId` を `vault_log` の UNIQUE だけで扱うと、`transfer` や `move` のような複数ログ・複数残高を返す操作の冪等応答が曖昧になる。必要ならログとは別に idempotency テーブルを用意する。
+- session / presence の保存先、lease 期限、heartbeat 間隔、Man10BankService 再起動時の扱いが未確定。単一アクティブ Provider の正しさに直結するため、実装前に固定する。
+- サーバー移動・kick・transfer・クラッシュ時に旧 session のキュー操作が拒否されると、外部プラグインには成功済みだが DB では失敗する状態になり得る。旧 session の drain 方針を明確にする必要がある。
+- 既存電子マネー移行を行わずに Provider を有効化すると、`user_vault` 初期値 0 により既存 Vault 残高が利用できなくなる。移行完了フラグや起動時 fail-closed の仕組みが必要。
+- 現行の `user_bank` は UUID UNIQUE ではない。`user_vault` と `user_bank` を 1 Tx で扱う `move` を安全に実装するには、既存重複データの整理と bank 側の一意性・ロック戦略を確認する必要がある。
+- `VaultService` の `move` が `user_bank` を更新する場合、既存 `BankService.RunExclusiveAsync` と別経路で bank 更新を行うと競合し得る。既存 BankService の直列化キューに統合するか、行ロック順序を統一する必要がある。
+- `/pay` の意味が既存の bank 送金コマンドと衝突する可能性がある。電子マネー送金へ切り替える場合、コマンド名・権限・ユーザー告知・互換期間を決める必要がある。
+- ATM は Bukkit インベントリ操作と電子マネー操作をまたぐ。VaultService の非同期確定待ちへ置き換える際、アイテム消費・付与・返金の順序を誤ると現金アイテムや電子マネーの増殖・消失が起き得る。
+- 管理者 `editvault` / `setBalance` はオフライン対象や別 Paper 在席対象の扱いが現行挙動と変わる。増額・減額・絶対値設定それぞれの許可条件をコマンド仕様として明確にする必要がある。
+- Vault Economy の全メソッド仕様が未確定。world 別 overload、String / OfflinePlayer overload、`format`、`isEnabled`、`hasAccount`、`createPlayerAccount`、bank 系 API の戻り値を外部プラグイン互換の観点で決める必要がある。
+- 外部プラグインが Vault API をメインスレッド外から呼ぶ可能性がある。Provider キャッシュ操作をスレッドセーフにするか、off-main 呼び出しを拒否・警告するかを決める必要がある。
+- 金額の小数処理が「切り捨て」または「不正として拒否」で未確定。外部 Vault 経由の小数金額をどう扱うかを統一しないと、プラグイン間で金額解釈がずれる。
+- `Long` / `decimal(20)` / `Double` の変換境界で丸めや上限超過が起き得る。既存の 1 兆円上限を vault にも適用するなど、DB 型より狭い実運用上限を明示する必要がある。
+- `serverName` / `sessionId` を自己申告だけで信用しない方針に対して、サーバー別 API key や登録済み server identity との紐づけ方式が未確定。認証と監査の設計に反映する必要がある。
