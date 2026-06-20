@@ -51,8 +51,9 @@ commands:
     description: player loan
     permission: man10bank.lend
   pay:
-    default: op
-    description: vault pay
+    description: 電子マネーをオンラインプレイヤーへ送金
+    usage: /pay <player> <amount>
+    permission: man10bank.pay
   deposit:
     description: VaultからBankへ入金
     usage: /deposit <金額|all>

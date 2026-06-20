@@ -15,3 +15,17 @@ features:
   serverloan: true
   loan: true
   atm: true
+
+# 電子マネー(Vault Provider)設定
+# - providerEnabled: Vault(Economy) Provider 登録の有効/無効。段階導入用トグル。
+# - joinReadyDelayMillis / quitDrainTimeoutMillis: 既定値。Man10BankService の GET config 取得後はそちらを権威とする。
+# - resyncIntervalMillis: オンラインプレイヤーの権威残高を再取得して Provider キャッシュを収束させる定期再同期間隔。
+# - pendingThreshold: 送信待ちキューの未処理件数上限。超過で新規 Provider 書き込みを停止する。
+# - serviceToleranceMillis: 最後の Man10BankService 成功確認からの許容時間。超過で書き込み健全性を DEGRADED に倒す。
+vault:
+  providerEnabled: true
+  joinReadyDelayMillis: 3000
+  quitDrainTimeoutMillis: 3000
+  resyncIntervalMillis: 30000
+  pendingThreshold: 100
+  serviceToleranceMillis: 15000

@@ -992,6 +992,57 @@ Bukkit インベントリ操作はメインスレッド、VaultService と Man10
 - `format(double)` は小数部を切り捨てて 3 桁カンマと `円` を付け、`1234.9` は `"1,234円"` と表示する。
 - `isEnabled()` は Provider が登録済みかつ設定上有効なら `true` とし、一時的な Service 障害では `false` にしない。障害中の `has` は `false`、入出金は `FAILURE` とし、復旧後は再登録なしで再開する。
 
-### 15.3 保留中・未解決のリスク
+### 15.3 保留中・未解決のリスク / 実装上の判断
 
-現時点で追加の未解決リスクはない。
+本節は初回実装(`feature/vault-provider-impl`)で**保留した項目**と、設計本文に対して
+実装時に確定させた**補足的な設計判断**を記録する。保留項目は機能としては設計済みだが、
+追加リスクの封じ込めや段階導入のため実装を後送している。
+
+#### A. 実装を保留した項目
+
+- **ATM の現金 ⇔ 電子マネー変換(§11.4)** — 保留。
+  - 現状: `AtmService` の `depositCashToVault` / `withdrawVaultToCash` は残高・アイテムを一切動かさず、
+    「電子マネー基盤の刷新中のため一時停止」と案内するのみ。
+  - 理由: 旧実装は `VaultManager` の**同期** deposit/withdraw に依存していた。Vault Provider 化で
+    電子マネーは**非同期の権威更新**(DB 確定待ち)になったため、§11.4 の順序(現金消費の確定 → 権威入金 →
+    結果不明時は自動返却しない 等)を満たす非同期フローへ作り替える必要がある。これを誤って同期流用すると
+    増殖/消失を招くため、慎重な設計・テストを要する。`/deposit` `/withdraw`(move)・`/pay`(transfer)・
+    外部ショップ(Provider)は本リリースで稼働する。
+
+- **プラグイン側 WebSocket push クライアント `VaultSyncClient`(§7.4)** — 保留。
+  - 現状: Man10BankService 側の push ハブ(`/api/Vault/ws`・`VaultWsHub`)は実装済み。プラグイン側の
+    WebSocket 受信クライアントは未実装。
+  - 収束は当面、**定期再同期(`vault.resyncIntervalMillis`、§7.4 のフォールバック)+ 確定応答での反映 +
+    `operation_id` 冪等**で担保する。push 導入は収束レイテンシの改善であり、整合性の前提ではない。
+
+- **Provider 送信待ちキューの永続退避(§5.6 / §6.4)** — 保留。
+  - 現状: 送信待ちキューはメモリ保持(`VaultWriteQueue`)。Man10BankService 不調検知時の SQLite / 追記ログへの
+    退避と、復旧後の同一 `operation_id` 再送は未実装。
+  - 影響: Paper クラッシュ時に「SUCCESS 返却済みかつ未送信」の Provider 操作が失われ得る。これは §15.1 の
+    許容済み既知リスクと同種として扱い、Provider 有効化時に `warning` で通知する。永続化は本リスクの
+    軽減策であり、完全な保証ではない(§5.6 と同じ)。
+
+#### B. 実装時に確定させた補足的な設計判断
+
+- **`vault_log` の冪等再送応答** — `version` 列は追加しない。`operation_id` が既存(再送)の場合は
+  再適用せず、**現在の権威残高を再照会して返す**。`transfer` / `move` など複数ログを伴う操作も同様に
+  現在残高の再照会で応答する。これは §15.2「idempotency 専用テーブルは作らず、複数ログ操作の応答復元が
+  曖昧な場合は再照会で扱う」に沿う。`vault_log.operation_id` の UNIQUE が二重適用を防ぐ。
+
+- **Provider キャッシュの並行性** — 「全更新をメインスレッドへ直列化」(§10.2)を、**不変エントリ +
+  `ConcurrentHashMap` の原子的 per-key 更新**で実装した。IO スレッドからの収束更新と Provider
+  (メインスレッド)の読み書きが、ロック/デッドロックなしに安全に共存する。Bukkit API を要する箇所
+  (オンライン判定など)のみメインスレッドで実行する。効果は設計の意図(同一 UUID の予約・確定・取消の
+  整合)と等価。
+
+- **自サーバー在席判定** — 内製 API の減算経路では、Provider キャッシュの `status = READY` を
+  「自サーバーでオンラインかつ取引可能」のシグナルとして用いる(ライフサイクルリスナがメインスレッドで
+  `LOADING → WARMING_UP → READY`、`DRAINING → 破棄` を管理)。これにより IO スレッドからの Bukkit
+  オンライン参照を避ける。
+
+- **金額の型** — プラグイン内部・REST 送信ともに整数円(`Long`)。Man10BankService 側は `decimal(20,0)` で
+  受け、整数性・上限を検証する。`/pay` 等の入力は切り捨てて整数化する。
+
+- **`isProviderEnabled()` と内製経路の独立** — `isEnabled()`/Provider 登録状態は外部 Vault 経路のみを
+  ゲートする。`/pay` `/deposit` `/withdraw` 等の内製コマンドは Vault 本体が無い環境でも VaultService 経由で
+  動作する(書き込み健全性と `READY` 判定には従う)。

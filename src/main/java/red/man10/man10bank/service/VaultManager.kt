@@ -1,85 +1,79 @@
 package red.man10.man10bank.service
 
-import kotlinx.coroutines.CompletableDeferred
-import net.milkbowl.vault.economy.Economy
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import org.bukkit.OfflinePlayer
-import org.bukkit.plugin.RegisteredServiceProvider
 import org.bukkit.plugin.java.JavaPlugin
 import red.man10.man10bank.command.balance.BalanceRegistry
+import red.man10.man10bank.service.vault.VaultService
 import red.man10.man10bank.util.BalanceFormats
 
 /**
- * Vault(Economy) 連携のシンプルなマネージャー。
- * - hook(): サービスから Economy を取得して保持
- * - deposit/withdraw/getBalance/format の薄いラッパーを提供
- * - 同期メソッド(deposit/withdraw/getBalance)はメインスレッドから呼ぶこと。
- *   コルーチン(IOスレッド)からは *OnMain 版を使う(Economy実装はスレッドセーフが保証されない)。
+ * 電子マネー(Vault)操作のファサード(設計書 §11.1)。
+ *
+ * 旧実装は外部 Economy Provider を取得する Consumer だったが、Man10Bank 自身が Provider になったため、
+ * 本クラスは [VaultService] への薄い委譲に作り替えた。既存呼び出し側のシグネチャは維持する。
+ * `ServicesManager.getRegistration(Economy)` で自分自身の Provider を取得する実装は禁止(設計書 §11.1)。
+ *
+ * - 残高参照は Provider キャッシュ(VaultService)から行う。
+ * - depositOnMain/withdrawOnMain は VaultService の権威操作へ委譲する(互換用)。
  */
 class VaultManager(private val plugin: JavaPlugin) {
 
-    @Volatile
-    private var economy: Economy? = null
+    @Volatile private var service: VaultService? = null
+    @Volatile private var scope: CoroutineScope? = null
 
-    /** Vault の Economy を取得して保持します。成功時 true。*/
-    fun hook(): Boolean {
-        val rsp: RegisteredServiceProvider<Economy>? =
-            plugin.server.servicesManager.getRegistration(Economy::class.java)
-        economy = rsp?.provider
-        return economy != null
+    /** Man10Bank 起動時に VaultService を紐付ける。 */
+    fun attach(service: VaultService, scope: CoroutineScope) {
+        this.service = service
+        this.scope = scope
     }
 
-    /** 利用可能かどうか */
-    fun isAvailable(): Boolean = economy != null
+    /** 旧 API 互換の no-op。外部 Economy は取得しない(自身が Provider)。 */
+    @Deprecated("Man10Bank 自身が Vault Provider になったため外部 Economy 取得は行わない")
+    fun hook(): Boolean = service != null
 
-    /** 現在の Economy プロバイダを返します（未取得の場合は null）。*/
-    fun provider(): Economy? = economy
+    /** 電子マネーサービスが利用可能か。 */
+    fun isAvailable(): Boolean = service != null
 
-    /** 残高取得（未接続時は 0.0）。*/
-    fun getBalance(player: OfflinePlayer): Double = economy?.getBalance(player) ?: 0.0
+    /** 旧 API 互換。外部 Economy Provider は保持しない。 */
+    @Deprecated("外部 Economy Provider は取得しない")
+    fun provider(): Nothing? = null
 
-    /** 入金（成功時 true）。*/
-    fun deposit(player: OfflinePlayer, amount: Double): Boolean =
-        economy?.depositPlayer(player, amount)?.transactionSuccess() == true
+    /** 残高取得(同期/メインスレッド)。Provider キャッシュの visibleBalance を返す。未ロードは 0.0。 */
+    fun getBalance(player: OfflinePlayer): Double =
+        service?.providerGetVisibleBalance(player.uniqueId)?.toDouble() ?: 0.0
+
+    /** 残高取得(権威/非同期)。Man10BankService から取得し、オンラインならキャッシュも収束。 */
+    suspend fun getBalanceOnMain(player: OfflinePlayer): Double =
+        service?.getBalance(player.uniqueId)?.toDouble() ?: 0.0
+
+    /** 権威入金(互換用)。VaultService の deposit へ委譲。 */
+    suspend fun depositOnMain(player: OfflinePlayer, amount: Double): Boolean =
+        service?.deposit(player.uniqueId, amount.toLong(), "bank-compat")?.success ?: false
+
+    /** 権威出金(互換用)。VaultService の withdraw へ委譲。 */
+    suspend fun withdrawOnMain(player: OfflinePlayer, amount: Double): Boolean =
+        service?.withdraw(player.uniqueId, amount.toLong(), "bank-compat")?.success ?: false
 
     /**
-     * 出金（成功時 true）。
-     * - プレイヤー残高が不足している場合は出金しないで false を返す
-     * - 0 以下の金額は拒否
+     * 管理者用の絶対値設定(在席状況を問わない)。VaultService.setBalance へ委譲し、結果をメインスレッドで通知する。
      */
-    fun withdraw(player: OfflinePlayer, amount: Double): Boolean {
-        val econ = economy ?: return false
-        if (amount <= 0.0) return false
-        val bal = econ.getBalance(player)
-        if (bal + 1e-6 < amount) return false
-        return econ.withdrawPlayer(player, amount).transactionSuccess()
+    fun setBalanceAsync(player: OfflinePlayer, amount: Long, reason: String, onResult: (VaultService.VaultResult) -> Unit) {
+        val s = service
+        val sc = scope
+        if (s == null || sc == null) {
+            onResult(VaultService.VaultResult.fail("電子マネーサービスが利用できません"))
+            return
+        }
+        sc.launch {
+            val r = s.setBalance(player.uniqueId, amount, reason)
+            plugin.server.scheduler.runTask(plugin, Runnable { onResult(r) })
+        }
     }
 
-    /** 残高取得（メインスレッドへディスパッチして実行）。コルーチンからはこちらを使う。 */
-    suspend fun getBalanceOnMain(player: OfflinePlayer): Double = onMainThread { getBalance(player) }
-
-    /** 入金（メインスレッドへディスパッチして実行）。コルーチンからはこちらを使う。 */
-    suspend fun depositOnMain(player: OfflinePlayer, amount: Double): Boolean = onMainThread { deposit(player, amount) }
-
-    /** 出金（メインスレッドへディスパッチして実行）。コルーチンからはこちらを使う。 */
-    suspend fun withdrawOnMain(player: OfflinePlayer, amount: Double): Boolean = onMainThread { withdraw(player, amount) }
-
-    // Vault(Economy) 実装はスレッドセーフが保証されないため、メインスレッドで実行して結果を待つ（DESIGN 3.5）
-    private suspend fun <T> onMainThread(block: () -> T): T {
-        if (plugin.server.isPrimaryThread) return block()
-        val deferred = CompletableDeferred<T>()
-        plugin.server.scheduler.runTask(plugin, Runnable {
-            try {
-                deferred.complete(block())
-            } catch (t: Throwable) {
-                deferred.completeExceptionally(t)
-            }
-        })
-        return deferred.await()
-    }
-
-    /** 残高表示プロバイダの登録（電子マネー/Vault）。 */
+    /** 残高表示プロバイダの登録(電子マネー/Vault)。表示値はメインスレッド収集済みの context から取得する。 */
     fun registerBalanceProvider() {
-        // Vault 残高はメインスレッドで収集済みの context から取得する（DESIGN 3.5）。
         BalanceRegistry.register(
             id = "vault",
             order = 10,

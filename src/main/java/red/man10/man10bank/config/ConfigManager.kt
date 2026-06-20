@@ -37,6 +37,20 @@ class ConfigManager(private val plugin: JavaPlugin) {
         val retries: Int = DEFAULT_RETRIES,
     )
 
+    /**
+     * 電子マネー(Vault Provider)設定。
+     * joinReadyDelayMillis / quitDrainTimeoutMillis は既定値で、Man10BankService の GET config 取得後は
+     * そちらを権威として VaultService が上書きする。
+     */
+    data class VaultConfig(
+        val providerEnabled: Boolean = true,
+        val joinReadyDelayMillis: Long = 3000,
+        val quitDrainTimeoutMillis: Long = 3000,
+        val resyncIntervalMillis: Long = 30000,
+        val pendingThreshold: Int = 100,
+        val serviceToleranceMillis: Long = 15000,
+    )
+
     /** 設定を読み込み、必要ならデフォルトを保存します。 */
     fun load(): ApiConfig {
         // config.yml が無い場合は生成
@@ -49,6 +63,20 @@ class ConfigManager(private val plugin: JavaPlugin) {
     fun reload(): ApiConfig {
         plugin.reloadConfig()
         return readApiConfig(plugin.config, plugin.logger)
+    }
+
+    /** 電子マネー(Vault Provider)設定を読み込みます。未設定キーは既定値を使う。 */
+    fun loadVaultConfig(): VaultConfig {
+        val section = plugin.config.getConfigurationSection("vault") ?: return VaultConfig()
+        val def = VaultConfig()
+        return VaultConfig(
+            providerEnabled = section.getBoolean("providerEnabled", def.providerEnabled),
+            joinReadyDelayMillis = section.getLong("joinReadyDelayMillis", def.joinReadyDelayMillis),
+            quitDrainTimeoutMillis = section.getLong("quitDrainTimeoutMillis", def.quitDrainTimeoutMillis),
+            resyncIntervalMillis = section.getLong("resyncIntervalMillis", def.resyncIntervalMillis),
+            pendingThreshold = section.getInt("pendingThreshold", def.pendingThreshold),
+            serviceToleranceMillis = section.getLong("serviceToleranceMillis", def.serviceToleranceMillis),
+        )
     }
 
     /**

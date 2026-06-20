@@ -28,6 +28,13 @@ import red.man10.man10bank.command.serverloan.ServerLoanCommand
 import red.man10.man10bank.api.LoanApiClient
 import red.man10.man10bank.command.transaction.BalLogCommand
 import red.man10.man10bank.service.*
+import red.man10.man10bank.service.vault.VaultService
+import red.man10.man10bank.api.VaultApiClient
+import red.man10.man10bank.economy.Man10BankProvider
+import red.man10.man10bank.listener.VaultLifecycleListener
+import red.man10.man10bank.command.transaction.VaultPayCommand
+import net.milkbowl.vault.economy.Economy
+import org.bukkit.plugin.ServicePriority
 
 class Man10Bank : JavaPlugin(), Listener {
 
@@ -57,6 +64,11 @@ class Man10Bank : JavaPlugin(), Listener {
     private lateinit var bankService: BankService
     private lateinit var featureToggles: FeatureToggleService
 
+    // 電子マネー(Vault Provider)関連
+    private lateinit var vaultApi: VaultApiClient
+    private lateinit var vaultService: VaultService
+    private var man10BankProvider: Man10BankProvider? = null
+
     // サーバー識別名（configの serverName が空/未設定の場合はBukkitのサーバー名を使用）
     lateinit var serverName: String
         private set
@@ -84,6 +96,9 @@ class Man10Bank : JavaPlugin(), Listener {
     }
 
     override fun onDisable() {
+        // 電子マネー: バックグラウンド停止 + Economy 登録解除
+        if (this::vaultService.isInitialized) vaultService.shutdown()
+        man10BankProvider?.let { server.servicesManager.unregister(Economy::class.java, it) }
         // スコープとクライアントをクリーンアップ
         if (this::scope.isInitialized) scope.cancel()
         if (this::httpClient.isInitialized) httpClient.close()
@@ -119,6 +134,7 @@ class Man10Bank : JavaPlugin(), Listener {
         serverEstateApi = red.man10.man10bank.api.ServerEstateApiClient(httpClient)
         estateApi = red.man10.man10bank.api.EstateApiClient(httpClient)
         loanApi = LoanApiClient(httpClient)
+        vaultApi = VaultApiClient(httpClient)
 
         vaultManager = VaultManager(this)
         cashItemManager = CashItemManager(this)
@@ -133,16 +149,21 @@ class Man10Bank : JavaPlugin(), Listener {
         uiService = UIService(this)
         atmService = AtmService(this, scope, atmApi, vaultManager, cashItemManager)
 
+        // 電子マネー(Vault Provider)スタックを初期化する。
+        val vaultConfig = configManager.loadVaultConfig()
+        vaultService = VaultService(this, scope, vaultApi, serverName, vaultConfig)
+        vaultManager.attach(vaultService, scope)
+        // Vault 本体がある場合のみ Economy 実装クラスをロード/生成する(無い環境での NoClassDefFoundError 回避)。
+        man10BankProvider = if (server.pluginManager.getPlugin("Vault") != null) {
+            Man10BankProvider(this, vaultService)
+        } else {
+            null
+        }
+
         // 起動時に現金アイテム設定を読み込む
         val loadedCash = cashItemManager.load()
         if (loadedCash.isNotEmpty()) {
             logger.info("現金アイテム設定を ${loadedCash.size} 件読み込みました。")
-        }
-        val hooked = vaultManager.hook()
-        if (!hooked) {
-            logger.warning("Vault(Economy) が見つかりません。経済連携機能は無効です。")
-        } else {
-            logger.info("Vault(Economy) に接続しました: ${vaultManager.provider()?.name}")
         }
     }
 
@@ -160,9 +181,10 @@ class Man10Bank : JavaPlugin(), Listener {
     }
 
     private fun registerCommands() {
-        getCommand("deposit")?.setExecutor(DepositCommand(this, scope, bankService))
-        getCommand("withdraw")?.setExecutor(WithdrawCommand(this, scope, bankService))
+        getCommand("deposit")?.setExecutor(DepositCommand(this, scope, vaultService))
+        getCommand("withdraw")?.setExecutor(WithdrawCommand(this, scope, bankService, vaultService))
         getCommand("mpay")?.setExecutor(PayCommand(this, scope, bankService))
+        getCommand("pay")?.setExecutor(VaultPayCommand(this, scope, vaultService))
         getCommand("ballog")?.setExecutor(BalLogCommand(scope, bankService))
         getCommand("mbaltop")?.setExecutor(red.man10.man10bank.command.balance.BalTopCommand(this, scope, estateService, serverEstateService))
         getCommand("bankop")?.setExecutor(BankOpCommand(this, scope, healthService, cashItemManager, estateService, featureToggles, bankService, serverLoanService, vaultManager))
@@ -186,6 +208,7 @@ class Man10Bank : JavaPlugin(), Listener {
         server.pluginManager.registerEvents(loanService, this)
         server.pluginManager.registerEvents(estateService, this)
         server.pluginManager.registerEvents(cashItemManager, this)
+        server.pluginManager.registerEvents(VaultLifecycleListener(vaultService), this)
     }
 
     private fun registerProviders() {
@@ -194,5 +217,42 @@ class Man10Bank : JavaPlugin(), Listener {
         vaultManager.registerBalanceProvider()
         bankService.registerBalanceProvider()
         serverLoanService.registerBalanceProvider()
+        registerVaultProvider()
+    }
+
+    /**
+     * Man10Bank を Vault(Economy) Provider として ServicesManager に登録し、
+     * VaultService のバックグラウンド処理を開始する(設計書 §10.1)。
+     * Vault 本体が無い場合は Economy 登録のみスキップし、内製 API 経路(コマンド)は引き続き有効。
+     */
+    private fun registerVaultProvider() {
+        val vaultConfig = configManager.loadVaultConfig()
+        val provider = man10BankProvider
+        if (vaultConfig.providerEnabled && provider != null) {
+            server.servicesManager.register(Economy::class.java, provider, this, ServicePriority.High)
+            val effective = server.servicesManager.getRegistration(Economy::class.java)?.provider
+            if (effective === provider) {
+                vaultService.registered = true
+                logger.info("Vault(Economy) Provider として登録しました(電子マネー)。")
+            } else {
+                logger.severe(
+                    "別の Economy Provider が実効になっています(${effective?.javaClass?.name})。Vault Provider 機能を停止します。"
+                )
+                vaultService.setDisabled(true)
+            }
+        } else if (provider == null) {
+            logger.warning("Vault が見つからないため Economy Provider 登録をスキップします(内製 API 経路は有効)。")
+        } else {
+            logger.info("vault.providerEnabled=false のため Economy Provider 登録をスキップします。")
+        }
+
+        // 既知の許容リスク(設計書 §15.1)を起動時に通知する。
+        logger.warning(
+            "[vault] 送信待ちキューはメモリ保持です。Paper 強制終了時、SUCCESS 返却済みで未送信の Provider 操作は失われ得ます(既知の許容リスク)。"
+        )
+
+        // バックグラウンド処理(キュー送信/健全性監視/定期再同期)を開始し、既存オンラインプレイヤーをロードする。
+        vaultService.start()
+        server.onlinePlayers.forEach { vaultService.onJoin(it.uniqueId) }
     }
 }
