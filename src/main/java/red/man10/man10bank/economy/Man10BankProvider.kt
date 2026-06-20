@@ -223,19 +223,41 @@ class Man10BankProvider(
 
     private fun callerPlugin(): String = "vault"
 
-    // メインスレッドで block を実行する。off-main からはディスパッチして結果を待つ。失敗/タイムアウト時は default。
+    // メインスレッドで block を実行する。off-main からはディスパッチして結果を待つ。
+    //
+    // タイムアウト時に「呼び出し元へ FAILURE(default)を返したのに、後でメインスレッドが block を実行して
+    // 予約/キュー登録という副作用を起こす」乖離を防ぐ。これが起きると Vault 呼び出し元には失敗、実際は
+    // DB 出金確定となり、補償有無で増殖/消失する(設計書 §5.2 不変条件3: SUCCESS ⟺ キュー登録)。
+    //
+    // claimed の CAS で「待機側の打ち切り」と「タスクの block 実行」を排他にする:
+    // - タスク側が先に claim → block を実行し実結果を返す(待機側は実結果を待つ)。
+    // - 待機側がタイムアウトで先に claim → タスクは block を実行せず、default を安全に返す。
     private fun <T> onMain(default: T, block: () -> T): T {
         if (plugin.server.isPrimaryThread) {
             return try { block() } catch (t: Throwable) { default }
         }
+        val claimed = java.util.concurrent.atomic.AtomicBoolean(false)
         val future = CompletableFuture<T>()
         try {
             plugin.server.scheduler.runTask(plugin, Runnable {
+                if (!claimed.compareAndSet(false, true)) return@Runnable // 待機側が打ち切り済み: 副作用を実行しない
                 try { future.complete(block()) } catch (t: Throwable) { future.completeExceptionally(t) }
             })
         } catch (t: Throwable) {
             return default
         }
-        return try { future.get(5, TimeUnit.SECONDS) } catch (t: Throwable) { default }
+        return try {
+            future.get(5, TimeUnit.SECONDS)
+        } catch (timeout: java.util.concurrent.TimeoutException) {
+            if (claimed.compareAndSet(false, true)) {
+                // 待機側が先に打ち切った: タスクは block を実行しないため副作用は起きない。
+                default
+            } else {
+                // タスクが既に block 実行中: 実結果を待つ(block はキャッシュ操作のみで短時間)。
+                try { future.get() } catch (t: Throwable) { default }
+            }
+        } catch (t: Throwable) {
+            default
+        }
     }
 }
