@@ -13,6 +13,7 @@ import red.man10.man10bank.api.HealthApiClient
 import red.man10.man10bank.api.BankApiClient
 import red.man10.man10bank.api.AtmApiClient
 import red.man10.man10bank.api.ChequesApiClient
+import red.man10.man10bank.api.PlayersApiClient
 import red.man10.man10bank.command.transaction.DepositCommand
 import red.man10.man10bank.command.transaction.WithdrawCommand
 import red.man10.man10bank.command.transaction.PayCommand
@@ -42,6 +43,8 @@ class Man10Bank : JavaPlugin(), Listener {
     private lateinit var bankApi: BankApiClient
     private lateinit var atmApi: AtmApiClient
     private lateinit var chequesApi: ChequesApiClient
+    private lateinit var playersApi: PlayersApiClient
+    private lateinit var playerRegistry: PlayerRegistryService
     private lateinit var serverLoanApi: ServerLoanApiClient
     private lateinit var serverEstateApi: red.man10.man10bank.api.ServerEstateApiClient
     private lateinit var estateApi: red.man10.man10bank.api.EstateApiClient
@@ -80,6 +83,8 @@ class Man10Bank : JavaPlugin(), Listener {
         registerCommands()
         registerEvents()
         registerProviders()
+        // リロード等で既にオンラインのプレイヤーも名簿へ登録し、保留分の再試行を開始する
+        playerRegistry.start()
         runStartupHealthCheck()
     }
 
@@ -118,6 +123,7 @@ class Man10Bank : JavaPlugin(), Listener {
         bankApi = BankApiClient(httpClient, apiConfig.retries)
         atmApi = AtmApiClient(httpClient)
         chequesApi = ChequesApiClient(httpClient)
+        playersApi = PlayersApiClient(httpClient)
         serverLoanApi = ServerLoanApiClient(httpClient)
         serverEstateApi = red.man10.man10bank.api.ServerEstateApiClient(httpClient)
         estateApi = red.man10.man10bank.api.EstateApiClient(httpClient)
@@ -128,9 +134,10 @@ class Man10Bank : JavaPlugin(), Listener {
         featureToggles = FeatureToggleService(this)
 
         chequeService = ChequeService(this, scope, chequesApi, featureToggles)
+        playerRegistry = PlayerRegistryService(this, scope, playersApi)
         serverLoanService = ServerLoanService(this, serverLoanApi, featureToggles)
         serverEstateService = ServerEstateService(this, serverEstateApi)
-        estateService = EstateService(this, scope, estateApi, vaultManager, cashItemManager, chequeService)
+        estateService = EstateService(this, scope, estateApi, vaultManager, cashItemManager, chequeService, playerRegistry)
         loanService = LoanService(this, scope, loanApi, featureToggles)
         bankService = BankService(this, scope, bankApi, vaultManager, featureToggles)
         uiService = UIService(this)
@@ -185,6 +192,7 @@ class Man10Bank : JavaPlugin(), Listener {
     private fun registerEvents() {
         // GUIのイベントをハンドル
         server.pluginManager.registerEvents(uiService, this)
+        server.pluginManager.registerEvents(playerRegistry, this)
         server.pluginManager.registerEvents(chequeService, this)
         server.pluginManager.registerEvents(loanService, this)
         server.pluginManager.registerEvents(estateService, this)
