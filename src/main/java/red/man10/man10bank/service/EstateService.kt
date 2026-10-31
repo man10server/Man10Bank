@@ -26,6 +26,7 @@ class EstateService(
     private val vault: VaultManager,
     private val cashItemManager: CashItemManager,
     private val chequeService: ChequeService,
+    private val playerRegistry: PlayerRegistryService,
 ) : Listener {
 
     /** プレイヤー自身の資産履歴を取得（失敗時は空リスト）。 */
@@ -64,7 +65,8 @@ class EstateService(
     @EventHandler
     fun onJoin(e: PlayerJoinEvent) {
         // イベントハンドラ（メインスレッド）で Bukkit/Vault 依存値を収集してから非同期送信する（DESIGN 3.5）。
-        dispatchSnapshot(e.player)
+        // サーバー側の名前解決はログイン時の名簿登録に依存するため、初回ログインでは登録完了を待ってから送る。
+        dispatchSnapshot(e.player, awaitRegistration = true)
     }
 
     @EventHandler
@@ -76,12 +78,15 @@ class EstateService(
      * メインスレッドで Bukkit/Vault 依存の資産値（現金・電子マネー・小切手合計）を収集し、
      * HTTP 送信のみを非メインスレッドで実行する（DESIGN 3.5）。
      */
-    private fun dispatchSnapshot(player: Player) {
+    private fun dispatchSnapshot(player: Player, awaitRegistration: Boolean = false) {
         val uuid = player.uniqueId
         val cash = cashItemManager.countTotalCash(player)
         val vaultBal = vault.getBalance(player)
         val chequeTotal = chequeService.countTotalChequeAmount(player)
-        scope.launch { snapshot(uuid, cash, vaultBal, chequeTotal) }
+        scope.launch {
+            if (awaitRegistration) playerRegistry.awaitRegistration(uuid)
+            snapshot(uuid, cash, vaultBal, chequeTotal)
+        }
     }
 
     /**

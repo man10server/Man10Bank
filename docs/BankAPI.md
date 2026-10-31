@@ -48,6 +48,11 @@
 内部では HTTP 経由で Bank Web API（`POST /api/Bank/deposit`、`POST /api/Bank/withdraw`、
 `GET /api/Bank/{uuid}/balance`）を呼び出します。接続先・認証は `config.yml` の `api` セクションで設定します。
 
+入出金の要求には呼び出しごとに生成した冪等キー `requestId`（UUID）が付与されます。タイムアウトや接続断など
+**結果が確定しない失敗**に限って同じ `requestId` で自動再送し（回数は `api.retries`）、サーバーは同じキーの
+再送に初回の結果を返すため二重入金・二重出金にはなりません。再送しても確定しなかった場合は
+[`BankTransactionResult.indeterminate`](#banktransactionresult) が `true` の失敗結果になります。
+
 ---
 
 ## 初期化
@@ -230,6 +235,8 @@ data class BankTransactionResult(
     val errorMessage: String? = null,
     val httpStatus: Int? = null,
     val problem: ProblemDetails? = null,
+    val indeterminate: Boolean = false,
+    val requestId: String? = null,
 )
 ```
 
@@ -240,6 +247,12 @@ data class BankTransactionResult(
 | `errorMessage` | `String?` | 失敗理由の表示用メッセージ。成功時は `null` |
 | `httpStatus` | `Int?` | API が返した HTTP ステータスコード。取得できない場合は `null` |
 | `problem` | `ProblemDetails?` | API が返した `ProblemDetails`。取得できない場合は `null` |
+| `indeterminate` | `Boolean` | **結果不確定**。`true` のときはタイムアウト等でサーバーの応答を確認できず、取引が行われた可能性がある。失敗と断定して補償（返金・アイテム再付与など）を行わないこと |
+| `requestId` | `String?` | この取引に使った冪等キー。サーバーの `idempotency_key` テーブルで処理有無を照会できる |
+
+> ⚠️ `success == false` でも `indeterminate == true` の場合は「失敗」ではなく「不明」です。
+> 例えばショップで出金に使った場合、不明のまま商品を渡さないと「お金だけ引かれた」状態になりえます。
+> `indeterminate` を見て、管理者ログへ `requestId` を残す・後で残高を照合する等の扱いにしてください。
 
 #### 生成用ファクトリ
 
@@ -309,6 +322,9 @@ interface ResultTransaction {
 
 - 推奨 API（`tryXxx` / `asyncTryXxx`）では、この例外が `BankTransactionResult.failure()` により
   `errorMessage` / `httpStatus` / `problem` へ変換されます。残高不足などの業務エラーもここで判別できます。
+- タイムアウト・接続断・中継障害（408/502/503/504）は**結果不確定**として同じ `requestId` で自動再送されます。
+  再送しても確定しない場合は `IndeterminateOutcomeException` となり、推奨 API では
+  `indeterminate = true` の失敗結果に変換されます。互換 API（`Boolean` / `resultCode`）では通常の失敗と区別できません。
 - 互換 API では失敗が `Boolean(false)` または `resultCode = -1` としてのみ通知され、詳細は取得できません。
 - **本体未ロード時の挙動**:
   - 推奨同期/非同期 API → `BankTransactionResult.unavailable()`
@@ -340,7 +356,7 @@ API の接続先・認証・タイムアウトは `Man10Bank` 本体の `config.
 | `api.timeout.requestMs` | リクエストタイムアウト（ms） | `10000` |
 | `api.timeout.connectMs` | 接続タイムアウト（ms） | `3000` |
 | `api.timeout.socketMs` | ソケットタイムアウト（ms） | `10000` |
-| `api.retries` | 失敗時の自動リトライ回数（0〜5 にクランプ） | `2` |
+| `api.retries` | 失敗時の自動リトライ回数（0〜5 にクランプ）。GET の再試行と、入出金が結果不確定になった際の同一 `requestId` での再送回数 | `2` |
 
 ---
 

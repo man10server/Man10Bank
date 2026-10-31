@@ -29,7 +29,8 @@ import red.man10.man10bank.config.ConfigManager.ApiConfig
  *   - socketMs : 読み書きのタイムアウト（`socketTimeoutMillis`）。
  * - retries: 0 より大きい場合は `HttpRequestRetry` を有効化し指数バックオフで再試行します。
  *   ただし冪等メソッド(GET/HEAD)のみが再試行対象で、POST等の非冪等メソッドは
- *   二重実行（二重入金/二重出金）を防ぐため一切リトライしません。
+ *   二重実行（二重入金/二重出金）を防ぐため HTTP 層では一切リトライしません。
+ *   入出金・送金の再送は requestId(冪等キー)付きで BankApiClient 側が行います。
  */
 object HttpClientFactory {
     // 冪等メソッド集合。これらのみリトライ対象とする。

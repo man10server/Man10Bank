@@ -6,6 +6,7 @@ import red.man10.man10bank.api.model.request.TransferRequest
 import red.man10.man10bank.api.model.request.WithdrawRequest
 import red.man10.man10bank.api.model.response.BalanceResponse
 import red.man10.man10bank.api.model.response.MoneyLog
+import red.man10.man10bank.config.ConfigManager
 import java.util.UUID
 
 /**
@@ -16,8 +17,23 @@ import java.util.UUID
  * `{ "balance": number }`（BalanceResponse）を返す契約（DESIGN 1.4/1.5）。
  * 本クライアントは内部で BalanceResponse をデコードし、利用側の型を変えないよう
  * Result<Double> を返す。多段フォールバックや二重GETは行わない。
+ *
+ * 入出金・送金は requestId(冪等キー)付きで送り、タイムアウト等の結果不確定な失敗に限って
+ * 同一内容を [maxRetries] 回まで再送する（[retryIndeterminate]）。確定的な失敗(残高不足等)は再送しない。
+ * 再送しても確定しなかった場合は IndeterminateOutcomeException を失敗として返す。
  */
-class BankApiClient(private val client: HttpClient) {
+class BankApiClient(
+    private val client: HttpClient,
+    private val maxRetries: Int = ConfigManager.DEFAULT_RETRIES,
+    private val retryDelayMs: Long = DEFAULT_RETRY_DELAY_MS,
+) {
+    companion object {
+        /** 再送間隔の基準値（ミリ秒）。試行回数に比例して延びる。 */
+        const val DEFAULT_RETRY_DELAY_MS: Long = 500
+
+        /** 冪等キー(requestId)を生成する。要求ごとに1つ生成し、再送時は同じ値を使うこと。 */
+        fun newRequestId(): String = UUID.randomUUID().toString()
+    }
 
     /** 残高取得。サーバーは `{ "balance": number }` を返す。 */
     suspend fun getBalance(uuid: UUID): Result<Double> =
@@ -29,14 +45,18 @@ class BankApiClient(private val client: HttpClient) {
 
     /** 入金。成功時は操作後の対象残高（Double）が返ります。 */
     suspend fun deposit(body: DepositRequest): Result<Double> =
-        client.postJson<BalanceResponse>("/api/Bank/deposit", body).map { it.balance }
+        retryIndeterminate(body.requestId, maxRetries, retryDelayMs) {
+            client.postJson<BalanceResponse>("/api/Bank/deposit", body).map { it.balance }
+        }
 
     /**
      * 出金。成功時は操作後の対象残高（Double）が返ります。
      * - 非2xx時のエラーメッセージは HttpClientFactory により ApiHttpException へ正規化されます。
      */
     suspend fun withdraw(body: WithdrawRequest): Result<Double> =
-        client.postJson<BalanceResponse>("/api/Bank/withdraw", body).map { it.balance }
+        retryIndeterminate(body.requestId, maxRetries, retryDelayMs) {
+            client.postJson<BalanceResponse>("/api/Bank/withdraw", body).map { it.balance }
+        }
 
     /**
      * 送金（DESIGN 1.5）。
@@ -44,5 +64,7 @@ class BankApiClient(private val client: HttpClient) {
      * - 成功時は送金元の新残高（Double）が返ります。残高不足時は ApiHttpException(409, code=InsufficientFunds)。
      */
     suspend fun transfer(body: TransferRequest): Result<Double> =
-        client.postJson<BalanceResponse>("/api/Bank/transfer", body).map { it.balance }
+        retryIndeterminate(body.requestId, maxRetries, retryDelayMs) {
+            client.postJson<BalanceResponse>("/api/Bank/transfer", body).map { it.balance }
+        }
 }

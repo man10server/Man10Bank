@@ -2,7 +2,11 @@ package red.man10.man10bank.api.model.request
 
 import kotlinx.serialization.Serializable
 
-/** Bank系のリクエストモデル */
+/**
+ * Bank系のリクエストモデル。
+ * - requestId は要求ごとに生成する冪等キー(UUID)。タイムアウト等で結果不明になった要求を
+ *   同じ requestId で再送すると、サーバーは二重実行せず初回の結果を返す。
+ */
 @Serializable
 data class DepositRequest(
     val uuid: String,
@@ -11,6 +15,7 @@ data class DepositRequest(
     val note: String,
     val displayNote: String,
     val server: String,
+    val requestId: String,
 )
 
 @Serializable
@@ -21,6 +26,7 @@ data class WithdrawRequest(
     val note: String,
     val displayNote: String,
     val server: String,
+    val requestId: String,
 )
 
 /**
@@ -38,4 +44,5 @@ data class TransferRequest(
     val note: String,
     val displayNote: String,
     val server: String,
+    val requestId: String,
 )

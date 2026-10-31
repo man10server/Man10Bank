@@ -5,7 +5,9 @@ import org.bukkit.Bukkit
 import org.bukkit.plugin.java.JavaPlugin
 import red.man10.man10bank.api.BankApiClient
 import red.man10.man10bank.api.error.ApiHttpException
+import red.man10.man10bank.api.error.IndeterminateOutcomeException
 import red.man10.man10bank.api.error.ProblemDetails
+import red.man10.man10bank.util.indeterminateMessage
 import red.man10.man10bank.api.model.request.DepositRequest
 import red.man10.man10bank.api.model.request.WithdrawRequest
 import java.util.*
@@ -71,8 +73,9 @@ class BankAPI(private val plugin: JavaPlugin) {
             note = note,
             displayNote = displayNote,
             server = serverName(),
+            requestId = BankApiClient.newRequestId(),
         )
-        return runBlocking { api.withdraw(req) }.toBankTransactionResult()
+        return runBlocking { api.withdraw(req) }.toBankTransactionResult(req.requestId)
     }
 
     /**
@@ -98,8 +101,9 @@ class BankAPI(private val plugin: JavaPlugin) {
             note = note,
             displayNote = displayNote,
             server = serverName(),
+            requestId = BankApiClient.newRequestId(),
         )
-        return runBlocking { api.deposit(req) }.toBankTransactionResult()
+        return runBlocking { api.deposit(req) }.toBankTransactionResult(req.requestId)
     }
 
     // ============ 同期API（互換・非推奨） ============
@@ -190,8 +194,8 @@ class BankAPI(private val plugin: JavaPlugin) {
             return
         }
         plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
-            val req = DepositRequest(uuid.toString(), amount, plugin.name, note, displayNote, serverName())
-            val result = runBlocking { api.deposit(req) }.toBankTransactionResult()
+            val req = DepositRequest(uuid.toString(), amount, plugin.name, note, displayNote, serverName(), BankApiClient.newRequestId())
+            val result = runBlocking { api.deposit(req) }.toBankTransactionResult(req.requestId)
             plugin.server.scheduler.runTask(plugin, Runnable { callback.onResult(result) })
         })
     }
@@ -213,8 +217,8 @@ class BankAPI(private val plugin: JavaPlugin) {
             return
         }
         plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
-            val req = WithdrawRequest(uuid.toString(), amount, plugin.name, note, displayNote, serverName())
-            val result = runBlocking { api.withdraw(req) }.toBankTransactionResult()
+            val req = WithdrawRequest(uuid.toString(), amount, plugin.name, note, displayNote, serverName(), BankApiClient.newRequestId())
+            val result = runBlocking { api.withdraw(req) }.toBankTransactionResult(req.requestId)
             plugin.server.scheduler.runTask(plugin, Runnable { callback.onResult(result) })
         })
     }
@@ -233,7 +237,7 @@ class BankAPI(private val plugin: JavaPlugin) {
             return
         }
         plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
-            val req = DepositRequest(uuid.toString(), amount, plugin.name, note, displayNote, serverName())
+            val req = DepositRequest(uuid.toString(), amount, plugin.name, note, displayNote, serverName(), BankApiClient.newRequestId())
             val result = runBlocking { api.deposit(req) }
             val code = if (result.isSuccess) 0 else -1
             val balance = result.getOrElse { 0.0 }
@@ -253,7 +257,7 @@ class BankAPI(private val plugin: JavaPlugin) {
             return
         }
         plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
-            val req = WithdrawRequest(uuid.toString(), amount, plugin.name, note, displayNote, serverName())
+            val req = WithdrawRequest(uuid.toString(), amount, plugin.name, note, displayNote, serverName(), BankApiClient.newRequestId())
             val result = runBlocking { api.withdraw(req) }
             val code = if (result.isSuccess) 0 else -1
             val balance = result.getOrElse { 0.0 }
@@ -304,14 +308,30 @@ data class BankTransactionResult(
     val httpStatus: Int? = null,
     /** APIが返した ProblemDetails。取得できない場合は null。 */
     val problem: ProblemDetails? = null,
+    /**
+     * 結果不確定かどうか。true の場合、タイムアウト等でサーバーの応答を確認できず、
+     * 取引が **行われた可能性がある**。呼び出し側は失敗と断定して補償(返金・アイテム再付与等)を
+     * 行ってはならない。成功時および確定的な失敗時は false。
+     */
+    val indeterminate: Boolean = false,
+    /** この取引に使った冪等キー(requestId)。サーバー側で処理有無を照会する際に使う。取得できない場合は null。 */
+    val requestId: String? = null,
 ) {
     companion object {
         /** 成功結果を生成します。 */
-        fun success(balance: Double): BankTransactionResult =
-            BankTransactionResult(success = true, balance = balance)
+        fun success(balance: Double, requestId: String? = null): BankTransactionResult =
+            BankTransactionResult(success = true, balance = balance, requestId = requestId)
 
         /** 例外から失敗結果を生成します。 */
-        fun failure(throwable: Throwable): BankTransactionResult {
+        fun failure(throwable: Throwable, requestId: String? = null): BankTransactionResult {
+            if (throwable is IndeterminateOutcomeException) {
+                return BankTransactionResult(
+                    success = false,
+                    errorMessage = indeterminateMessage(throwable.requestId),
+                    indeterminate = true,
+                    requestId = throwable.requestId,
+                )
+            }
             val api = throwable as? ApiHttpException
             val message = api?.problem?.detail
                 ?: api?.problem?.title
@@ -322,6 +342,7 @@ data class BankTransactionResult(
                 errorMessage = message,
                 httpStatus = api?.status?.value,
                 problem = api?.problem,
+                requestId = requestId,
             )
         }
 
@@ -332,8 +353,8 @@ data class BankTransactionResult(
 }
 
 /** [Result] を [BankTransactionResult] へ変換します。 */
-private fun Result<Double>.toBankTransactionResult(): BankTransactionResult =
+private fun Result<Double>.toBankTransactionResult(requestId: String): BankTransactionResult =
     fold(
-        onSuccess = { BankTransactionResult.success(it) },
-        onFailure = { BankTransactionResult.failure(it) },
+        onSuccess = { BankTransactionResult.success(it, requestId) },
+        onFailure = { BankTransactionResult.failure(it, requestId) },
     )
