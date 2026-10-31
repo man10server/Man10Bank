@@ -84,6 +84,8 @@ class Man10Bank : JavaPlugin(), Listener {
     }
 
     override fun onDisable() {
+        // 結果不確定のまま再照会中の取引があれば、スコープを止める前に要確認ログへ残す
+        if (this::bankService.isInitialized) bankService.logUnresolvedOnShutdown()
         // スコープとクライアントをクリーンアップ
         if (this::scope.isInitialized) scope.cancel()
         if (this::httpClient.isInitialized) httpClient.close()
@@ -130,7 +132,7 @@ class Man10Bank : JavaPlugin(), Listener {
         serverEstateService = ServerEstateService(this, serverEstateApi)
         estateService = EstateService(this, scope, estateApi, vaultManager, cashItemManager, chequeService)
         loanService = LoanService(this, scope, loanApi, featureToggles)
-        bankService = BankService(this, bankApi, vaultManager, featureToggles)
+        bankService = BankService(this, scope, bankApi, vaultManager, featureToggles)
         uiService = UIService(this)
         atmService = AtmService(this, scope, atmApi, vaultManager, cashItemManager)
 
