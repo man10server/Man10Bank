@@ -1,6 +1,7 @@
 package red.man10.man10bank.util
 
 import red.man10.man10bank.api.error.ApiHttpException
+import red.man10.man10bank.api.error.IndeterminateOutcomeException
 
 /**
  * ErrorCode名（ApiHttpException.code / ProblemDetails.code）に対応する日本語文言を返す。
@@ -31,8 +32,18 @@ fun localizedMessageForCode(code: String?): String? = when (code) {
     "InterestStopped" -> "利息の計上は停止されています"
     "InterestZero" -> "利息が0です"
     "BeforePaybackDate" -> "返済期限前です"
+    "IdempotencyKeyMismatch" -> "同じ要求IDで内容の異なる要求は処理できません"
     else -> null
 }
+
+/**
+ * 結果不確定(サーバーの応答を確認できなかった)時のプレイヤー向け文言。
+ * - 処理が反映されている可能性があるため、再実行を促さず残高確認を促す。
+ * - 照会IDは requestId の先頭8文字。完全な値はログに出力されている。
+ */
+fun indeterminateMessage(requestId: String): String =
+    "サーバーからの応答を確認できませんでした。処理が反映されている可能性があるため、" +
+        "残高を確認してから再度お試しください（照会ID: ${requestId.take(8)}）"
 
 /**
  * Result からエラー文言を取り出すユーティリティ。
@@ -42,6 +53,10 @@ fun localizedMessageForCode(code: String?): String? = when (code) {
  */
 fun <T> resultErrorMessage(result: Result<T>, defaultMessage: String = "不明なエラー"): String {
     val cause = result.exceptionOrNull()
+    // 結果不確定は「失敗」と断定できないため専用文言にする
+    if (cause is IndeterminateOutcomeException) {
+        return indeterminateMessage(cause.requestId)
+    }
     // ApiHttpException の場合は extensions.code を優先して種別判定する
     if (cause is ApiHttpException) {
         localizedMessageForCode(cause.code)?.let { return it }

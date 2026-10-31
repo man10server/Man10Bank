@@ -18,7 +18,11 @@ class ConfigManager(private val plugin: JavaPlugin) {
         const val DEFAULT_CONNECT_MS: Long = 3_000
         /** ソケット読み書きのタイムアウト既定値（ミリ秒）。 */
         const val DEFAULT_SOCKET_MS: Long = 10_000
-        /** 失敗時の自動リトライ回数の既定値。 */
+        /**
+         * 失敗時の自動リトライ回数の既定値。
+         * - GET(冪等)の 5xx/例外時の再試行回数(HttpClientFactory)。
+         * - 入出金・送金が結果不確定(タイムアウト等)になった際の、同一 requestId での再送回数(BankApiClient)。
+         */
         const val DEFAULT_RETRIES: Int = 2
     }
 

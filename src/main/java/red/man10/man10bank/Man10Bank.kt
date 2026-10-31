@@ -112,7 +112,8 @@ class Man10Bank : JavaPlugin(), Listener {
 
     private fun initServices(apiConfig: ConfigManager.ApiConfig) {
         healthService = HealthService(HealthApiClient(httpClient), apiConfig)
-        bankApi = BankApiClient(httpClient)
+        // 入出金・送金は結果不確定(タイムアウト等)の場合のみ同一 requestId で再送する(回数は api.retries)。
+        bankApi = BankApiClient(httpClient, apiConfig.retries)
         atmApi = AtmApiClient(httpClient)
         chequesApi = ChequesApiClient(httpClient)
         serverLoanApi = ServerLoanApiClient(httpClient)

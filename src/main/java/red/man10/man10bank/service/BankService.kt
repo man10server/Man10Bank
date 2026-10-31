@@ -301,6 +301,7 @@ class BankService(
                 note = "TransferTo${targetName}",
                 displayNote = "${targetName}へ送金",
                 server = plugin.serverName,
+                requestId = BankApiClient.newRequestId(),
             )
         )
 
@@ -346,6 +347,7 @@ class BankService(
             note = note,
             displayNote = displayNote,
             server = plugin.serverName,
+            requestId = BankApiClient.newRequestId(),
         )
 
     private fun depositRequest(uuid: UUID, amount: Double, note: String, displayNote: String): DepositRequest =
@@ -356,6 +358,7 @@ class BankService(
             note = note,
             displayNote = displayNote,
             server = plugin.serverName,
+            requestId = BankApiClient.newRequestId(),
         )
 
     private fun withdrawRequest(player: Player, amount: Double, note: String, displayNote: String): WithdrawRequest =
@@ -366,6 +369,7 @@ class BankService(
             note = note,
             displayNote = displayNote,
             server = plugin.serverName,
+            requestId = BankApiClient.newRequestId(),
         )
 
     private fun withdrawRequest(uuid: UUID, amount: Double, note: String, displayNote: String): WithdrawRequest =
@@ -376,6 +380,7 @@ class BankService(
             note = note,
             displayNote = displayNote,
             server = plugin.serverName,
+            requestId = BankApiClient.newRequestId(),
         )
 
     /**

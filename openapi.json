@@ -2031,6 +2031,14 @@
                         "maxLength": 16,
                         "minLength": 0,
                         "type": "string"
+                    },
+                    "requestId": {
+                        "maxLength": 36,
+                        "minLength": 0,
+                        "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+                        "type": "string",
+                        "nullable": true,
+                        "description": "冪等キー(任意)。要求ごとに生成するUUID。同じキーの再送には初回の結果を返す。"
                     }
                 }
             },
@@ -2675,6 +2683,14 @@
                         "maxLength": 16,
                         "minLength": 0,
                         "type": "string"
+                    },
+                    "requestId": {
+                        "maxLength": 36,
+                        "minLength": 0,
+                        "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+                        "type": "string",
+                        "nullable": true,
+                        "description": "冪等キー(任意)。要求ごとに生成するUUID。同じキーの再送には初回の結果を返す。"
                     }
                 }
             },
@@ -2755,6 +2771,14 @@
                         "maxLength": 16,
                         "minLength": 0,
                         "type": "string"
+                    },
+                    "requestId": {
+                        "maxLength": 36,
+                        "minLength": 0,
+                        "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+                        "type": "string",
+                        "nullable": true,
+                        "description": "冪等キー(任意)。要求ごとに生成するUUID。同じキーの再送には初回の結果を返す。"
                     }
                 }
             }
