@@ -172,7 +172,7 @@ class Man10Bank : JavaPlugin(), Listener {
     private fun registerCommands() {
         getCommand("deposit")?.setExecutor(DepositCommand(this, scope, bankService))
         getCommand("withdraw")?.setExecutor(WithdrawCommand(this, scope, bankService))
-        getCommand("mpay")?.setExecutor(PayCommand(this, scope, bankService))
+        getCommand("mpay")?.setExecutor(PayCommand(this, scope, bankService, playersApi))
         getCommand("ballog")?.setExecutor(BalLogCommand(scope, bankService))
         getCommand("mbaltop")?.setExecutor(red.man10.man10bank.command.balance.BalTopCommand(this, scope, estateService, serverEstateService))
         getCommand("bankop")?.setExecutor(BankOpCommand(this, scope, healthService, cashItemManager, estateService, featureToggles, bankService, serverLoanService, vaultManager))
