@@ -51,9 +51,10 @@ class BalanceCommand(
             cashTotal = cashItemManager.countTotalCash(sender),
         )
 
+        val target = BalanceRegistry.BalanceTarget(sender.uniqueId, sender.name)
         scope.launch {
             val lines = mutableListOf("§e§l===== §kX§e§l${sender.name}のお金§kX §e§l=====")
-            lines.addAll(BalanceRegistry.buildLines(sender, context))
+            lines.addAll(BalanceRegistry.buildLines(target, context))
 
             Bukkit.getScheduler().runTask(plugin, Runnable {
                 Messages.sendMultiline(sender, lines.joinToString("\n"))

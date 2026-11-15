@@ -6,16 +6,21 @@ import red.man10.man10bank.Man10Bank
 import red.man10.man10bank.command.BaseCommand
 import red.man10.man10bank.command.op.sub.HealthSubcommand
 import red.man10.man10bank.command.op.sub.HistorySubcommand
+import red.man10.man10bank.command.op.sub.LookupSubcommand
 import red.man10.man10bank.command.op.sub.SetCashSubcommand
-import red.man10.man10bank.command.op.sub.edit.EditBankSubCommand
-import red.man10.man10bank.command.op.sub.edit.EditServerLoanSubCommand
-import red.man10.man10bank.command.op.sub.edit.EditVaultSubcommand
+import red.man10.man10bank.command.op.sub.adjust.AdjustSubcommand
+import red.man10.man10bank.command.op.sub.adjust.AdjustVerb
+import red.man10.man10bank.command.op.sub.adjust.AdjustableAccount
+import red.man10.man10bank.command.op.sub.adjust.BankAccount
+import red.man10.man10bank.command.op.sub.adjust.ServerLoanAccount
+import red.man10.man10bank.command.op.sub.adjust.VaultAccount
 import red.man10.man10bank.command.op.sub.EnableFeatureSubcommand
 import red.man10.man10bank.command.op.sub.DisableFeatureSubcommand
 import red.man10.man10bank.service.CashItemManager
 import red.man10.man10bank.service.HealthService
 import red.man10.man10bank.service.FeatureToggleService
 import red.man10.man10bank.service.BankService
+import red.man10.man10bank.service.PlayerLookupService
 import red.man10.man10bank.service.ServerLoanService
 import red.man10.man10bank.service.VaultManager
 import red.man10.man10bank.util.Messages
@@ -33,12 +38,20 @@ class BankOpCommand(
     bankService: BankService,
     serverLoanService: ServerLoanService,
     vaultManager: VaultManager,
+    playerLookup: PlayerLookupService,
 ) : BaseCommand(
     allowPlayer = true,
     allowConsole = true,
     allowGeneralUser = true,
     requiredPermission = "man10bank.admin",
 ) {
+
+    // give/take/set で操作できる口座（表示順 = usage の並び）
+    private val adjustableAccounts: List<AdjustableAccount> = listOf(
+        BankAccount(bankService),
+        VaultAccount(plugin, vaultManager),
+        ServerLoanAccount(serverLoanService),
+    )
 
     private val subcommands: Map<String, BankOpSubcommand> = listOf(
         // ヘルスチェック
@@ -47,12 +60,12 @@ class BankOpCommand(
         SetCashSubcommand(cashItemManager),
         // 資産履歴
         HistorySubcommand(plugin, scope, estateService),
-        // 管理者残高調整
-        EditBankSubCommand(scope, bankService),
-        // 管理者サーバーローン調整
-        EditServerLoanSubCommand(plugin, scope, serverLoanService),
-        // 管理者電子マネー調整
-        EditVaultSubcommand(vaultManager),
+        // 指定プレイヤーの所持金表示（運営閲覧）
+        LookupSubcommand(plugin, scope, playerLookup, vaultManager, cashItemManager),
+        // 管理者による残高調整（銀行／電子マネー／サーバーローン借入額）
+        AdjustSubcommand(plugin, scope, AdjustVerb.GIVE, adjustableAccounts, playerLookup),
+        AdjustSubcommand(plugin, scope, AdjustVerb.TAKE, adjustableAccounts, playerLookup),
+        AdjustSubcommand(plugin, scope, AdjustVerb.SET, adjustableAccounts, playerLookup),
         // 機能 有効/無効 切り替え
         EnableFeatureSubcommand(featureToggles),
         DisableFeatureSubcommand(featureToggles),

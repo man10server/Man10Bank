@@ -133,7 +133,12 @@ class CashItemManager(private val plugin: JavaPlugin) : Listener {
             order = 5,
             provider = { _, context ->
                 val total = context.cashTotal
-                if (total <= 0.0) "" else "§b§l現金: ${BalanceFormats.coloredYen(total)}§r"
+                when {
+                    // オフラインの対象はインベントリを参照できない（/bankop lookup）
+                    total == null -> "§b§l現金: §7オフラインのため不明§r"
+                    total <= 0.0 -> ""
+                    else -> "§b§l現金: ${BalanceFormats.coloredYen(total)}§r"
+                }
             }
         )
     }
