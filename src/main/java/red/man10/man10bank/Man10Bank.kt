@@ -45,6 +45,7 @@ class Man10Bank : JavaPlugin(), Listener {
     private lateinit var chequesApi: ChequesApiClient
     private lateinit var playersApi: PlayersApiClient
     private lateinit var playerRegistry: PlayerRegistryService
+    private lateinit var playerLookup: PlayerLookupService
     private lateinit var serverLoanApi: ServerLoanApiClient
     private lateinit var serverEstateApi: red.man10.man10bank.api.ServerEstateApiClient
     private lateinit var estateApi: red.man10.man10bank.api.EstateApiClient
@@ -135,6 +136,7 @@ class Man10Bank : JavaPlugin(), Listener {
 
         chequeService = ChequeService(this, scope, chequesApi, featureToggles)
         playerRegistry = PlayerRegistryService(this, scope, playersApi)
+        playerLookup = PlayerLookupService(this, playersApi)
         serverLoanService = ServerLoanService(this, serverLoanApi, featureToggles)
         serverEstateService = ServerEstateService(this, serverEstateApi)
         estateService = EstateService(this, scope, estateApi, vaultManager, cashItemManager, chequeService, playerRegistry)
@@ -172,7 +174,7 @@ class Man10Bank : JavaPlugin(), Listener {
     private fun registerCommands() {
         getCommand("deposit")?.setExecutor(DepositCommand(this, scope, bankService))
         getCommand("withdraw")?.setExecutor(WithdrawCommand(this, scope, bankService))
-        getCommand("mpay")?.setExecutor(PayCommand(this, scope, bankService, playersApi))
+        getCommand("mpay")?.setExecutor(PayCommand(this, scope, bankService, playerLookup))
         getCommand("ballog")?.setExecutor(BalLogCommand(scope, bankService))
         getCommand("mbaltop")?.setExecutor(red.man10.man10bank.command.balance.BalTopCommand(this, scope, estateService, serverEstateService))
         getCommand("bankop")?.setExecutor(BankOpCommand(this, scope, healthService, cashItemManager, estateService, featureToggles, bankService, serverLoanService, vaultManager))

@@ -1,12 +1,12 @@
 package red.man10.man10bank.service
 
-import kotlinx.coroutines.CompletableDeferred
 import net.milkbowl.vault.economy.Economy
 import org.bukkit.OfflinePlayer
 import org.bukkit.plugin.RegisteredServiceProvider
 import org.bukkit.plugin.java.JavaPlugin
 import red.man10.man10bank.command.balance.BalanceRegistry
 import red.man10.man10bank.util.BalanceFormats
+import red.man10.man10bank.util.runOnMainThread
 
 /**
  * Vault(Economy) 連携のシンプルなマネージャー。
@@ -64,18 +64,7 @@ class VaultManager(private val plugin: JavaPlugin) {
     suspend fun withdrawOnMain(player: OfflinePlayer, amount: Double): Boolean = onMainThread { withdraw(player, amount) }
 
     // Vault(Economy) 実装はスレッドセーフが保証されないため、メインスレッドで実行して結果を待つ（DESIGN 3.5）
-    private suspend fun <T> onMainThread(block: () -> T): T {
-        if (plugin.server.isPrimaryThread) return block()
-        val deferred = CompletableDeferred<T>()
-        plugin.server.scheduler.runTask(plugin, Runnable {
-            try {
-                deferred.complete(block())
-            } catch (t: Throwable) {
-                deferred.completeExceptionally(t)
-            }
-        })
-        return deferred.await()
-    }
+    private suspend fun <T> onMainThread(block: () -> T): T = plugin.runOnMainThread(block)
 
     /** 残高表示プロバイダの登録（電子マネー/Vault）。 */
     fun registerBalanceProvider() {
