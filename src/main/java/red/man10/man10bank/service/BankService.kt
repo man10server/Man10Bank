@@ -3,7 +3,6 @@ package red.man10.man10bank.service
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 import red.man10.man10bank.Man10Bank
 import red.man10.man10bank.api.BankApiClient
@@ -18,7 +17,6 @@ import red.man10.man10bank.util.errorMessage
 import red.man10.man10bank.util.Messages
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.math.abs
 
 /**
  * BankApiClient 向けのサービス。
@@ -52,7 +50,7 @@ class BankService(
     fun registerBalanceProvider() {
         // 銀行残高はHTTP取得のみで context（Bukkit依存値）は不要。
         BalanceRegistry.register(id = "bank", order = 20) { target, _ ->
-            val bal = getBalance(target.uniqueId) ?: 0.0
+            val bal = getBalanceOrNull(target.uniqueId) ?: 0.0
             if (bal <= 0.0) "" else "§b§l銀行: ${BalanceFormats.coloredYen(bal)}§r"
         }
     }
@@ -278,68 +276,19 @@ class BankService(
         notify(uuid, "${BalanceFormats.coloredYen(amt)}円の返金に失敗しました。$reason 管理者に連絡してください。", isError = true)
     }
 
+    /** 銀行残高の取得（管理者コマンド等から UUID 指定で使う）。 */
+    suspend fun getBalance(uuid: UUID): Result<Double> = api.getBalance(uuid)
+
     /**
-     * 管理者用: 指定プレイヤーの銀行残高を指定額に調整する。
-     * - オフラインでも実行可能
-     * - 取引トグルの影響を受けない（管理者操作）
+     * 管理者用: 指定プレイヤーの銀行へ入金する（取引トグルの影響を受けない）。
+     * - 金額は小数点以下を切り捨てる。note / displayNote は取引履歴に残る。
      */
-    suspend fun setBalance(
-        sender: CommandSender,
-        targetUuid: UUID,
-        targetName: String,
-        amount: Double,
-        reason: String,
-    ) {
-        if (amount < 0.0) {
-            Messages.error(plugin, sender, "金額が不正です。0円以上を指定してください。")
-            return
-        }
-        val targetAmount = normalizeAmount(amount)
-        val currentResult = api.getBalance(targetUuid)
-        if (currentResult.isFailure) {
-            Messages.error(plugin, sender, "残高取得に失敗しました: ${currentResult.errorMessage()}")
-            return
-        }
-        val current = currentResult.getOrNull() ?: 0.0
-        if (targetAmount == current) {
-            Messages.send(plugin, sender, "残高は既に ${BalanceFormats.coloredYen(current)} です。")
-            return
-        }
+    suspend fun adminDeposit(uuid: UUID, amount: Double, note: String, displayNote: String): Result<Double> =
+        api.deposit(depositRequest(uuid, normalizeAmount(amount), note, displayNote))
 
-        val diff = targetAmount - current
-        val actor = sender.name
-        val reasonText = reason.trim()
-        val displayNote = if (reasonText.isBlank()) {
-            "管理者(${actor})による残高調整"
-        } else {
-            "管理者(${actor})による残高調整: $reasonText"
-        }
-        val note = "AdminSetBalanceBy${actor}"
-
-        val result = if (diff > 0.0) {
-            api.deposit(depositRequest(targetUuid, diff, note, displayNote))
-        } else {
-            api.withdraw(withdrawRequest(targetUuid, abs(diff), note, displayNote))
-        }
-
-        if (result.isSuccess) {
-            val newBalance = result.getOrNull() ?: targetAmount
-            val diffText = if (diff >= 0.0) {
-                "+${BalanceFormats.coloredYen(diff)}"
-            } else {
-                "-${BalanceFormats.coloredYen(abs(diff))}"
-            }
-            Messages.send(
-                plugin,
-                sender,
-                "残高を調整しました。対象: $targetName 変更: $diffText 変更後: ${BalanceFormats.coloredYen(newBalance)} 理由: $reasonText"
-            )
-        } else {
-            // 結果不確定の場合も errorMessage() が照会ID付きの文言を返す。管理者は残高を確認してから再実行する。
-            val msg = result.errorMessage()
-            Messages.error(plugin, sender, "残高調整に失敗しました: $msg")
-        }
-    }
+    /** 管理者用: 指定プレイヤーの銀行から出金する（取引トグルの影響を受けない）。残高不足はサーバーが 409 で拒否する。 */
+    suspend fun adminWithdraw(uuid: UUID, amount: Double, note: String, displayNote: String): Result<Double> =
+        api.withdraw(withdrawRequest(uuid, normalizeAmount(amount), note, displayNote))
 
     /**
      * /deposit 用の金額解決（null または "all" 相当をインジケータとして扱い、Vault残高を返す）。
@@ -357,7 +306,7 @@ class BankService(
      * /withdraw 用の金額解決（null または "all" 相当で銀行残高）。条件を満たさない場合は null。
      */
     suspend fun resolveWithdrawAmount(player: Player, arg: String?): Double? {
-        val bankBal = getBalance(player.uniqueId) ?: return null
+        val bankBal = getBalanceOrNull(player.uniqueId) ?: return null
         val amount = if (arg.isNullOrBlank() || arg.equals("all", ignoreCase = true)) bankBal else arg.toDoubleOrNull() ?: -1.0
         if (amount > bankBal) return null
         return if (amount > 0.0) amount else null
@@ -533,7 +482,7 @@ class BankService(
     }
 
     /** 銀行残高の取得（エラー時はnull）。*/
-    private suspend fun getBalance(uuid: UUID): Double? =
+    private suspend fun getBalanceOrNull(uuid: UUID): Double? =
         api.getBalance(uuid).getOrNull()
 
 
