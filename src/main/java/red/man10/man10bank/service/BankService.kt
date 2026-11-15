@@ -51,8 +51,8 @@ class BankService(
     /** 残高表示プロバイダを登録（銀行）。 */
     fun registerBalanceProvider() {
         // 銀行残高はHTTP取得のみで context（Bukkit依存値）は不要。
-        BalanceRegistry.register(id = "bank", order = 20) { player, _ ->
-            val bal = getBalance(player)?: 0.0
+        BalanceRegistry.register(id = "bank", order = 20) { target, _ ->
+            val bal = getBalance(target.uniqueId) ?: 0.0
             if (bal <= 0.0) "" else "§b§l銀行: ${BalanceFormats.coloredYen(bal)}§r"
         }
     }
@@ -357,7 +357,7 @@ class BankService(
      * /withdraw 用の金額解決（null または "all" 相当で銀行残高）。条件を満たさない場合は null。
      */
     suspend fun resolveWithdrawAmount(player: Player, arg: String?): Double? {
-        val bankBal = getBalance(player) ?: return null
+        val bankBal = getBalance(player.uniqueId) ?: return null
         val amount = if (arg.isNullOrBlank() || arg.equals("all", ignoreCase = true)) bankBal else arg.toDoubleOrNull() ?: -1.0
         if (amount > bankBal) return null
         return if (amount > 0.0) amount else null
@@ -533,8 +533,8 @@ class BankService(
     }
 
     /** 銀行残高の取得（エラー時はnull）。*/
-    private suspend fun getBalance(player: Player): Double? =
-        api.getBalance(player.uniqueId).getOrNull()
+    private suspend fun getBalance(uuid: UUID): Double? =
+        api.getBalance(uuid).getOrNull()
 
 
     private fun depositRequest(player: Player, amount: Double, note: String, displayNote: String): DepositRequest =

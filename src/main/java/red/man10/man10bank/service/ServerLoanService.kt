@@ -34,9 +34,9 @@ class ServerLoanService(
      */
     fun registerBalanceProvider() {
         // リボ情報はHTTP取得のみで context（Bukkit依存値）は不要。
-        BalanceRegistry.register(id = "serverloan", order = 30) { player, _ ->
-            val loan = get(player).getOrNull()
-            val payInfo = paymentInfo(player).getOrNull()
+        BalanceRegistry.register(id = "serverloan", order = 30) { target, _ ->
+            val loan = get(target.uniqueId).getOrNull()
+            val payInfo = paymentInfo(target.uniqueId).getOrNull()
 
             if (loan == null || loan.borrowAmount!! <= 0.0) {
                 return@register ""
@@ -55,7 +55,13 @@ class ServerLoanService(
     /**
      * プレイヤーから取得
      */
-    suspend fun get(player: Player): Result<ServerLoan> = api.get(player.uniqueId)
+    suspend fun get(player: Player): Result<ServerLoan> = get(player.uniqueId)
+
+    /** UUID から取得（/bankop lookup などオフラインの対象にも使う）。 */
+    suspend fun get(uuid: UUID): Result<ServerLoan> = api.get(uuid)
+
+    /** 返済情報を UUID から取得。 */
+    suspend fun paymentInfo(uuid: UUID): Result<PaymentInfoResponse> = api.paymentInfo(uuid)
 
     /**
      * 借入処理（プレイヤー指定）。
