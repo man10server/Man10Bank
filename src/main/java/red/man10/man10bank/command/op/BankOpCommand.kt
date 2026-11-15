@@ -6,6 +6,7 @@ import red.man10.man10bank.Man10Bank
 import red.man10.man10bank.command.BaseCommand
 import red.man10.man10bank.command.op.sub.HealthSubcommand
 import red.man10.man10bank.command.op.sub.HistorySubcommand
+import red.man10.man10bank.command.op.sub.LookupSubcommand
 import red.man10.man10bank.command.op.sub.SetCashSubcommand
 import red.man10.man10bank.command.op.sub.edit.EditBankSubCommand
 import red.man10.man10bank.command.op.sub.edit.EditServerLoanSubCommand
@@ -16,6 +17,7 @@ import red.man10.man10bank.service.CashItemManager
 import red.man10.man10bank.service.HealthService
 import red.man10.man10bank.service.FeatureToggleService
 import red.man10.man10bank.service.BankService
+import red.man10.man10bank.service.PlayerLookupService
 import red.man10.man10bank.service.ServerLoanService
 import red.man10.man10bank.service.VaultManager
 import red.man10.man10bank.util.Messages
@@ -33,6 +35,7 @@ class BankOpCommand(
     bankService: BankService,
     serverLoanService: ServerLoanService,
     vaultManager: VaultManager,
+    playerLookup: PlayerLookupService,
 ) : BaseCommand(
     allowPlayer = true,
     allowConsole = true,
@@ -47,6 +50,8 @@ class BankOpCommand(
         SetCashSubcommand(cashItemManager),
         // 資産履歴
         HistorySubcommand(plugin, scope, estateService),
+        // 指定プレイヤーの所持金表示（運営閲覧）
+        LookupSubcommand(plugin, scope, playerLookup, vaultManager, cashItemManager),
         // 管理者残高調整
         EditBankSubCommand(scope, bankService),
         // 管理者サーバーローン調整
