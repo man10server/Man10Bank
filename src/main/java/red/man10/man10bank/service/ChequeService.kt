@@ -11,6 +11,7 @@ import org.bukkit.enchantments.Enchantment
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
+import org.bukkit.event.block.Action
 import org.bukkit.event.player.PlayerInteractEvent
 import org.bukkit.inventory.ItemFlag
 import org.bukkit.inventory.ItemStack
@@ -46,6 +47,8 @@ class ChequeService(
 
     @EventHandler
     fun onPlayerInteract(event: PlayerInteractEvent) {
+        // 右クリックのみを対象（左クリックでブロックを叩いただけで使われないようにする）
+        if (event.action != Action.RIGHT_CLICK_AIR && event.action != Action.RIGHT_CLICK_BLOCK) return
         val player = event.player
         val item = event.item ?: return
         val meta = item.itemMeta ?: return
