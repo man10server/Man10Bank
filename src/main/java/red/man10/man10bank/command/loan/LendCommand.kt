@@ -11,6 +11,8 @@ import org.bukkit.inventory.ItemStack
 import red.man10.man10bank.Man10Bank
 import red.man10.man10bank.command.BaseCommand
 import red.man10.man10bank.service.LoanService
+import red.man10.man10bank.service.RecoveryLedger
+import red.man10.man10bank.service.recordItems
 import red.man10.man10bank.ui.loan.CollateralSetupUI
 import red.man10.man10bank.ui.loan.CollateralViewUI
 import red.man10.man10bank.util.BalanceFormats
@@ -37,6 +39,7 @@ class LendCommand(
     private val scope: CoroutineScope,
     private val loanService: LoanService,
     private val featureToggles: FeatureToggleService,
+    private val recovery: RecoveryLedger,
 ) : BaseCommand(allowPlayer = true, allowConsole = false, allowGeneralUser = true, requiredPermission = "man10bank.lend") {
 
     data class Proposal(
@@ -407,10 +410,12 @@ class LendCommand(
         plugin.server.scheduler.runTask(plugin, Runnable {
             val borrower = Bukkit.getPlayer(borrowerUuid)
             if (borrower == null) {
+                val reason = "ローン作成に失敗したが借り手がオフラインのため担保を返却できなかった"
+                val recoveryId = recovery.recordItems(RecoveryLedger.Type.COLLATERAL_RETURN_FAILED, borrowerUuid, items, reason)
                 val encoded = runCatching { ItemStackBase64.encodeItems(items) }.getOrElse { "エンコード失敗: ${it.message}" }
                 plugin.logger.severe(
                     "要手動対応[担保返却失敗] borrower=${borrowerUuid} 件数=${items.size} " +
-                            "詳細=ローン作成に失敗したが借り手がオフラインのため担保を返却できなかった 担保データ(Base64)=${encoded}"
+                            "詳細=${reason} 記録ID=${recoveryId} 担保データ(Base64)=${encoded}"
                 )
                 return@Runnable
             }

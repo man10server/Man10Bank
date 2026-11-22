@@ -44,6 +44,7 @@ class LoanService(
     private val scope: CoroutineScope,
     private val api: LoanApiClient,
     private val featureToggles: FeatureToggleService,
+    private val recovery: RecoveryLedger,
 ) : Listener {
 
     // 借金手形の識別用キー（PDC）
@@ -110,12 +111,19 @@ class LoanService(
             if (cause == null || isIndeterminateFailure(cause)) {
                 // サーバーが作成済み（担保もDBに記録済み）の可能性がある。ここで担保を借り手へ返すと、
                 // 作成済みだった場合に返還・回収でもう一度担保が出てきて二重になるため、返さず運営の確認に回す。
+                // 台帳にはサーバーへ送った担保データをそのまま残し、復元時に作成済みのローンと照合できるようにする。
+                val recoveryId = if (filtered.isEmpty()) "なし(担保なし)" else recovery.recordItems(
+                    RecoveryLedger.Type.LOAN_CREATE_INDETERMINATE, borrower.uniqueId, filtered,
+                    detail = "貸し手=${lender.name} 借入金額=${borrowAmount} 返済金額=${repayAmount} 返済期限=${paybackDateIso}",
+                    lender = lender.uniqueId,
+                    encoded = encoded,
+                )
                 plugin.logger.severe(
                     "要手動対応[ローン作成結果不明] lender=${lender.uniqueId} borrower=${borrower.uniqueId} " +
                         "借入金額=${borrowAmount} 返済金額=${repayAmount} 返済期限=${paybackDateIso} 担保件数=${filtered.size} " +
                         "詳細=サーバーの応答を確認できなかったため担保を返却せず保留した。サーバーDBの loan で作成有無を確認し、" +
                         "作成済みなら貸し手へ手形を渡し、未作成なら借り手へ担保を返却すること 原因=${cause?.message} " +
-                        "担保データ(Base64)=${encoded ?: "なし"}"
+                        "記録ID=${recoveryId} 担保データ(Base64)=${encoded ?: "なし"}"
                 )
                 val collateralNote = if (filtered.isEmpty()) "" else "担保は運営の確認が終わるまで保留されます。"
                 Messages.error(plugin, lender, "ローン作成の結果をサーバーに確認できませんでした。作成されている可能性があるため、運営に連絡してください。")
@@ -316,9 +324,10 @@ class LoanService(
     }
 
     private fun logLostNote(player: Player, loanId: Int, note: ItemStack, reason: String) {
+        val recoveryId = recovery.recordItems(RecoveryLedger.Type.NOTE_RETURN_FAILED, player.uniqueId, listOf(note), reason, loanId = loanId)
         val encoded = runCatching { ItemStackBase64.encode(note) }.getOrElse { "エンコード失敗: ${it.message}" }
         plugin.logger.severe(
-            "要手動対応[手形返却失敗] uuid=${player.uniqueId} loanId=${loanId} 詳細=${reason} 手形データ(Base64)=${encoded}"
+            "要手動対応[手形返却失敗] uuid=${player.uniqueId} loanId=${loanId} 詳細=${reason} 記録ID=${recoveryId} 手形データ(Base64)=${encoded}"
         )
     }
 
@@ -354,9 +363,10 @@ class LoanService(
     }
 
     private fun logLostCollateral(player: Player, loanId: Int, items: List<ItemStack>, reason: String) {
+        val recoveryId = recovery.recordItems(RecoveryLedger.Type.COLLATERAL_HANDOVER_FAILED, player.uniqueId, items, reason, loanId = loanId)
         val encoded = runCatching { ItemStackBase64.encodeItems(items) }.getOrElse { "エンコード失敗: ${it.message}" }
         plugin.logger.severe(
-            "要手動対応[担保受け渡し失敗] uuid=${player.uniqueId} loanId=${loanId} 件数=${items.size} 詳細=${reason} 担保データ(Base64)=${encoded}"
+            "要手動対応[担保受け渡し失敗] uuid=${player.uniqueId} loanId=${loanId} 件数=${items.size} 詳細=${reason} 記録ID=${recoveryId} 担保データ(Base64)=${encoded}"
         )
     }
 
