@@ -340,7 +340,9 @@ class LendCommand(
     // 借り手: 自身の未返済/担保未回収の一覧
     private fun handleBorrowerList(sender: Player): Boolean {
         scope.launch {
+            // サーバーは完済・担保処理済みのものも含めて返すため、未返済か担保が残っているものだけを表示する
             val loans = loanService.getBorrowerLoans(sender)
+                .filter { (it.amount ?: 0.0) > 0.0 || it.hasPendingCollateral }
             if (loans.isEmpty()) {
                 Messages.send(plugin, sender, "未返済または担保未回収の借金はありません。")
                 return@launch
@@ -352,8 +354,11 @@ class LendCommand(
                 val lender = loan.lendPlayer
                 val amount = BalanceFormats.coloredYen(loan.amount ?: 0.0)
                 val deadline = loan.paybackDate?.let { DateFormats.toDateTime(it) } ?: "-"
-                val hasCollateral = !loan.collateralItem.isNullOrBlank()
-                val collateral = if (hasCollateral) "§6担保未回収" else "§7担保なし"
+                val collateral = when {
+                    !loan.hasPendingCollateral -> "§7担保なし"
+                    (loan.amount ?: 0.0) > 0.0 -> "§6担保あり"
+                    else -> "§a担保受取可: /mlend release $id"
+                }
                 lines += "§bID:${id} §f貸し手:${lender} §f支払額:${amount} §f期限:${deadline} §f[$collateral§f]"
             }
             Messages.sendMultiline(plugin, sender, lines.joinToString("\n"))
