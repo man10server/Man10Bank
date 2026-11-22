@@ -30,6 +30,4 @@ class CollateralCollectUI(
     init {
         collaterals?.let { setCollateralItems(it.map { it.clone() }) }
     }
-
-    fun open() { super.open(player) }
 }

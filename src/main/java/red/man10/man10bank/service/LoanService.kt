@@ -21,6 +21,7 @@ import red.man10.man10bank.Man10Bank
 import red.man10.man10bank.api.LoanApiClient
 import red.man10.man10bank.api.model.request.LoanCreateRequest
 import red.man10.man10bank.api.model.response.Loan
+import red.man10.man10bank.ui.loan.CollateralBaseUI
 import red.man10.man10bank.ui.loan.CollateralCollectUI
 import red.man10.man10bank.ui.loan.CollateralDebtorReleaseUI
 import red.man10.man10bank.util.BalanceFormats
@@ -156,11 +157,11 @@ class LoanService(
             Messages.warn(plugin, borrower, "担保データが不正です。")
             return
         }
-        plugin.server.scheduler.runTask(plugin, Runnable {
-            CollateralDebtorReleaseUI(borrower, items, onReleased = {
-                Messages.send(plugin, borrower, "担保の受け取りが完了しました。")
-            }).open()
-        })
+        handOverCollateral(borrower, id, items) { receiver ->
+            CollateralDebtorReleaseUI(receiver, items, onReleased = {
+                Messages.send(plugin, receiver, "担保の受け取りが完了しました。")
+            })
+        }
     }
 
 
@@ -233,12 +234,11 @@ class LoanService(
                         Messages.warn(plugin, collector, "担保アイテムが空です。")
                         return
                     }
-                    // GUI操作はメインスレッドで行う
-                    plugin.server.scheduler.runTask(plugin, Runnable {
-                        CollateralCollectUI(collector, items, onCollected = {
-                            Messages.send(plugin, collector, "担保を回収しました。")
-                        }).open()
-                    })
+                    handOverCollateral(collector, id, items) { receiver ->
+                        CollateralCollectUI(receiver, items, onCollected = {
+                            Messages.send(plugin, receiver, "担保を回収しました。")
+                        })
+                    }
                 }
                 else -> {
                     Messages.error(plugin, collector, "返済処理で不明な状態です。(outcome=${resp.outcome})")
@@ -298,6 +298,44 @@ class LoanService(
         val encoded = runCatching { ItemStackBase64.encode(note) }.getOrElse { "エンコード失敗: ${it.message}" }
         plugin.logger.severe(
             "要手動対応[手形返却失敗] uuid=${player.uniqueId} loanId=${loanId} 詳細=${reason} 手形データ(Base64)=${encoded}"
+        )
+    }
+
+    /**
+     * サーバー側で回収・返還済みになった担保を、受け取り画面で [receiver] へ渡す（GUI操作はメインスレッドで行う）。
+     * 担保の実物はこの時点で手元にしか無いため、どの経路でも消さない:
+     * - 画面を開けなかった場合（他プラグインのキャンセル等）は、インベントリへ直接入れる
+     * - プラグイン停止中やプレイヤーがログアウト済みで渡せない場合は、運営が復旧できるよう担保データを要確認ログへ残す（DESIGN 3.6）
+     */
+    private fun handOverCollateral(
+        receiver: Player,
+        loanId: Int,
+        items: List<ItemStack>,
+        createUI: (Player) -> CollateralBaseUI,
+    ) {
+        if (!plugin.isEnabled) {
+            logLostCollateral(receiver, loanId, items, "プラグイン停止中のため担保を渡せなかった")
+            return
+        }
+        plugin.server.scheduler.runTask(plugin, Runnable {
+            // 応答を待つ間にログアウト・再ログインしている場合があるため、Player を引き直す
+            val online = plugin.server.getPlayer(receiver.uniqueId)
+            if (online == null) {
+                logLostCollateral(receiver, loanId, items, "プレイヤーがログアウト済みのため担保を渡せなかった")
+                return@Runnable
+            }
+            val ui = createUI(online)
+            if (ui.open(online)) return@Runnable
+            val result = ui.returnCollateralItemsTo(online)
+            val dropNote = if (result.dropped > 0) " インベントリに入りきらない${result.dropped}件は足元にドロップしました。" else ""
+            Messages.warn(online, "担保の受け取り画面を開けなかったため、担保${result.returned}件をインベントリに入れました。$dropNote")
+        })
+    }
+
+    private fun logLostCollateral(player: Player, loanId: Int, items: List<ItemStack>, reason: String) {
+        val encoded = runCatching { ItemStackBase64.encodeItems(items) }.getOrElse { "エンコード失敗: ${it.message}" }
+        plugin.logger.severe(
+            "要手動対応[担保受け渡し失敗] uuid=${player.uniqueId} loanId=${loanId} 件数=${items.size} 詳細=${reason} 担保データ(Base64)=${encoded}"
         )
     }
 
