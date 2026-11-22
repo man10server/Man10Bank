@@ -82,10 +82,11 @@ class AtmCommand(
                     val date = log.date?.let { DateFormats.toDateTime(it) } ?: ""
                     "§7[$date] §e$kind§r: $amt"
                 }
-                val arg = if (viewer.uniqueId == target.uniqueId) "log" else "logop"
+                // ページ送りのコマンド。/atm log はページ番号だけを取るので対象名を付けない（付けるとページ番号として読まれない）
+                val commandBase = if (viewer.uniqueId == target.uniqueId) "atm log" else "atm logop $targetName"
                 plugin.server.scheduler.runTask(plugin, Runnable {
                     Messages.send(viewer, "§6===== ${targetName}のATM履歴 =====")
-                    showPaged(viewer, lines, page, "atm $arg $targetName")
+                    showPaged(viewer, lines, page, commandBase)
                 })
             } catch (e: Exception) {
                 val msg = e.message?.let { " 詳細: $it" } ?: ""
