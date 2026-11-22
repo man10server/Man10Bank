@@ -165,6 +165,28 @@ class LoanService(
     }
 
     /**
+     * 運営用（/bankop loan note）: 最新のローン情報で手形を作り直して [receiver] に渡す。
+     * 手形は持参人が回収できるため、再発行すると古い手形も有効なまま残る。誰がどのローンの手形を受け取ったかをログに残す。
+     */
+    suspend fun reissueNote(receiver: Player, id: Int) {
+        val result = api.get(id)
+        val loan = result.getOrNull()
+        if (loan == null) {
+            Messages.error(plugin, receiver, "ローンを取得できませんでした: ${result.errorMessage()}")
+            return
+        }
+        val note = issueDebtNote(loan)
+        val settled = (loan.amount ?: 0.0) <= 0.0
+        plugin.logger.info("手形を再発行しました loanId=${id} 受取者=${receiver.name}(${receiver.uniqueId}) 完済=${settled}")
+        val notice = if (settled) {
+            "ローンID ${id} の手形を再発行しました（完済済みのため回収には使えません）。"
+        } else {
+            "ローンID ${id} の手形を再発行しました。"
+        }
+        handBackNote(receiver, id, note, notice)
+    }
+
+    /**
      * 担保返却の解放（借り手側）。
      * - APIの成功/失敗やUI表示までサービス層で処理する。
      */
