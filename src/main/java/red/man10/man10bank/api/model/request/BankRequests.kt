@@ -27,6 +27,8 @@ data class WithdrawRequest(
     val displayNote: String,
     val server: String,
     val requestId: String,
+    /** サーバーローン延滞中の出金制限を無視する（運営による残高調整用）。 */
+    val ignoreOverdueBlock: Boolean = false,
 )
 
 /**
