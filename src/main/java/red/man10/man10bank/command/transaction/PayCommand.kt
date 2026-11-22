@@ -7,6 +7,7 @@ import org.bukkit.entity.Player
 import red.man10.man10bank.Man10Bank
 import red.man10.man10bank.command.BaseCommand
 import red.man10.man10bank.service.BankService
+import red.man10.man10bank.service.FeatureToggleService
 import red.man10.man10bank.service.PlayerLookupService
 import red.man10.man10bank.service.PlayerLookupService.ResolvedPlayer
 import red.man10.man10bank.util.BalanceFormats
@@ -34,6 +35,7 @@ class PayCommand(
     private val scope: CoroutineScope,
     private val bankService: BankService,
     private val playerLookup: PlayerLookupService,
+    private val featureToggles: FeatureToggleService,
 ) : BaseCommand(
     allowPlayer = true,
     allowConsole = false,
@@ -65,10 +67,16 @@ class PayCommand(
             return true
         }
 
+        // 送金できない状態・金額は確認を求める前に弾く（確認後に拒否すると二度手間になる）
+        if (!featureToggles.isEnabled(FeatureToggleService.Feature.TRANSACTION)) {
+            Messages.error(sender, "取引機能（入金/出金/送金）は現在停止中です。")
+            return true
+        }
         val targetName = args[0]
-        val amount = args[1].toDoubleOrNull() ?: -1.0
-        if (amount <= 0.0) {
-            Messages.error(sender, "金額が不正です。正の数を指定してください。")
+        // 送金額は小数点以下を切り捨てるため、切り捨て後で1円以上か判定する（確認表示も切り捨て後の金額にする）
+        val amount = args[1].toDoubleOrNull()?.takeIf { it.isFinite() }?.toLong()?.toDouble()
+        if (amount == null || amount < 1.0) {
+            Messages.error(sender, "金額が不正です。1円以上を指定してください。")
             return true
         }
 
@@ -103,7 +111,8 @@ class PayCommand(
 
     /** 確認待ちに登録し、同じコマンドの再実行を促す。非メインスレッドからも呼ばれる。 */
     private fun askConfirmation(sender: Player, target: ResolvedPlayer, amount: Double) {
-        if (sender.uniqueId == target.uuid && !sender.isOp) {
+        // 送金処理はOPでも自分宛てを拒否するため、確認の前に同じ条件で弾く
+        if (sender.uniqueId == target.uuid) {
             Messages.error(plugin, sender, "自分自身へは送金できません。")
             return
         }
