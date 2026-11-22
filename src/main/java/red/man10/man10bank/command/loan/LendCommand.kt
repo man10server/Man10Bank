@@ -11,6 +11,8 @@ import org.bukkit.inventory.ItemStack
 import red.man10.man10bank.Man10Bank
 import red.man10.man10bank.command.BaseCommand
 import red.man10.man10bank.service.LoanService
+import red.man10.man10bank.service.RecoveryLedger
+import red.man10.man10bank.service.recordItems
 import red.man10.man10bank.ui.loan.CollateralSetupUI
 import red.man10.man10bank.ui.loan.CollateralViewUI
 import red.man10.man10bank.util.BalanceFormats
@@ -37,6 +39,7 @@ class LendCommand(
     private val scope: CoroutineScope,
     private val loanService: LoanService,
     private val featureToggles: FeatureToggleService,
+    private val recovery: RecoveryLedger,
 ) : BaseCommand(allowPlayer = true, allowConsole = false, allowGeneralUser = true, requiredPermission = "man10bank.lend") {
 
     data class Proposal(
@@ -334,7 +337,8 @@ class LendCommand(
         }
         scope.launch {
             val result = loanService.create(sender, borrower, proposal.borrowAmount, proposal.repayAmount, proposal.paybackDays, collaterals)
-            if (!result) {
+            // 作成されなかったと確定した場合だけ返す（結果不明で返すと、作成済みだった場合に担保が二重になる）
+            if (result == LoanService.CreateResult.FAILED) {
                 returnCollateralsToBorrower(proposal.borrower, collaterals)
             }
         }
@@ -398,7 +402,7 @@ class LendCommand(
         return true
     }
     /**
-     * 最終承認で回収した担保を、ローン作成に失敗した場合に借り手へ返却する。
+     * 最終承認で回収した担保を、ローンが作成されなかったと確定した場合に借り手へ返却する。
      * 借り手がオフラインで返せない場合は、運営が復旧できるよう担保データを要確認ログへ残す（DESIGN 3.6）。
      */
     private fun returnCollateralsToBorrower(borrowerUuid: UUID, items: List<ItemStack>) {
@@ -406,10 +410,12 @@ class LendCommand(
         plugin.server.scheduler.runTask(plugin, Runnable {
             val borrower = Bukkit.getPlayer(borrowerUuid)
             if (borrower == null) {
+                val reason = "ローン作成に失敗したが借り手がオフラインのため担保を返却できなかった"
+                val recoveryId = recovery.recordItems(RecoveryLedger.Type.COLLATERAL_RETURN_FAILED, borrowerUuid, items, reason)
                 val encoded = runCatching { ItemStackBase64.encodeItems(items) }.getOrElse { "エンコード失敗: ${it.message}" }
                 plugin.logger.severe(
                     "要手動対応[担保返却失敗] borrower=${borrowerUuid} 件数=${items.size} " +
-                            "詳細=ローン作成に失敗したが借り手がオフラインのため担保を返却できなかった 担保データ(Base64)=${encoded}"
+                            "詳細=${reason} 記録ID=${recoveryId} 担保データ(Base64)=${encoded}"
                 )
                 return@Runnable
             }

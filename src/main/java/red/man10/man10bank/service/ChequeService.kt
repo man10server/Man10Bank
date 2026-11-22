@@ -35,6 +35,7 @@ class ChequeService(
     private val scope: CoroutineScope,
     private val chequesApi: ChequesApiClient,
     private val featureToggles: FeatureToggleService,
+    private val recovery: RecoveryLedger,
 ) : Listener {
 
     private val idKey = NamespacedKey(plugin, "cheque_id")
@@ -119,9 +120,10 @@ class ChequeService(
     }
 
     private fun logLostCheque(player: Player, cheque: ItemStack, reason: String) {
+        val recoveryId = recovery.recordItems(RecoveryLedger.Type.CHEQUE_RETURN_FAILED, player.uniqueId, listOf(cheque), reason)
         val encoded = runCatching { ItemStackBase64.encode(cheque) }.getOrElse { "エンコード失敗: ${it.message}" }
         plugin.logger.severe(
-            "要手動対応[小切手返却失敗] uuid=${player.uniqueId} 詳細=${reason} 小切手データ(Base64)=${encoded}"
+            "要手動対応[小切手返却失敗] uuid=${player.uniqueId} 詳細=${reason} 記録ID=${recoveryId} 小切手データ(Base64)=${encoded}"
         )
     }
 

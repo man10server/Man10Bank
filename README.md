@@ -64,6 +64,8 @@ Man10サーバー用の総合的な銀行システムプラグインです。オ
 ### 管理者コマンド
 - `/mbaltop` - サーバー残高ランキング
 - `/ballog` - 銀行ログ確認
+- `/bankop loan note <loanId>` - プレイヤーローンの手形を再発行して受け取る
+- `/bankop loan recovery <list|info|give|discard>` - 返せなかった手形・小切手・担保（要手動対応ログの記録）の確認・復元・破棄
 
 ## 権限
 
