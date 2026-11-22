@@ -67,9 +67,12 @@ open class InventoryUI(
     }
 
     /**
-     * プレイヤーにGUIを開く。
+     * プレイヤーにGUIを開く。開けた場合は true（他プラグインが開くのをキャンセルした等で開けなければ false）。
      */
-    fun open(player: Player) { player.openInventory(inventory) }
+    fun open(player: Player): Boolean {
+        player.openInventory(inventory)
+        return player.openInventory.topInventory.holder === this
+    }
 
     /**
      * UIService側からのクリック委譲。

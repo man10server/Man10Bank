@@ -34,5 +34,6 @@ class CollateralSetupUI(
         initialCollaterals?.let { setCollateralItems(it) }
     }
 
-    fun open() { super.open(player) }
+    /** 開けなかった場合は、並べた担保をインベントリへ戻して false を返す。 */
+    fun open(): Boolean = openOrReturn(player)
 }

@@ -128,6 +128,16 @@ open class CollateralBaseUI(
         return ReturnResult(returned, dropped)
     }
 
+    /**
+     * 画面を開く。開けなかった場合（他プラグインが開くのをキャンセルした等）は、担保エリアのアイテムを
+     * プレイヤーへ戻して false を返す。担保エリアには実物が入っているため、開けないまま放置すると消える。
+     */
+    fun openOrReturn(player: Player): Boolean {
+        if (open(player)) return true
+        returnCollateralItemsTo(player)
+        return false
+    }
+
     /** 受け取り画面のクローズ時に、取り出されずに残っていた担保をインベントリへ戻して知らせる。 */
     fun returnRemainingCollateral(player: Player) {
         val result = returnCollateralItemsTo(player)

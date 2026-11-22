@@ -209,10 +209,14 @@ class LendCommand(
         // 登録済みの担保はインベントリから取り出して画面に並べる（閉じると画面の中身がインベントリへ戻る）。
         // 既に手放した分は取り出せないので、画面に並んだものが新しい登録内容になる。
         val current = takeAvailable(sender, proposal.collaterals)
-        CollateralSetupUI(sender, current, onUpdate = { newItems: List<ItemStack> ->
+        val opened = CollateralSetupUI(sender, current, onUpdate = { newItems: List<ItemStack> ->
             proposal.collaterals = newItems
             Messages.send(sender, "担保を登録しました（${newItems.size}件）。担保のアイテムは最終承認まであなたのインベントリに残り、最終承認の時点で回収されます。")
         }).open()
+        if (!opened) {
+            val note = if (current.isNotEmpty()) "登録済みの担保はインベントリに戻しました。" else ""
+            Messages.error(sender, "担保の設定画面を開けませんでした。$note")
+        }
         return true
     }
 
