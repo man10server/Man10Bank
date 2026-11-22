@@ -8,7 +8,8 @@ import red.man10.man10bank.ui.InventoryUI
 /**
  * 担保の受け取り画面。
  * - 債権者が担保を回収するためのUI
- * - スロット0〜8に担保を配置し、取り出して全て空ならクローズ時にコールバック
+ * - スロット0〜7に担保を配置する。サーバー側では開く前に回収済みになっているため、
+ *   取り出さずに閉じた分はクローズ時にインベントリへ戻す（戻さないと担保が消える）
  */
 class CollateralCollectUI(
     private val player: Player,
@@ -21,11 +22,8 @@ class CollateralCollectUI(
     previousUI = previousUI,
     onClose = object : OnClose() {
         override fun onClose(ui: InventoryUI, event: InventoryCloseEvent) {
-            // クローズ時にスロットが空なら受け取り完了とみなす
-            val empty = (ui as CollateralBaseUI).isCollateralAreaEmpty()
-            if (empty) {
-                onCollected()
-            }
+            (ui as CollateralBaseUI).returnRemainingCollateral(player)
+            onCollected()
         }
     }
 ) {

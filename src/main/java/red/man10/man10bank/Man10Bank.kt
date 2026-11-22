@@ -90,6 +90,8 @@ class Man10Bank : JavaPlugin(), Listener {
     }
 
     override fun onDisable() {
+        // 開いているGUIの後処理（担保の返却・ATM入金など）を済ませてから閉じる
+        if (this::uiService.isInitialized) uiService.closeAllForShutdown()
         // 結果不確定のまま再照会中の取引があれば、スコープを止める前に要確認ログへ残す
         if (this::bankService.isInitialized) bankService.logUnresolvedOnShutdown()
         // スコープとクライアントをクリーンアップ

@@ -13,6 +13,7 @@ import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
 import org.bukkit.event.block.Action.*
 import org.bukkit.event.player.PlayerInteractEvent
+import org.bukkit.inventory.EquipmentSlot
 import org.bukkit.inventory.ItemFlag
 import org.bukkit.inventory.ItemStack
 import org.bukkit.persistence.PersistentDataType
@@ -186,71 +187,118 @@ class LoanService(
 
         // 手形の使用を処理
         event.isCancelled = true
+        // 使った手形はこの時点で手から1枚取り上げて預かる。以前は応答を待ってから元の手形を消していたため、
+        // 待っている間に手形を動かされる(移動・ドロップ等で別のアイテムになる)と消し損ねて手形が複製されていた。
+        val note = takeOneNoteFromHand(player, event.hand, id) ?: return
         scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            repay(player, id, item)
+            repay(player, id, note)
         }
     }
 
-    private suspend fun repay(collector: Player, id: Int, usedItem: ItemStack?) {
-        val result = api.repay(id, collector.uniqueId.toString())
+    /**
+     * 手形での返済（回収）。[note] は呼び出し元で手から取り上げ済みの手形。
+     * 最新のローン情報で作り直した手形を渡せた場合はそれを、返済されなかった・最新情報を取れなかった場合は
+     * 元の手形をそのまま返す（どの経路でも預かった手形が消えないように finally で返す）。
+     */
+    private suspend fun repay(collector: Player, id: Int, note: ItemStack) {
+        var replacement: ItemStack? = null
+        var notice: String? = null
+        try {
+            val result = api.repay(id, collector.uniqueId.toString())
 
-        if (!result.isSuccess) {
-            val msg = result.errorMessage()
-            Messages.error(plugin, collector, "返済処理に失敗しました: $msg")
-            return
-        }
-        val resp = result.getOrNull()
-        if (resp == null) {
-            Messages.error(plugin, collector, "返済処理に失敗しました。")
-            return
-        }
-        when (resp.outcome) {
-            0 -> {
-                val collected = resp.collectedAmount
-                val remaining = resp.remainingAmount
-                Messages.send(plugin, collector, "返済を回収しました。金額: ${BalanceFormats.coloredYen(collected)} 残額: ${BalanceFormats.coloredYen(remaining)}")
+            if (!result.isSuccess) {
+                val msg = result.errorMessage()
+                Messages.error(plugin, collector, "返済処理に失敗しました: $msg")
+                return
             }
-            1 -> {
-                val base64 = resp.collateralItem
-                if (base64.isNullOrBlank()) {
-                    Messages.warn(plugin, collector, "担保データが見つかりませんでした。")
-                    return
+            val resp = result.getOrNull()
+            if (resp == null) {
+                Messages.error(plugin, collector, "返済処理に失敗しました。")
+                return
+            }
+            when (resp.outcome) {
+                0 -> {
+                    val collected = resp.collectedAmount
+                    val remaining = resp.remainingAmount
+                    Messages.send(plugin, collector, "返済を回収しました。金額: ${BalanceFormats.coloredYen(collected)} 残額: ${BalanceFormats.coloredYen(remaining)}")
                 }
-                val items = decodeCollateralItems(collector, id, base64, "collector") ?: return
-                if (items.isEmpty()) {
-                    Messages.warn(plugin, collector, "担保アイテムが空です。")
-                    return
+                1 -> {
+                    val base64 = resp.collateralItem
+                    if (base64.isNullOrBlank()) {
+                        Messages.warn(plugin, collector, "担保データが見つかりませんでした。")
+                        return
+                    }
+                    val items = decodeCollateralItems(collector, id, base64, "collector") ?: return
+                    if (items.isEmpty()) {
+                        Messages.warn(plugin, collector, "担保アイテムが空です。")
+                        return
+                    }
+                    // GUI操作はメインスレッドで行う
+                    plugin.server.scheduler.runTask(plugin, Runnable {
+                        CollateralCollectUI(collector, items, onCollected = {
+                            Messages.send(plugin, collector, "担保を回収しました。")
+                        }).open()
+                    })
                 }
-                // GUI操作はメインスレッドで行う
-                plugin.server.scheduler.runTask(plugin, Runnable {
-                    CollateralCollectUI(collector, items, onCollected = {
-                        Messages.send(plugin, collector, "担保を回収しました。")
-                    }).open()
-                })
+                else -> {
+                    Messages.error(plugin, collector, "返済処理で不明な状態です。(outcome=${resp.outcome})")
+                }
             }
-            else -> {
-                Messages.error(plugin, collector, "返済処理で不明な状態です。(outcome=${resp.outcome})")
-            }
-        }
 
-        // 返済後に最新のローン情報で手形を更新
-        val loanRes = api.get(id)
-        if (!loanRes.isSuccess) {
-            val msg = loanRes.errorMessage()
-            Messages.error(plugin, collector, "最新のローン情報の取得に失敗しました: $msg")
+            // 返済後に最新のローン情報で手形を作り直す
+            val loanRes = api.get(id)
+            if (!loanRes.isSuccess) {
+                val msg = loanRes.errorMessage()
+                Messages.error(plugin, collector, "最新のローン情報の取得に失敗しました: $msg")
+                return
+            }
+            val loan = loanRes.getOrNull() ?: return
+            replacement = issueDebtNote(loan)
+            val settled = (loan.amount ?: 0.0) <= 0.0
+            notice = if (settled) "返済が完了したため、手形を完済済みにしました。" else "手形を更新しました。"
+        } finally {
+            handBackNote(collector, id, replacement ?: note, notice)
+        }
+    }
+
+    /**
+     * 手に持っている手形を1枚取り上げて返す。手の手形がこのローンのものでなければ null。
+     * メインスレッドで呼ぶこと。
+     */
+    private fun takeOneNoteFromHand(player: Player, hand: EquipmentSlot?, id: Int): ItemStack? {
+        val slot = hand ?: return null
+        val inHand = player.inventory.getItem(slot)
+        if (getLoanId(inHand) != id) return null
+        val taken = inHand.asOne()
+        player.inventory.setItem(slot, if (inHand.amount > 1) inHand.clone().apply { amount -= 1 } else null)
+        return taken
+    }
+
+    /**
+     * 預かっていた手形（または作り直した手形）をプレイヤーへ渡す。
+     * プラグイン停止中やプレイヤーがログアウト済みで渡せない場合は、運営が復旧できるよう手形データを要確認ログへ残す（DESIGN 3.6）。
+     */
+    private fun handBackNote(player: Player, loanId: Int, note: ItemStack, notice: String?) {
+        if (!plugin.isEnabled) {
+            logLostNote(player, loanId, note, "プラグイン停止中のため手形を返せなかった")
             return
         }
-        val loan = loanRes.getOrNull() ?: return
-
-        val updatedNote = issueDebtNote(loan)
         plugin.server.scheduler.runTask(plugin, Runnable {
-            usedItem?.amount = 0
-            val leftover = collector.inventory.addItem(updatedNote)
-            if (leftover.isNotEmpty()) {
-                leftover.values.forEach { collector.world.dropItemNaturally(collector.location, it) }
+            val online = plugin.server.getPlayer(player.uniqueId)
+            if (online == null) {
+                logLostNote(player, loanId, note, "プレイヤーがログアウト済みのため手形を返せなかった")
+                return@Runnable
             }
-            Messages.send(plugin, collector, "手形を更新しました。")
+            online.inventory.addItem(note).values.forEach { online.world.dropItemNaturally(online.location, it) }
+            notice?.let { Messages.send(online, it) }
         })
+    }
+
+    private fun logLostNote(player: Player, loanId: Int, note: ItemStack, reason: String) {
+        val encoded = runCatching { ItemStackBase64.encode(note) }.getOrElse { "エンコード失敗: ${it.message}" }
+        plugin.logger.severe(
+            "要手動対応[手形返却失敗] uuid=${player.uniqueId} loanId=${loanId} 詳細=${reason} 手形データ(Base64)=${encoded}"
+        )
     }
 
     private fun issueDebtNote(loan: Loan): ItemStack {
@@ -261,18 +309,25 @@ class LoanService(
 
         val borrowerName = Bukkit.getOfflinePlayer(UUID.fromString(loan.borrowUuid)).name
         val paybackText = DateFormats.toDate(loan.paybackDate!!)
-        val hasCollateral = !loan.collateralItem.isNullOrBlank()
         val debt = BalanceFormats.amount(loan.amount?:0.0)
-        val lore = listOf(
+        // 完済（支払額0）の手形は使い道が無いため、使用済み小切手と同様に「完済」と表示して識別キーを付けない
+        val settled = (loan.amount ?: 0.0) <= 0.0
+        val collateralText = when {
+            loan.collateralItem.isNullOrBlank() -> "なし"
+            loan.collateralReleased -> "処理済み"
+            else -> "あり"
+        }
+        val lore = mutableListOf(
             Component.text("§4§l========[Man10Bank]========"),
             Component.text("   §7§l債務者:  $borrowerName"),
             Component.text("   §8§l有効日:  $paybackText"),
             Component.text("   §7§l支払額:  $debt 円" ),
-            Component.text("   §8§l担保等:  ${if (hasCollateral) "あり" else "なし"}"),
-            Component.text("§4§l==========================")
+            Component.text("   §8§l担保等:  $collateralText"),
         )
+        if (settled) lore.add(Component.text("  §c§o[完済]  "))
+        lore.add(Component.text("§4§l=========================="))
         meta.lore(lore)
-        meta.persistentDataContainer.set(loanIdKey, PersistentDataType.INTEGER, loan.id ?: -1)
+        if (!settled) meta.persistentDataContainer.set(loanIdKey, PersistentDataType.INTEGER, loan.id ?: -1)
 
         meta.addEnchant(Enchantment.FORTUNE, 1, true)
         meta.addItemFlags(ItemFlag.HIDE_ENCHANTS)
