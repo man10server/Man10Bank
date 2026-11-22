@@ -334,7 +334,8 @@ class LendCommand(
         }
         scope.launch {
             val result = loanService.create(sender, borrower, proposal.borrowAmount, proposal.repayAmount, proposal.paybackDays, collaterals)
-            if (!result) {
+            // 作成されなかったと確定した場合だけ返す（結果不明で返すと、作成済みだった場合に担保が二重になる）
+            if (result == LoanService.CreateResult.FAILED) {
                 returnCollateralsToBorrower(proposal.borrower, collaterals)
             }
         }
@@ -398,7 +399,7 @@ class LendCommand(
         return true
     }
     /**
-     * 最終承認で回収した担保を、ローン作成に失敗した場合に借り手へ返却する。
+     * 最終承認で回収した担保を、ローンが作成されなかったと確定した場合に借り手へ返却する。
      * 借り手がオフラインで返せない場合は、運営が復旧できるよう担保データを要確認ログへ残す（DESIGN 3.6）。
      */
     private fun returnCollateralsToBorrower(borrowerUuid: UUID, items: List<ItemStack>) {

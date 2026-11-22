@@ -19,8 +19,10 @@ import org.bukkit.inventory.ItemStack
 import org.bukkit.persistence.PersistentDataType
 import red.man10.man10bank.Man10Bank
 import red.man10.man10bank.api.LoanApiClient
+import red.man10.man10bank.api.isIndeterminateFailure
 import red.man10.man10bank.api.model.request.LoanCreateRequest
 import red.man10.man10bank.api.model.response.Loan
+import red.man10.man10bank.ui.loan.CollateralBaseUI
 import red.man10.man10bank.ui.loan.CollateralCollectUI
 import red.man10.man10bank.ui.loan.CollateralDebtorReleaseUI
 import red.man10.man10bank.util.BalanceFormats
@@ -48,9 +50,19 @@ class LoanService(
     private val loanIdKey = NamespacedKey(plugin, "loan_id")
     private val oldIdKey = NamespacedKey(plugin, "id")
 
+    /** [create] の結果。 */
+    enum class CreateResult {
+        /** 作成された（貸し手へ手形を発行済み）。 */
+        CREATED,
+        /** 作成されなかったことが確定している。担保は借り手へ返してよい。 */
+        FAILED,
+        /** タイムアウト等でサーバーの応答を確認できず、作成されたか分からない。担保を返すと二重になり得るため返さないこと。 */
+        INDETERMINATE,
+    }
+
     /**
      * ローン作成。
-     * - 成功/失敗のみ返す（メッセージ表示や手形発行などの副作用は本関数内で処理）
+     * - 結果を [CreateResult] で返す（メッセージ表示や手形発行などの副作用は本関数内で処理）
      * - collateral は任意（null 可）
      */
     suspend fun create(
@@ -60,18 +72,18 @@ class LoanService(
         repayAmount: Double,
         paybackInDays: Int,
         collaterals: List<ItemStack>?,
-    ): Boolean {
+    ): CreateResult {
         if (borrowAmount <= 0) {
             Messages.error(plugin, lender, "借入金額が不正です。0より大きい値を指定してください。")
-            return false
+            return CreateResult.FAILED
         }
         if (repayAmount <= 0.0) {
             Messages.error(plugin, lender, "返済金額が不正です。0より大きい値を指定してください。")
-            return false
+            return CreateResult.FAILED
         }
         if (paybackInDays <= 0) {
             Messages.error(plugin, lender, "返済期限日数が不正です。1以上を指定してください。")
-            return false
+            return CreateResult.FAILED
         }
 
         val paybackDateIso = OffsetDateTime.now(ZoneOffset.UTC).plusDays(paybackInDays.toLong()).toString()
@@ -79,7 +91,7 @@ class LoanService(
         val encoded = if (filtered.isEmpty()) {
             null
         } else {
-            encodeCollateralItems(lender, borrower, filtered) ?: return false
+            encodeCollateralItems(lender, borrower, filtered) ?: return CreateResult.FAILED
         }
 
         val body = LoanCreateRequest(
@@ -92,18 +104,28 @@ class LoanService(
         )
         val result = api.create(body)
 
-        if (result.isFailure) {
+        val loan = result.getOrNull()
+        if (loan == null) {
+            val cause = result.exceptionOrNull()
+            if (cause == null || isIndeterminateFailure(cause)) {
+                // サーバーが作成済み（担保もDBに記録済み）の可能性がある。ここで担保を借り手へ返すと、
+                // 作成済みだった場合に返還・回収でもう一度担保が出てきて二重になるため、返さず運営の確認に回す。
+                plugin.logger.severe(
+                    "要手動対応[ローン作成結果不明] lender=${lender.uniqueId} borrower=${borrower.uniqueId} " +
+                        "借入金額=${borrowAmount} 返済金額=${repayAmount} 返済期限=${paybackDateIso} 担保件数=${filtered.size} " +
+                        "詳細=サーバーの応答を確認できなかったため担保を返却せず保留した。サーバーDBの loan で作成有無を確認し、" +
+                        "作成済みなら貸し手へ手形を渡し、未作成なら借り手へ担保を返却すること 原因=${cause?.message} " +
+                        "担保データ(Base64)=${encoded ?: "なし"}"
+                )
+                val collateralNote = if (filtered.isEmpty()) "" else "担保は運営の確認が終わるまで保留されます。"
+                Messages.error(plugin, lender, "ローン作成の結果をサーバーに確認できませんでした。作成されている可能性があるため、運営に連絡してください。")
+                Messages.error(plugin, borrower, "借入の結果をサーバーに確認できませんでした。${collateralNote}運営に連絡してください。")
+                return CreateResult.INDETERMINATE
+            }
             val msg = result.errorMessage()
             Messages.error(plugin, lender, "ローン作成に失敗しました: $msg")
             Messages.error(plugin, borrower, "借入が確定できませんでした。$msg")
-            return false
-        }
-
-        val loan = result.getOrNull()
-        if (loan == null) {
-            Messages.error(plugin, lender, "ローン作成に失敗しました。 null")
-            Messages.error(plugin, borrower, "借入が確定できませんでした。 null")
-            return false
+            return CreateResult.FAILED
         }
 
         // 債権者に手形を発行し、双方に通知
@@ -116,7 +138,7 @@ class LoanService(
             Messages.send(plugin, lender, "ローン手形を発行しました。")
             Messages.send(plugin, borrower, "借入が確定しました。金額: ${BalanceFormats.coloredYen(borrowAmount)}円")
         })
-        return true
+        return CreateResult.CREATED
     }
 
     /**
@@ -156,11 +178,11 @@ class LoanService(
             Messages.warn(plugin, borrower, "担保データが不正です。")
             return
         }
-        plugin.server.scheduler.runTask(plugin, Runnable {
-            CollateralDebtorReleaseUI(borrower, items, onReleased = {
-                Messages.send(plugin, borrower, "担保の受け取りが完了しました。")
-            }).open()
-        })
+        handOverCollateral(borrower, id, items) { receiver ->
+            CollateralDebtorReleaseUI(receiver, items, onReleased = {
+                Messages.send(plugin, receiver, "担保の受け取りが完了しました。")
+            })
+        }
     }
 
 
@@ -233,12 +255,11 @@ class LoanService(
                         Messages.warn(plugin, collector, "担保アイテムが空です。")
                         return
                     }
-                    // GUI操作はメインスレッドで行う
-                    plugin.server.scheduler.runTask(plugin, Runnable {
-                        CollateralCollectUI(collector, items, onCollected = {
-                            Messages.send(plugin, collector, "担保を回収しました。")
-                        }).open()
-                    })
+                    handOverCollateral(collector, id, items) { receiver ->
+                        CollateralCollectUI(receiver, items, onCollected = {
+                            Messages.send(plugin, receiver, "担保を回収しました。")
+                        })
+                    }
                 }
                 else -> {
                     Messages.error(plugin, collector, "返済処理で不明な状態です。(outcome=${resp.outcome})")
@@ -298,6 +319,44 @@ class LoanService(
         val encoded = runCatching { ItemStackBase64.encode(note) }.getOrElse { "エンコード失敗: ${it.message}" }
         plugin.logger.severe(
             "要手動対応[手形返却失敗] uuid=${player.uniqueId} loanId=${loanId} 詳細=${reason} 手形データ(Base64)=${encoded}"
+        )
+    }
+
+    /**
+     * サーバー側で回収・返還済みになった担保を、受け取り画面で [receiver] へ渡す（GUI操作はメインスレッドで行う）。
+     * 担保の実物はこの時点で手元にしか無いため、どの経路でも消さない:
+     * - 画面を開けなかった場合（他プラグインのキャンセル等）は、インベントリへ直接入れる
+     * - プラグイン停止中やプレイヤーがログアウト済みで渡せない場合は、運営が復旧できるよう担保データを要確認ログへ残す（DESIGN 3.6）
+     */
+    private fun handOverCollateral(
+        receiver: Player,
+        loanId: Int,
+        items: List<ItemStack>,
+        createUI: (Player) -> CollateralBaseUI,
+    ) {
+        if (!plugin.isEnabled) {
+            logLostCollateral(receiver, loanId, items, "プラグイン停止中のため担保を渡せなかった")
+            return
+        }
+        plugin.server.scheduler.runTask(plugin, Runnable {
+            // 応答を待つ間にログアウト・再ログインしている場合があるため、Player を引き直す
+            val online = plugin.server.getPlayer(receiver.uniqueId)
+            if (online == null) {
+                logLostCollateral(receiver, loanId, items, "プレイヤーがログアウト済みのため担保を渡せなかった")
+                return@Runnable
+            }
+            val ui = createUI(online)
+            if (ui.open(online)) return@Runnable
+            val result = ui.returnCollateralItemsTo(online)
+            val dropNote = if (result.dropped > 0) " インベントリに入りきらない${result.dropped}件は足元にドロップしました。" else ""
+            Messages.warn(online, "担保の受け取り画面を開けなかったため、担保${result.returned}件をインベントリに入れました。$dropNote")
+        })
+    }
+
+    private fun logLostCollateral(player: Player, loanId: Int, items: List<ItemStack>, reason: String) {
+        val encoded = runCatching { ItemStackBase64.encodeItems(items) }.getOrElse { "エンコード失敗: ${it.message}" }
+        plugin.logger.severe(
+            "要手動対応[担保受け渡し失敗] uuid=${player.uniqueId} loanId=${loanId} 件数=${items.size} 詳細=${reason} 担保データ(Base64)=${encoded}"
         )
     }
 
