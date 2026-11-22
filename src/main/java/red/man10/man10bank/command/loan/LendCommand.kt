@@ -210,8 +210,18 @@ class LendCommand(
         // 既に手放した分は取り出せないので、画面に並んだものが新しい登録内容になる。
         val current = takeAvailable(sender, proposal.collaterals)
         val opened = CollateralSetupUI(sender, current, onUpdate = { newItems: List<ItemStack> ->
-            proposal.collaterals = newItems
-            Messages.send(sender, "担保を登録しました（${newItems.size}件）。担保のアイテムは最終承認まであなたのインベントリに残り、最終承認の時点で回収されます。")
+            // 画面を開いている間に提案が終わった・承認された場合は、貸し手に提示した内容を変えないよう登録しない
+            // （画面の担保はクローズ時にインベントリへ戻っている）
+            when {
+                get(proposal.id) !== proposal ->
+                    Messages.warn(sender, "この提案は既に終了しているため、担保は登録されませんでした。")
+                proposal.borrowerApproved ->
+                    Messages.warn(sender, "既に承認済みのため、担保の登録内容は変更されませんでした。")
+                else -> {
+                    proposal.collaterals = newItems
+                    Messages.send(sender, "担保を登録しました（${newItems.size}件）。担保のアイテムは最終承認まであなたのインベントリに残り、最終承認の時点で回収されます。")
+                }
+            }
         }).open()
         if (!opened) {
             val note = if (current.isNotEmpty()) "登録済みの担保はインベントリに戻しました。" else ""
