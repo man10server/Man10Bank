@@ -59,7 +59,7 @@ class BankOpCommand(
         // 現金アイテム設定
         SetCashSubcommand(cashItemManager),
         // 資産履歴
-        HistorySubcommand(plugin, scope, estateService),
+        HistorySubcommand(plugin, scope, estateService, playerLookup),
         // 指定プレイヤーの所持金表示（運営閲覧）
         LookupSubcommand(plugin, scope, playerLookup, vaultManager, cashItemManager),
         // 管理者による残高調整（銀行／電子マネー／サーバーローン借入額）

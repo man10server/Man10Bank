@@ -4,12 +4,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.event.HoverEvent
-import org.bukkit.Bukkit
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 import red.man10.man10bank.Man10Bank
 import red.man10.man10bank.command.op.BankOpSubcommand
 import red.man10.man10bank.service.EstateService
+import red.man10.man10bank.service.PlayerLookupService
 import red.man10.man10bank.util.BalanceFormats
 import red.man10.man10bank.util.DateFormats
 import red.man10.man10bank.util.Messages
@@ -23,6 +23,7 @@ class HistorySubcommand(
     private val plugin: Man10Bank,
     private val scope: CoroutineScope,
     private val estateService: EstateService,
+    private val playerLookup: PlayerLookupService,
 ) : BankOpSubcommand {
     override val name: String = "history"
     override val usage: String = "/bankop history <player> [page] - 資産履歴を表示"
@@ -37,13 +38,17 @@ class HistorySubcommand(
         val limit = 10
         val offset = (page - 1) * limit
 
-        val offline = Bukkit.getOfflinePlayer(targetName)
-        val uuid = offline.uniqueId
-
         scope.launch {
-            val list = estateService.history(uuid, limit, offset)
+            // 名前→UUIDはメインスレッドを止めないよう非同期で解決する（未キャッシュの名前で認証サーバーへ問い合わせない）
+            val resolved = playerLookup.resolve(targetName)
+            val target = resolved.getOrNull()
+            if (target == null) {
+                Messages.error(plugin, sender, playerLookup.failureMessage(targetName, resolved))
+                return@launch
+            }
+            val list = estateService.history(target.uuid, limit, offset)
             if (list.isEmpty()) {
-                Messages.warn(plugin, sender, "履歴が見つかりません（${targetName}, page=${page}）。")
+                Messages.warn(plugin, sender, "履歴が見つかりません（${target.name}, page=${page}）。")
                 return@launch
             }
             val rows = list.map { h ->
@@ -70,7 +75,7 @@ class HistorySubcommand(
             // 見出しと各行は同じメインスレッドのタスクでまとめて送る
             // （見出しだけメインスレッド経由で送ると、各行より後に届いて一覧の下に表示されていた）
             plugin.server.scheduler.runTask(plugin, Runnable {
-                Messages.send(sender, "§e§l[資産履歴] §f対象: §b$targetName §fページ: §b$page")
+                Messages.send(sender, "§e§l[資産履歴] §f対象: §b${target.name} §fページ: §b$page")
                 rows.forEach { (comp, plain) ->
                     // プレイヤーはホバー付き、コンソールはテキストのみ
                     if (sender is Player) sender.sendMessage(comp) else Messages.send(sender, plain)
