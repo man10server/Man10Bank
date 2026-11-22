@@ -22,7 +22,7 @@ import red.man10.man10bank.util.DateFormats
 import red.man10.man10bank.util.ItemStackBase64
 
 /**
- * プレイヤー間ローンの新規契約コマンド: /mlend <player> <金額> <返済金額> <返済日>
+ * プレイヤー間ローンの新規契約コマンド: /mlend <player> <金額> <返済金額> <返済までの日数>
  * 進行:
  * 1) 貸し手が提案を作成 -> 借り手に提案メッセージ（担保設定/承認/拒否）
  * 2) 借り手が担保設定 -> 担保として登録する（実物は借り手のインベントリに戻し、預からない）
@@ -80,7 +80,7 @@ class LendCommand(
         if (args.isEmpty()) {
             Messages.send(
                 sender,
-                "使用方法: /mlend <player> <金額> <返済金額> <返済日(yyyy-MM-dd|日数)> " +
+                "使用方法: /mlend <player> <金額> <返済金額> <返済までの日数> " +
                     "（一覧: /mlend list / 担保受取: /mlend release <id>）"
             )
             return true
@@ -112,11 +112,11 @@ class LendCommand(
     }
 
     // --------------------
-    // 提案作成 /mlend <player> <金額> <返済金額> <返済日>
+    // 提案作成 /mlend <player> <金額> <返済金額> <返済までの日数>
     // --------------------
     private fun handlePropose(sender: Player, args: Array<out String>): Boolean {
         if (args.size < 4) {
-            Messages.error(sender, "引数が不足しています。/mlend <player> <金額> <返済金額> <返済日>")
+            Messages.error(sender, "引数が不足しています。/mlend <player> <金額> <返済金額> <返済までの日数>")
             return false
         }
         val amount = args[1].toDoubleOrNull()
@@ -133,7 +133,7 @@ class LendCommand(
             return false
         }
         if (paybackDays == null || paybackDays <= 0) {
-            Messages.error(sender, "返済日が不正です。日数（正の整数）で指定してください。")
+            Messages.error(sender, "返済までの日数が不正です。日数（正の整数）で指定してください。")
             return false
         }
         if (borrower == null) {
