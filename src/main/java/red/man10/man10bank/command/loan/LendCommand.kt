@@ -294,8 +294,13 @@ class LendCommand(
             Messages.error(sender, "この提案は見つからないか、あなたが貸し手ではありません。")
             return true
         }
+        // 借り手が承認していない提案は確定させない（借り手の同意なしに借入・担保の回収が行われるのを防ぐ）
+        if (!proposal!!.borrowerApproved) {
+            Messages.error(sender, "借り手がまだ承認していないため、最終承認できません。")
+            return true
+        }
         remove(id)
-        val borrower = Bukkit.getPlayer(proposal!!.borrower)
+        val borrower = Bukkit.getPlayer(proposal.borrower)
         if (borrower == null) {
             Messages.error(sender, "借り手がオフラインのため、キャンセルされました。")
             return true
