@@ -178,7 +178,7 @@ class Man10Bank : JavaPlugin(), Listener {
         getCommand("ballog")?.setExecutor(BalLogCommand(scope, bankService))
         getCommand("mbaltop")?.setExecutor(red.man10.man10bank.command.balance.BalTopCommand(this, scope, estateService, serverEstateService))
         getCommand("bankop")?.setExecutor(BankOpCommand(this, scope, healthService, cashItemManager, estateService, featureToggles, bankService, serverLoanService, vaultManager, playerLookup))
-        getCommand("atm")?.setExecutor(AtmCommand(this, scope, atmService, vaultManager, cashItemManager, featureToggles))
+        getCommand("atm")?.setExecutor(AtmCommand(this, scope, atmService, vaultManager, cashItemManager, featureToggles, playerLookup))
         getCommand("mcheque")?.setExecutor(ChequeCommand(this, scope, chequeService))
         getCommand("mchequeop")?.setExecutor(ChequeCommand(this, scope, chequeService))
         getCommand("mrevo")?.setExecutor(ServerLoanCommand(this, scope, serverLoanService))

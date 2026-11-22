@@ -17,6 +17,8 @@ import red.man10.man10bank.ui.atm.AtmMainUI
 import red.man10.man10bank.ui.atm.AtmWithdrawUI
 import red.man10.man10bank.util.Messages
 import red.man10.man10bank.service.FeatureToggleService
+import red.man10.man10bank.service.PlayerLookupService
+import java.util.UUID
 
 class AtmCommand(
     private val plugin: Man10Bank,
@@ -25,6 +27,7 @@ class AtmCommand(
     private val vault: VaultManager,
     private val cashItemManager: CashItemManager,
     private val featureToggles: FeatureToggleService,
+    private val playerLookup: PlayerLookupService,
 ) : BaseCommand(
     allowPlayer = true,
     allowConsole = false,
@@ -62,7 +65,16 @@ class AtmCommand(
                     return true
                 }
                 val page = args.getOrNull(2)?.toIntOrNull()?.coerceAtLeast(0) ?: 0
-                showLogs(sender, targetName, page)
+                // 名前→UUIDはメインスレッドを止めないよう非同期で解決する（未キャッシュの名前で認証サーバーへ問い合わせない）
+                scope.launch {
+                    val resolved = playerLookup.resolve(targetName)
+                    val target = resolved.getOrNull()
+                    if (target == null) {
+                        Messages.error(plugin, sender, playerLookup.failureMessage(targetName, resolved))
+                        return@launch
+                    }
+                    showLogs(sender, target.uuid, target.name, page)
+                }
                 return true
             }
             else -> AtmMainUI(sender, vault).open()
@@ -70,12 +82,11 @@ class AtmCommand(
         return true
     }
 
-    private fun showLogs(viewer: Player, targetName: String, page: Int) {
+    private fun showLogs(viewer: Player, targetUuid: UUID, targetName: String, page: Int) {
         val offset = page * LOG_PAGE_SIZE
-        val target = plugin.server.getOfflinePlayer(targetName)
         scope.launch(Dispatchers.IO) {
             try {
-                val logs = atmService.logs(target.uniqueId, limit = LOG_PAGE_SIZE, offset = offset)
+                val logs = atmService.logs(targetUuid, limit = LOG_PAGE_SIZE, offset = offset)
                 val lines = logs.map { log ->
                     val kind = if (log.deposit == true) "§a§l入金" else "§c§l出金"
                     val amt = BalanceFormats.coloredYen(log.amount ?: 0.0)
@@ -83,7 +94,7 @@ class AtmCommand(
                     "§7[$date] §e$kind§r: $amt"
                 }
                 // ページ送りのコマンド。/atm log はページ番号だけを取るので対象名を付けない（付けるとページ番号として読まれない）
-                val commandBase = if (viewer.uniqueId == target.uniqueId) "atm log" else "atm logop $targetName"
+                val commandBase = if (viewer.uniqueId == targetUuid) "atm log" else "atm logop $targetName"
                 plugin.server.scheduler.runTask(plugin, Runnable {
                     Messages.send(viewer, "§6===== ${targetName}のATM履歴 =====")
                     showPaged(viewer, lines, page, commandBase)
@@ -96,6 +107,6 @@ class AtmCommand(
     }
 
     private fun showLogs(player: Player, page: Int) {
-        showLogs(player, player.name, page)
+        showLogs(player, player.uniqueId, player.name, page)
     }
 }
