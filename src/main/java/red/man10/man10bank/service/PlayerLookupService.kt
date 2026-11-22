@@ -42,10 +42,13 @@ class PlayerLookupService(
      */
     fun failureMessage(name: String, result: Result<*>, action: String = "指定"): String {
         val cause = result.exceptionOrNull()
-        return if (cause is ApiHttpException && cause.code == "PlayerNotFound") {
-            "プレイヤー「$name」が見つかりません。このサーバー群にログインしたことがあるプレイヤーにのみ${action}できます。"
-        } else {
-            "プレイヤー「$name」を確認できませんでした: ${result.errorMessage()} しばらくしてから再度お試しください。"
+        val code = (cause as? ApiHttpException)?.code
+        return when (code) {
+            "PlayerNotFound" ->
+                "プレイヤー「$name」が見つかりません。このサーバー群にログインしたことがあるプレイヤーにのみ${action}できます。"
+            // 名簿の検索は名前の長さ（16文字以内）だけを検証する。一時的な障害ではないので再試行を促さない
+            "ValidationError" -> "プレイヤー名「$name」が正しくありません。16文字以内のプレイヤー名を指定してください。"
+            else -> "プレイヤー「$name」を確認できませんでした: ${result.errorMessage()} しばらくしてから再度お試しください。"
         }
     }
 }
