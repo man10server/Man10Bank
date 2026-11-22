@@ -249,7 +249,8 @@ class LoanService(
             if (leftover.isNotEmpty()) {
                 leftover.values.forEach { collector.world.dropItemNaturally(collector.location, it) }
             }
-            Messages.send(plugin, collector, "手形を更新しました。")
+            val settled = (loan.amount ?: 0.0) <= 0.0
+            Messages.send(plugin, collector, if (settled) "返済が完了したため、手形を完済済みにしました。" else "手形を更新しました。")
         })
     }
 
@@ -261,18 +262,25 @@ class LoanService(
 
         val borrowerName = Bukkit.getOfflinePlayer(UUID.fromString(loan.borrowUuid)).name
         val paybackText = DateFormats.toDate(loan.paybackDate!!)
-        val hasCollateral = !loan.collateralItem.isNullOrBlank()
         val debt = BalanceFormats.amount(loan.amount?:0.0)
-        val lore = listOf(
+        // 完済（支払額0）の手形は使い道が無いため、使用済み小切手と同様に「完済」と表示して識別キーを付けない
+        val settled = (loan.amount ?: 0.0) <= 0.0
+        val collateralText = when {
+            loan.collateralItem.isNullOrBlank() -> "なし"
+            loan.collateralReleased -> "処理済み"
+            else -> "あり"
+        }
+        val lore = mutableListOf(
             Component.text("§4§l========[Man10Bank]========"),
             Component.text("   §7§l債務者:  $borrowerName"),
             Component.text("   §8§l有効日:  $paybackText"),
             Component.text("   §7§l支払額:  $debt 円" ),
-            Component.text("   §8§l担保等:  ${if (hasCollateral) "あり" else "なし"}"),
-            Component.text("§4§l==========================")
+            Component.text("   §8§l担保等:  $collateralText"),
         )
+        if (settled) lore.add(Component.text("  §c§o[完済]  "))
+        lore.add(Component.text("§4§l=========================="))
         meta.lore(lore)
-        meta.persistentDataContainer.set(loanIdKey, PersistentDataType.INTEGER, loan.id ?: -1)
+        if (!settled) meta.persistentDataContainer.set(loanIdKey, PersistentDataType.INTEGER, loan.id ?: -1)
 
         meta.addEnchant(Enchantment.FORTUNE, 1, true)
         meta.addItemFlags(ItemFlag.HIDE_ENCHANTS)
