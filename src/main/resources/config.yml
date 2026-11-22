@@ -16,3 +16,8 @@ features:
   serverloan: true
   loan: true
   atm: true
+
+# サーバーローン延滞者のワールド進入制限
+overdueWorldBlock:
+  worlds: []                           # 延滞中のプレイヤーが入れないワールド名（空なら無効）。例: [casino, shop_world]
+  message: "あなたは延滞者のためこのエリアには入れません"   # 進入を拒否・キックしたときの文言
