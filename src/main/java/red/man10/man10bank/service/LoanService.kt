@@ -121,8 +121,9 @@ class LoanService(
                 plugin.logger.severe(
                     "要手動対応[ローン作成結果不明] lender=${lender.uniqueId} borrower=${borrower.uniqueId} " +
                         "借入金額=${borrowAmount} 返済金額=${repayAmount} 返済期限=${paybackDateIso} 担保件数=${filtered.size} " +
-                        "詳細=サーバーの応答を確認できなかったため担保を返却せず保留した。サーバーDBの loan で作成有無を確認し、" +
-                        "作成済みなら貸し手へ手形を渡し、未作成なら借り手へ担保を返却すること 原因=${cause?.message} " +
+                        "詳細=サーバーの応答を確認できなかったため担保を返却せず保留した。/bankop loan recovery info <記録ID> で確認し、" +
+                        "未作成なら give で借り手へ返却（作成済みなら拒否される）、作成済みなら discard して /bankop loan note の手形を貸し手へ渡すこと " +
+                        "原因=${cause?.message} " +
                         "記録ID=${recoveryId} 担保データ(Base64)=${encoded ?: "なし"}"
                 )
                 val collateralNote = if (filtered.isEmpty()) "" else "担保は運営の確認が終わるまで保留されます。"
@@ -184,6 +185,24 @@ class LoanService(
             "ローンID ${id} の手形を再発行しました。"
         }
         handBackNote(receiver, id, note, notice)
+    }
+
+    /**
+     * ローン作成結果不明の記録について、ローンが作成済みかを調べる（/bankop loan recovery give の確認用）。
+     * 借り手のローンから、貸し手と担保データが一致するものを探す（担保データは作成時にサーバーへ送った文字列のまま記録している）。
+     */
+    suspend fun findCreatedLoan(borrower: UUID, lender: UUID, collateralBase64: String): Result<Loan?> {
+        val target = collateralBase64.filterNot { it.isWhitespace() }
+        var offset = 0
+        while (true) {
+            val page = api.getBorrowerLoans(borrower, LOOKUP_PAGE_SIZE, offset).getOrElse { return Result.failure(it) }
+            page.firstOrNull { loan ->
+                loan.lendUuid.equals(lender.toString(), ignoreCase = true) &&
+                    loan.collateralItem?.filterNot { it.isWhitespace() } == target
+            }?.let { return Result.success(it) }
+            if (page.size < LOOKUP_PAGE_SIZE) return Result.success(null)
+            offset += LOOKUP_PAGE_SIZE
+        }
     }
 
     /**
@@ -467,5 +486,10 @@ class LoanService(
         pdc.get(loanIdKey, PersistentDataType.INTEGER)?.let { return it }
         pdc.get(oldIdKey, PersistentDataType.INTEGER)?.let { return it }
         return null
+    }
+
+    companion object {
+        /** 作成済みローンの照会で1回に取得する件数（サーバーの上限は1000） */
+        private const val LOOKUP_PAGE_SIZE = 100
     }
 }

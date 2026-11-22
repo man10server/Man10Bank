@@ -19,12 +19,13 @@ import java.util.logging.Logger
  */
 class RecoveryLedger(private val dir: File, private val logger: Logger) {
 
-    enum class Type(val label: String) {
-        NOTE_RETURN_FAILED("手形返却失敗"),
-        CHEQUE_RETURN_FAILED("小切手返却失敗"),
-        COLLATERAL_RETURN_FAILED("担保返却失敗"),
-        COLLATERAL_HANDOVER_FAILED("担保受け渡し失敗"),
-        LOAN_CREATE_INDETERMINATE("ローン作成結果不明"),
+    /** [itemLabel] は受け取るプレイヤー向けのアイテムの呼び名。 */
+    enum class Type(val label: String, val itemLabel: String) {
+        NOTE_RETURN_FAILED("手形返却失敗", "手形"),
+        CHEQUE_RETURN_FAILED("小切手返却失敗", "小切手"),
+        COLLATERAL_RETURN_FAILED("担保返却失敗", "担保"),
+        COLLATERAL_HANDOVER_FAILED("担保受け渡し失敗", "担保"),
+        LOAN_CREATE_INDETERMINATE("ローン作成結果不明", "担保"),
     }
 
     enum class Status(val label: String) {

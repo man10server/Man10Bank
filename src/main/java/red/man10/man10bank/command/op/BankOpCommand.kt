@@ -20,6 +20,7 @@ import red.man10.man10bank.command.op.sub.DisableFeatureSubcommand
 import red.man10.man10bank.service.CashItemManager
 import red.man10.man10bank.service.HealthService
 import red.man10.man10bank.service.LoanService
+import red.man10.man10bank.service.RecoveryLedger
 import red.man10.man10bank.service.FeatureToggleService
 import red.man10.man10bank.service.BankService
 import red.man10.man10bank.service.PlayerLookupService
@@ -42,6 +43,7 @@ class BankOpCommand(
     vaultManager: VaultManager,
     playerLookup: PlayerLookupService,
     loanService: LoanService,
+    recoveryLedger: RecoveryLedger,
 ) : BaseCommand(
     allowPlayer = true,
     allowConsole = true,
@@ -69,8 +71,8 @@ class BankOpCommand(
         AdjustSubcommand(plugin, scope, AdjustVerb.GIVE, adjustableAccounts, playerLookup),
         AdjustSubcommand(plugin, scope, AdjustVerb.TAKE, adjustableAccounts, playerLookup),
         AdjustSubcommand(plugin, scope, AdjustVerb.SET, adjustableAccounts, playerLookup),
-        // プレイヤーローンの運営操作（手形の再発行）
-        LoanSubcommand(scope, loanService),
+        // プレイヤーローンの運営操作（手形の再発行・返せなかったアイテムの復元）
+        LoanSubcommand(plugin, scope, loanService, recoveryLedger),
         // 機能 有効/無効 切り替え
         EnableFeatureSubcommand(featureToggles),
         DisableFeatureSubcommand(featureToggles),
