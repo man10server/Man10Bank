@@ -29,4 +29,5 @@ data class ServerLoanLog(
 data class PaymentInfoResponse(
     val nextRepayDate: String,
     val dailyInterestPerDay: Double,
+    val nextPaymentAmount: Double? = null,
 )

@@ -147,9 +147,10 @@ class ServerLoanCommand(
         val borrowLimit = BalanceFormats.coloredYen(limitRes.getOrNull() ?: 0.0)
         val last = loan?.lastPayDate?.let { DateFormats.toDate(it) } ?: "なし"
         val next = info?.nextRepayDate?.let { DateFormats.toDate(it) } ?: "なし"
+        lines += "§b借入額: $borrow"
+        lines += "§b支払額(設定): $payment"
+        info?.nextPaymentAmount?.let { lines += "§b次回支払額: ${BalanceFormats.coloredYen(it)}" }
         lines += listOf(
-            "§b借入額: $borrow",
-            "§b支払額: $payment",
             "§b日利息: $daily",
             "§b借入上限: $borrowLimit",
             "§b前回返済日: $last",
