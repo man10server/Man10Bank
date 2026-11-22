@@ -25,7 +25,12 @@ class SetCashSubcommand(
             Messages.error(sender, "金額を指定してください。例: /bankop setcash <金額> - 手持ちアイテムを現金として登録")
             return true
         }
-        val amount = args[1]
+        // ATMは整数の金額キーで金種を引くため、1円以上の整数のみ受け付ける（"0100" などは "100" に正規化）
+        val amount = args[1].toLongOrNull()?.takeIf { it > 0 }?.toString()
+        if (amount == null) {
+            Messages.error(sender, "金額は1以上の整数（円）で指定してください。")
+            return true
+        }
 
         val hand = sender.inventory.itemInMainHand
         if (hand.type == Material.AIR || hand.amount <= 0) {
@@ -34,7 +39,7 @@ class SetCashSubcommand(
         }
 
         val saveCopy = hand.clone().asOne()
-        cashItemManager.save(saveCopy, args[1])
+        cashItemManager.save(saveCopy, amount)
         Messages.send(sender, "現金アイテムを登録しました。1個あたりの金額: ${amount}。アイテム: ${saveCopy.type}。")
         return true
     }
