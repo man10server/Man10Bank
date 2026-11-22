@@ -9,6 +9,7 @@ import org.bukkit.event.inventory.InventoryCloseEvent
 import org.bukkit.inventory.ItemStack
 import red.man10.man10bank.ui.InventoryUI
 import red.man10.man10bank.ui.UIButton
+import red.man10.man10bank.util.Messages
 
 /**
  * 担保関連UIの共通ベース。
@@ -104,9 +105,34 @@ open class CollateralBaseUI(
         }
     }
 
-    /** 担保エリアが全て空か */
-    fun isCollateralAreaEmpty(): Boolean = COLLATERAL_SLOTS.all {
-        val i = getInventory().getItem(it)
-        i == null || i.type.isAir
+    /** [returnCollateralItemsTo] の結果。どちらもスタック数。 */
+    data class ReturnResult(val returned: Int, val dropped: Int)
+
+    /**
+     * 担保エリアに残っているアイテムを取り出してプレイヤーへ渡す（入りきらない分は足元へドロップ）。
+     * GUIのインベントリは閉じると破棄されるため、クローズ時に呼ばないと中のアイテムが消える。
+     */
+    fun returnCollateralItemsTo(player: Player): ReturnResult {
+        val inv = getInventory()
+        var returned = 0
+        var dropped = 0
+        for (slot in COLLATERAL_SLOTS) {
+            val item = inv.getItem(slot) ?: continue
+            if (item.type.isAir) continue
+            inv.setItem(slot, null)
+            val leftovers = player.inventory.addItem(item).values
+            leftovers.forEach { player.world.dropItemNaturally(player.location, it) }
+            returned++
+            dropped += leftovers.size
+        }
+        return ReturnResult(returned, dropped)
+    }
+
+    /** 受け取り画面のクローズ時に、取り出されずに残っていた担保をインベントリへ戻して知らせる。 */
+    fun returnRemainingCollateral(player: Player) {
+        val result = returnCollateralItemsTo(player)
+        if (result.returned == 0) return
+        val dropNote = if (result.dropped > 0) " インベントリに入りきらない${result.dropped}件は足元にドロップしました。" else ""
+        Messages.send(player, "取り出していない担保${result.returned}件をインベントリに入れました。$dropNote")
     }
 }
