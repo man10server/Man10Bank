@@ -7,6 +7,7 @@ import red.man10.man10bank.command.BaseCommand
 import red.man10.man10bank.command.op.sub.HealthSubcommand
 import red.man10.man10bank.command.op.sub.HistorySubcommand
 import red.man10.man10bank.command.op.sub.LookupSubcommand
+import red.man10.man10bank.command.op.sub.OverdueWorldSubcommand
 import red.man10.man10bank.command.op.sub.SetCashSubcommand
 import red.man10.man10bank.command.op.sub.adjust.AdjustSubcommand
 import red.man10.man10bank.command.op.sub.adjust.AdjustVerb
@@ -18,6 +19,7 @@ import red.man10.man10bank.command.op.sub.EnableFeatureSubcommand
 import red.man10.man10bank.command.op.sub.DisableFeatureSubcommand
 import red.man10.man10bank.service.CashItemManager
 import red.man10.man10bank.service.HealthService
+import red.man10.man10bank.service.OverdueWorldGuardService
 import red.man10.man10bank.service.FeatureToggleService
 import red.man10.man10bank.service.BankService
 import red.man10.man10bank.service.PlayerLookupService
@@ -39,6 +41,7 @@ class BankOpCommand(
     serverLoanService: ServerLoanService,
     vaultManager: VaultManager,
     playerLookup: PlayerLookupService,
+    overdueWorldGuard: OverdueWorldGuardService,
 ) : BaseCommand(
     allowPlayer = true,
     allowConsole = true,
@@ -69,6 +72,8 @@ class BankOpCommand(
         // 機能 有効/無効 切り替え
         EnableFeatureSubcommand(featureToggles),
         DisableFeatureSubcommand(featureToggles),
+        // サーバーローン延滞者の進入禁止ワールド
+        OverdueWorldSubcommand(plugin, overdueWorldGuard),
     ).associateBy { it.name }
 
     override fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean {

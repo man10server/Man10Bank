@@ -40,6 +40,22 @@ class OverdueWorldBlockConfigTest {
     }
 
     @Test
+    @DisplayName("ワールドの追加と削除は大文字小文字を区別せず、元の設定は変えない")
+    fun addsAndRemovesWorlds() {
+        val empty = read("features:\n  atm: true\n")
+
+        val added = empty.withWorld(" Casino ")
+        assertTrue(added.enabled)
+        assertTrue(added.isBlocked("casino"))
+        assertEquals(setOf("casino"), added.withWorld("CASINO").worlds)
+        assertFalse(empty.enabled)
+
+        val removed = added.withoutWorld("CASINO")
+        assertFalse(removed.enabled)
+        assertEquals(added.message, removed.message)
+    }
+
+    @Test
     @DisplayName("文言は設定値を使い、空の場合は既定値に戻す")
     fun readsMessage() {
         val custom = read(

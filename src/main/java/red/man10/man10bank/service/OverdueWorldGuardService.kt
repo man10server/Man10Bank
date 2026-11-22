@@ -31,8 +31,12 @@ class OverdueWorldGuardService(
     private val plugin: Man10Bank,
     private val scope: CoroutineScope,
     private val api: ServerLoanApiClient,
-    private val config: OverdueWorldBlockConfig,
+    initialConfig: OverdueWorldBlockConfig,
 ) : Listener {
+
+    /** 現在の設定。/bankop overdueworld で差し替わる。 */
+    @Volatile
+    private var config: OverdueWorldBlockConfig = initialConfig
 
     companion object {
         /** 進入を拒否したときの通知と再照会の最短間隔（ミリ秒）。ポータル内で連続して発火しても連投しない。 */
@@ -48,8 +52,36 @@ class OverdueWorldGuardService(
     /** 起動／リロード時点でオンラインのプレイヤーの延滞状態を照会する。 */
     fun start() {
         if (!config.enabled) return
-        plugin.logger.info("延滞者の進入禁止ワールド: ${config.worlds.joinToString(", ")}")
+        plugin.logger.info("延滞者の進入禁止ワールド: ${blockedWorlds().joinToString(", ")}")
         plugin.server.onlinePlayers.forEach { refresh(it) }
+    }
+
+    /** 延滞者が入れないワールド名の一覧（小文字・名前順）。 */
+    fun blockedWorlds(): List<String> = config.worlds.sorted()
+
+    /**
+     * ワールドを対象に追加して config.yml に保存する。既に対象なら false。
+     * オンラインのプレイヤーの延滞状態を照会し直すため、対象ワールドにいる延滞者はその場でキックされる。
+     */
+    fun addWorld(worldName: String): Boolean {
+        if (config.isBlocked(worldName)) return false
+        config = config.withWorld(worldName)
+        save()
+        plugin.server.onlinePlayers.forEach { refresh(it) }
+        return true
+    }
+
+    /** ワールドを対象から外して config.yml に保存する。対象でなければ false。 */
+    fun removeWorld(worldName: String): Boolean {
+        if (!config.isBlocked(worldName)) return false
+        config = config.withoutWorld(worldName)
+        save()
+        return true
+    }
+
+    private fun save() {
+        plugin.config.set("overdueWorldBlock.worlds", blockedWorlds())
+        plugin.saveConfig()
     }
 
     @EventHandler

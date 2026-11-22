@@ -19,16 +19,24 @@ data class OverdueWorldBlockConfig(
         fun from(conf: FileConfiguration): OverdueWorldBlockConfig {
             val section = conf.getConfigurationSection("overdueWorldBlock")
             val worlds = section?.getStringList("worlds").orEmpty()
-                .map { it.trim().lowercase() }
+                .map { normalize(it) }
                 .filter { it.isNotEmpty() }
                 .toSet()
             val message = section?.getString("message")?.takeIf { it.isNotBlank() } ?: DEFAULT_MESSAGE
             return OverdueWorldBlockConfig(worlds, message)
         }
+
+        private fun normalize(worldName: String): String = worldName.trim().lowercase()
     }
 
     val enabled: Boolean
         get() = worlds.isNotEmpty()
 
-    fun isBlocked(worldName: String): Boolean = worldName.lowercase() in worlds
+    fun isBlocked(worldName: String): Boolean = normalize(worldName) in worlds
+
+    /** 指定ワールドを対象に加えた設定を返す。 */
+    fun withWorld(worldName: String): OverdueWorldBlockConfig = copy(worlds = worlds + normalize(worldName))
+
+    /** 指定ワールドを対象から外した設定を返す。 */
+    fun withoutWorld(worldName: String): OverdueWorldBlockConfig = copy(worlds = worlds - normalize(worldName))
 }
