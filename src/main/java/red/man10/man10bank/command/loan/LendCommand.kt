@@ -132,6 +132,11 @@ class LendCommand(
             Messages.error(sender, "返済金額が不正です。正の数を指定してください。")
             return false
         }
+        // サーバーは返済金額が借入金額以下のローンを作成しないため、最終承認まで進める前にここで弾く
+        if (repayAmount <= amount) {
+            Messages.error(sender, "返済金額は借入金額より大きくしてください。")
+            return false
+        }
         if (paybackDays == null || paybackDays <= 0) {
             Messages.error(sender, "返済までの日数が不正です。日数（正の整数）で指定してください。")
             return false
@@ -140,7 +145,8 @@ class LendCommand(
             Messages.error(sender, "対象プレイヤーが見つかりません。オンラインのプレイヤー名を指定してください。")
             return false
         }
-        if (borrower.uniqueId == sender.uniqueId && !sender.isOp) {
+        // サーバーは貸し手と借り手が同じローンを作成しないため、OPでも自分宛ての提案は受け付けない
+        if (borrower.uniqueId == sender.uniqueId) {
             Messages.error(sender, "自分自身には提案できません。")
             return false
         }
