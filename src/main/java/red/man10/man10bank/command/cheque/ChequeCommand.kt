@@ -48,10 +48,8 @@ class ChequeCommand(
         }
         scope.launch {
             val item = chequeService.createCheque(sender, amount, note, isOP = isOpLabel)
-            if (item == null) {
-                Messages.error(plugin, sender, "小切手の発行に失敗しました。")
-                return@launch
-            }
+            // 失敗理由は createCheque 側で通知済み
+            if (item == null) return@launch
             plugin.server.scheduler.runTask(plugin, Runnable {
                 val remains = sender.inventory.addItem(item)
                 if (remains.isNotEmpty()) {

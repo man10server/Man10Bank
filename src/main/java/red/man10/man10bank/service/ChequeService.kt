@@ -79,6 +79,7 @@ class ChequeService(
      * 小切手の作成。
      * - note が20文字以上の場合は失敗
      * - APIで作成し、返ってきたIDと金額をPDCに埋め込み
+     * - null を返す場合は理由をプレイヤーへ通知済み（呼び出し側で重ねて通知しない）
      */
     suspend fun createCheque(p: Player, amount: Double, note: String?, isOP: Boolean): ItemStack? {
         if (!featureToggles.isEnabled(FeatureToggleService.Feature.CHEQUE)) {
@@ -86,6 +87,7 @@ class ChequeService(
             return null
         }
         if (note != null && note.length >= 20) {
+            Messages.error(plugin, p, "メモは20文字未満で指定してください。")
             return null
         }
         val req = ChequeCreateRequest(
@@ -101,7 +103,10 @@ class ChequeService(
             Messages.error(plugin, p, "小切手の発行に失敗しました: $msg")
             return null
         }
-        val cheque = created.getOrNull()?:return null
+        val cheque = created.getOrNull() ?: run {
+            Messages.error(plugin, p, "小切手の発行に失敗しました。")
+            return null
+        }
         return buildChequeItem(cheque)
     }
 
