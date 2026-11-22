@@ -9,6 +9,7 @@ import red.man10.man10bank.command.BaseCommand
 import red.man10.man10bank.service.ChequeService
 import red.man10.man10bank.util.BalanceFormats
 import red.man10.man10bank.util.Messages
+import kotlin.math.floor
 
 /** /mcheque <金額> <メモ> - 小切手発行（/mchequeop で運営用） */
 class ChequeCommand(
@@ -36,9 +37,10 @@ class ChequeCommand(
             Messages.warn(sender, "使い方: /$label <金額> <メモ>")
             return true
         }
-        val amount = args[0].toDoubleOrNull()
-        if (amount == null || amount <= 0.0) {
-            Messages.error(sender, "金額が不正です。正の数を指定してください。")
+        // 金額は小数点以下を切り捨てて発行されるため、切り捨て後で1円以上か判定する（0.5 などは発行できない）
+        val amount = args[0].toDoubleOrNull()?.takeIf { it.isFinite() }?.let { floor(it) }
+        if (amount == null || amount < 1.0) {
+            Messages.error(sender, "金額が不正です。1円以上を指定してください。")
             return true
         }
         val note = args.getOrNull(1)
