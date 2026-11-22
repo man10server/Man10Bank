@@ -46,10 +46,7 @@ class HistorySubcommand(
                 Messages.warn(plugin, sender, "履歴が見つかりません（${targetName}, page=${page}）。")
                 return@launch
             }
-            // 見出し
-            Messages.send(plugin, sender, "§e§l[資産履歴] §f対象: §b$targetName §fページ: §b$page")
-
-            list.forEach { h ->
+            val rows = list.map { h ->
                 val dateText = h.date?.let { DateFormats.toDateTime(it) } ?: "-"
                 val totalText = BalanceFormats.coloredYen(h.total ?: 0.0)
 
@@ -67,14 +64,18 @@ class HistorySubcommand(
 
                 val comp = Component.text("${Messages.PREFIX}§7${dateText} §f: §b§l${totalText}")
                     .hoverEvent(HoverEvent.showText(Component.text(hoverLines)))
-
-                // プレイヤーはホバー付き、コンソールはテキストのみ
-                if (sender is Player) {
-                    sender.sendMessage(comp)
-                } else {
-                    Messages.send(plugin, sender, "${dateText}: ${totalText}")
-                }
+                comp to "${dateText}: ${totalText}"
             }
+
+            // 見出しと各行は同じメインスレッドのタスクでまとめて送る
+            // （見出しだけメインスレッド経由で送ると、各行より後に届いて一覧の下に表示されていた）
+            plugin.server.scheduler.runTask(plugin, Runnable {
+                Messages.send(sender, "§e§l[資産履歴] §f対象: §b$targetName §fページ: §b$page")
+                rows.forEach { (comp, plain) ->
+                    // プレイヤーはホバー付き、コンソールはテキストのみ
+                    if (sender is Player) sender.sendMessage(comp) else Messages.send(sender, plain)
+                }
+            })
         }
         return true
     }
