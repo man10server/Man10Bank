@@ -286,9 +286,12 @@ class BankService(
     suspend fun adminDeposit(uuid: UUID, amount: Double, note: String, displayNote: String): Result<Double> =
         api.deposit(depositRequest(uuid, normalizeAmount(amount), note, displayNote))
 
-    /** 管理者用: 指定プレイヤーの銀行から出金する（取引トグルの影響を受けない）。残高不足はサーバーが 409 で拒否する。 */
+    /**
+     * 管理者用: 指定プレイヤーの銀行から出金する（取引トグルとサーバーローン延滞中の出金制限の影響を受けない）。
+     * 残高不足はサーバーが 409 で拒否する。
+     */
     suspend fun adminWithdraw(uuid: UUID, amount: Double, note: String, displayNote: String): Result<Double> =
-        api.withdraw(withdrawRequest(uuid, normalizeAmount(amount), note, displayNote))
+        api.withdraw(withdrawRequest(uuid, normalizeAmount(amount), note, displayNote).copy(ignoreOverdueBlock = true))
 
     /**
      * /deposit 用の金額解決（null または "all" 相当をインジケータとして扱い、Vault残高を返す）。

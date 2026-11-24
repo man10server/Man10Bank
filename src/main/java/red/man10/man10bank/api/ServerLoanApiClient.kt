@@ -4,6 +4,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.request.parameter
 import red.man10.man10bank.api.model.request.ServerLoanBorrowBodyRequest
 import red.man10.man10bank.api.model.response.BorrowLimitResponse
+import red.man10.man10bank.api.model.response.OverdueResponse
 import red.man10.man10bank.api.model.response.PaymentInfoResponse
 import red.man10.man10bank.api.model.response.ServerLoan
 import red.man10.man10bank.api.model.response.ServerLoanLog
@@ -40,4 +41,8 @@ class ServerLoanApiClient(private val client: HttpClient) {
 
     suspend fun paymentInfo(uuid: UUID): Result<PaymentInfoResponse> =
         client.getJson("/api/ServerLoan/${uuid}/payment-info")
+
+    /** 残債があり、直近の定期返済が失敗のまま（延滞中）かどうか。 */
+    suspend fun isOverdue(uuid: UUID): Result<Boolean> =
+        client.getJson<OverdueResponse>("/api/ServerLoan/${uuid}/overdue").map { it.overdue }
 }
