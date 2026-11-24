@@ -7,8 +7,10 @@ import red.man10.man10bank.ui.InventoryUI
 
 /**
  * 担保設定画面。
- * - コンストラクタで既存の担保情報を受け取り、GUIクローズ時に更新コールバックを呼ぶ
  * - スロット0〜7が担保領域、8が閉じるボタン
+ * - 置かれたアイテムは担保の「登録」に使うだけで預からない。クローズ時に登録内容をコールバックで渡し、
+ *   実物はプレイヤーのインベントリへ戻す（提案はメモリ上にしかなく、預かると再起動等で消えるため）。
+ * - [initialCollaterals] には呼び出し側がインベントリから取り出した実物を渡すこと（戻す際に増殖しないように）。
  */
 class CollateralSetupUI(
     private val player: Player,
@@ -21,9 +23,9 @@ class CollateralSetupUI(
     previousUI = previousUI,
     onClose = object : OnClose() {
         override fun onClose(ui: InventoryUI, event: InventoryCloseEvent) {
-            // プレイヤーが閉じたタイミングで担保情報を更新
             val base = ui as CollateralBaseUI
             val newItems = base.getCollateralItems()
+            base.returnCollateralItemsTo(player)
             onUpdate(newItems)
         }
     }
@@ -32,5 +34,6 @@ class CollateralSetupUI(
         initialCollaterals?.let { setCollateralItems(it) }
     }
 
-    fun open() { super.open(player) }
+    /** 開けなかった場合は、並べた担保をインベントリへ戻して false を返す。 */
+    fun open(): Boolean = openOrReturn(player)
 }

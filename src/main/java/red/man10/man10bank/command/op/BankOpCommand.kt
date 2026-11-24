@@ -9,6 +9,7 @@ import red.man10.man10bank.command.op.sub.HistorySubcommand
 import red.man10.man10bank.command.op.sub.LookupSubcommand
 import red.man10.man10bank.command.op.sub.OverdueWorldSubcommand
 import red.man10.man10bank.command.op.sub.SetCashSubcommand
+import red.man10.man10bank.command.op.sub.loan.LoanSubcommand
 import red.man10.man10bank.command.op.sub.adjust.AdjustSubcommand
 import red.man10.man10bank.command.op.sub.adjust.AdjustVerb
 import red.man10.man10bank.command.op.sub.adjust.AdjustableAccount
@@ -19,7 +20,9 @@ import red.man10.man10bank.command.op.sub.EnableFeatureSubcommand
 import red.man10.man10bank.command.op.sub.DisableFeatureSubcommand
 import red.man10.man10bank.service.CashItemManager
 import red.man10.man10bank.service.HealthService
+import red.man10.man10bank.service.LoanService
 import red.man10.man10bank.service.OverdueWorldGuardService
+import red.man10.man10bank.service.RecoveryLedger
 import red.man10.man10bank.service.FeatureToggleService
 import red.man10.man10bank.service.BankService
 import red.man10.man10bank.service.PlayerLookupService
@@ -41,6 +44,8 @@ class BankOpCommand(
     serverLoanService: ServerLoanService,
     vaultManager: VaultManager,
     playerLookup: PlayerLookupService,
+    loanService: LoanService,
+    recoveryLedger: RecoveryLedger,
     overdueWorldGuard: OverdueWorldGuardService,
 ) : BaseCommand(
     allowPlayer = true,
@@ -62,13 +67,15 @@ class BankOpCommand(
         // 現金アイテム設定
         SetCashSubcommand(cashItemManager),
         // 資産履歴
-        HistorySubcommand(plugin, scope, estateService),
+        HistorySubcommand(plugin, scope, estateService, playerLookup),
         // 指定プレイヤーの所持金表示（運営閲覧）
         LookupSubcommand(plugin, scope, playerLookup, vaultManager, cashItemManager),
         // 管理者による残高調整（銀行／電子マネー／サーバーローン借入額）
         AdjustSubcommand(plugin, scope, AdjustVerb.GIVE, adjustableAccounts, playerLookup),
         AdjustSubcommand(plugin, scope, AdjustVerb.TAKE, adjustableAccounts, playerLookup),
         AdjustSubcommand(plugin, scope, AdjustVerb.SET, adjustableAccounts, playerLookup),
+        // プレイヤーローンの運営操作（手形の再発行・返せなかったアイテムの復元）
+        LoanSubcommand(plugin, scope, loanService, recoveryLedger),
         // 機能 有効/無効 切り替え
         EnableFeatureSubcommand(featureToggles),
         DisableFeatureSubcommand(featureToggles),

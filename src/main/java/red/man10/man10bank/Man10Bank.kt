@@ -62,6 +62,7 @@ class Man10Bank : JavaPlugin(), Listener {
     private lateinit var loanService: LoanService
     private lateinit var bankService: BankService
     private lateinit var featureToggles: FeatureToggleService
+    private lateinit var recoveryLedger: RecoveryLedger
 
     // サーバー識別名（configの serverName が空/未設定の場合はBukkitのサーバー名を使用）
     lateinit var serverName: String
@@ -93,6 +94,8 @@ class Man10Bank : JavaPlugin(), Listener {
     }
 
     override fun onDisable() {
+        // 開いているGUIの後処理（担保の返却・ATM入金など）を済ませてから閉じる
+        if (this::uiService.isInitialized) uiService.closeAllForShutdown()
         // 結果不確定のまま再照会中の取引があれば、スコープを止める前に要確認ログへ残す
         if (this::bankService.isInitialized) bankService.logUnresolvedOnShutdown()
         // スコープとクライアントをクリーンアップ
@@ -136,15 +139,17 @@ class Man10Bank : JavaPlugin(), Listener {
         vaultManager = VaultManager(this)
         cashItemManager = CashItemManager(this)
         featureToggles = FeatureToggleService(this)
+        // 返せなかった手形・小切手・担保の復元台帳（/bankop loan recovery で確認・復元する）
+        recoveryLedger = RecoveryLedger(java.io.File(dataFolder, "recovery"), logger)
 
-        chequeService = ChequeService(this, scope, chequesApi, featureToggles)
+        chequeService = ChequeService(this, scope, chequesApi, featureToggles, recoveryLedger)
         playerRegistry = PlayerRegistryService(this, scope, playersApi)
         playerLookup = PlayerLookupService(this, playersApi)
         serverLoanService = ServerLoanService(this, serverLoanApi, featureToggles)
         overdueWorldGuard = OverdueWorldGuardService(this, scope, serverLoanApi, OverdueWorldBlockConfig.from(config))
         serverEstateService = ServerEstateService(this, serverEstateApi)
         estateService = EstateService(this, scope, estateApi, vaultManager, cashItemManager, chequeService, playerRegistry)
-        loanService = LoanService(this, scope, loanApi, featureToggles)
+        loanService = LoanService(this, scope, loanApi, featureToggles, recoveryLedger)
         bankService = BankService(this, scope, bankApi, vaultManager, featureToggles)
         uiService = UIService(this)
         atmService = AtmService(this, scope, atmApi, vaultManager, cashItemManager)
@@ -178,15 +183,15 @@ class Man10Bank : JavaPlugin(), Listener {
     private fun registerCommands() {
         getCommand("deposit")?.setExecutor(DepositCommand(this, scope, bankService))
         getCommand("withdraw")?.setExecutor(WithdrawCommand(this, scope, bankService))
-        getCommand("mpay")?.setExecutor(PayCommand(this, scope, bankService, playerLookup))
+        getCommand("mpay")?.setExecutor(PayCommand(this, scope, bankService, playerLookup, featureToggles))
         getCommand("ballog")?.setExecutor(BalLogCommand(scope, bankService))
         getCommand("mbaltop")?.setExecutor(red.man10.man10bank.command.balance.BalTopCommand(this, scope, estateService, serverEstateService))
-        getCommand("bankop")?.setExecutor(BankOpCommand(this, scope, healthService, cashItemManager, estateService, featureToggles, bankService, serverLoanService, vaultManager, playerLookup, overdueWorldGuard))
-        getCommand("atm")?.setExecutor(AtmCommand(this, scope, atmService, vaultManager, cashItemManager, featureToggles))
+        getCommand("bankop")?.setExecutor(BankOpCommand(this, scope, healthService, cashItemManager, estateService, featureToggles, bankService, serverLoanService, vaultManager, playerLookup, loanService, recoveryLedger, overdueWorldGuard))
+        getCommand("atm")?.setExecutor(AtmCommand(this, scope, atmService, vaultManager, cashItemManager, featureToggles, playerLookup))
         getCommand("mcheque")?.setExecutor(ChequeCommand(this, scope, chequeService))
         getCommand("mchequeop")?.setExecutor(ChequeCommand(this, scope, chequeService))
         getCommand("mrevo")?.setExecutor(ServerLoanCommand(this, scope, serverLoanService))
-        getCommand("mlend")?.setExecutor(red.man10.man10bank.command.loan.LendCommand(this, scope, loanService, featureToggles))
+        getCommand("mlend")?.setExecutor(red.man10.man10bank.command.loan.LendCommand(this, scope, loanService, featureToggles, recoveryLedger))
 
         // 残高系（/bal, /balance ほか別名にも割り当て）
         // Bukkit/Vault 依存値はメインスレッドで先に収集するため Vault/現金マネージャを渡す（DESIGN 3.5）。

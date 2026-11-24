@@ -13,4 +13,10 @@ data class Loan(
     val paybackDate: String? = null,
     val amount: Double? = null,
     val collateralItem: String? = null,
-)
+    /** 担保が回収(債権者)または返還(債務者)済みか。 */
+    val collateralReleased: Boolean = false,
+) {
+    /** 担保が設定されていて、まだ回収・返還されていない。 */
+    val hasPendingCollateral: Boolean
+        get() = !collateralItem.isNullOrBlank() && !collateralReleased
+}

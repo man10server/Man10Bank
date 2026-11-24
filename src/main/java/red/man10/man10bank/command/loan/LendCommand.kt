@@ -11,6 +11,8 @@ import org.bukkit.inventory.ItemStack
 import red.man10.man10bank.Man10Bank
 import red.man10.man10bank.command.BaseCommand
 import red.man10.man10bank.service.LoanService
+import red.man10.man10bank.service.RecoveryLedger
+import red.man10.man10bank.service.recordItems
 import red.man10.man10bank.ui.loan.CollateralSetupUI
 import red.man10.man10bank.ui.loan.CollateralViewUI
 import red.man10.man10bank.util.BalanceFormats
@@ -19,20 +21,25 @@ import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import red.man10.man10bank.service.FeatureToggleService
 import red.man10.man10bank.util.DateFormats
+import red.man10.man10bank.util.ItemStackBase64
 
 /**
- * プレイヤー間ローンの新規契約コマンド: /mlend <player> <金額> <返済金額> <返済日>
+ * プレイヤー間ローンの新規契約コマンド: /mlend <player> <金額> <返済金額> <返済までの日数>
  * 進行:
  * 1) 貸し手が提案を作成 -> 借り手に提案メッセージ（担保設定/承認/拒否）
- * 2) 借り手が担保設定 -> コールバックで一時保存
+ * 2) 借り手が担保設定 -> 担保として登録する（実物は借り手のインベントリに戻し、預からない）
  * 3) 借り手が承認 -> 貸し手へ確認（担保確認/最終承認/拒否）
- * 4) 最終承認 -> LoanService.create を実行
+ * 4) 最終承認 -> 借り手のインベントリから担保を回収して LoanService.create を実行
+ *
+ * 提案はメモリ上にしか無いため、担保の実物を提案中に預かると再起動やクラッシュで消える。
+ * そのため実物を動かすのは最終承認の時点だけにしている。
  */
 class LendCommand(
     private val plugin: Man10Bank,
     private val scope: CoroutineScope,
     private val loanService: LoanService,
     private val featureToggles: FeatureToggleService,
+    private val recovery: RecoveryLedger,
 ) : BaseCommand(allowPlayer = true, allowConsole = false, allowGeneralUser = true, requiredPermission = "man10bank.lend") {
 
     data class Proposal(
@@ -42,6 +49,7 @@ class LendCommand(
         val borrowAmount: Double,           // 借入金額（情報表示用）
         val repayAmount: Double,      // 返済金額（APIへはこれを採用）
         val paybackDays: Int,
+        // 登録された担保（コピー）。実物は最終承認まで借り手が持っている。
         var collaterals: List<ItemStack> = emptyList(),
         var borrowerApproved: Boolean = false,
     ) {
@@ -75,7 +83,7 @@ class LendCommand(
         if (args.isEmpty()) {
             Messages.send(
                 sender,
-                "使用方法: /mlend <player> <金額> <返済金額> <返済日(yyyy-MM-dd|日数)> " +
+                "使用方法: /mlend <player> <金額> <返済金額> <返済までの日数> " +
                     "（一覧: /mlend list / 担保受取: /mlend release <id>）"
             )
             return true
@@ -107,11 +115,11 @@ class LendCommand(
     }
 
     // --------------------
-    // 提案作成 /mlend <player> <金額> <返済金額> <返済日>
+    // 提案作成 /mlend <player> <金額> <返済金額> <返済までの日数>
     // --------------------
     private fun handlePropose(sender: Player, args: Array<out String>): Boolean {
         if (args.size < 4) {
-            Messages.error(sender, "引数が不足しています。/mlend <player> <金額> <返済金額> <返済日>")
+            Messages.error(sender, "引数が不足しています。/mlend <player> <金額> <返済金額> <返済までの日数>")
             return false
         }
         val amount = args[1].toDoubleOrNull()
@@ -127,15 +135,21 @@ class LendCommand(
             Messages.error(sender, "返済金額が不正です。正の数を指定してください。")
             return false
         }
+        // サーバーは返済金額が借入金額以下のローンを作成しないため、最終承認まで進める前にここで弾く
+        if (repayAmount <= amount) {
+            Messages.error(sender, "返済金額は借入金額より大きくしてください。")
+            return false
+        }
         if (paybackDays == null || paybackDays <= 0) {
-            Messages.error(sender, "返済日が不正です。日数（正の整数）で指定してください。")
+            Messages.error(sender, "返済までの日数が不正です。日数（正の整数）で指定してください。")
             return false
         }
         if (borrower == null) {
             Messages.error(sender, "対象プレイヤーが見つかりません。オンラインのプレイヤー名を指定してください。")
             return false
         }
-        if (borrower.uniqueId == sender.uniqueId && !sender.isOp) {
+        // サーバーは貸し手と借り手が同じローンを作成しないため、OPでも自分宛ての提案は受け付けない
+        if (borrower.uniqueId == sender.uniqueId) {
             Messages.error(sender, "自分自身には提案できません。")
             return false
         }
@@ -195,10 +209,27 @@ class LendCommand(
             Messages.error(sender, "既に承認済みです。担保の変更はできません。")
             return true
         }
-        CollateralSetupUI(sender, proposal.collaterals, onUpdate = { newItems: List<ItemStack> ->
-            proposal.collaterals = newItems
-            Messages.send(sender, "担保を更新しました（${newItems.size}件）。")
+        // 登録済みの担保はインベントリから取り出して画面に並べる（閉じると画面の中身がインベントリへ戻る）。
+        // 既に手放した分は取り出せないので、画面に並んだものが新しい登録内容になる。
+        val current = takeAvailable(sender, proposal.collaterals)
+        val opened = CollateralSetupUI(sender, current, onUpdate = { newItems: List<ItemStack> ->
+            // 画面を開いている間に提案が終わった・承認された場合は、貸し手に提示した内容を変えないよう登録しない
+            // （画面の担保はクローズ時にインベントリへ戻っている）
+            when {
+                get(proposal.id) !== proposal ->
+                    Messages.warn(sender, "この提案は既に終了しているため、担保は登録されませんでした。")
+                proposal.borrowerApproved ->
+                    Messages.warn(sender, "既に承認済みのため、担保の登録内容は変更されませんでした。")
+                else -> {
+                    proposal.collaterals = newItems
+                    Messages.send(sender, "担保を登録しました（${newItems.size}件）。担保のアイテムは最終承認まであなたのインベントリに残り、最終承認の時点で回収されます。")
+                }
+            }
         }).open()
+        if (!opened) {
+            val note = if (current.isNotEmpty()) "登録済みの担保はインベントリに戻しました。" else ""
+            Messages.error(sender, "担保の設定画面を開けませんでした。$note")
+        }
         return true
     }
 
@@ -237,7 +268,6 @@ class LendCommand(
             Messages.error(sender, "既に承認済みです。貸し手の最終承認待ちです。拒否できません。")
             return true
         }
-        returnCollateralsToBorrower(proposal)
         remove(id)
         val lender = Bukkit.getPlayer(proposal.lender)
         if (lender != null) Messages.warn(lender, "${sender.name} に拒否されました。（ID: ${proposal.id}）")
@@ -287,18 +317,29 @@ class LendCommand(
             Messages.error(sender, "この提案は見つからないか、あなたが貸し手ではありません。")
             return true
         }
+        // 借り手が承認していない提案は確定させない（借り手の同意なしに借入・担保の回収が行われるのを防ぐ）
+        if (!proposal!!.borrowerApproved) {
+            Messages.error(sender, "借り手がまだ承認していないため、最終承認できません。")
+            return true
+        }
         remove(id)
-        val borrower = Bukkit.getPlayer(proposal!!.borrower)
+        val borrower = Bukkit.getPlayer(proposal.borrower)
         if (borrower == null) {
             Messages.error(sender, "借り手がオフラインのため、キャンセルされました。")
-            returnCollateralsToBorrower(proposal)
-
+            return true
+        }
+        // 担保はこの時点で借り手のインベントリから回収する（揃っていなければ一切回収せずキャンセル）。
+        val collaterals = takeAll(borrower, proposal.collaterals)
+        if (collaterals == null) {
+            Messages.error(sender, "借り手のインベントリに登録された担保が揃っていないため、キャンセルされました。（ID: ${proposal.id}）")
+            Messages.error(borrower, "登録した担保がインベントリに揃っていないため、借金の提案がキャンセルされました。（ID: ${proposal.id}）")
             return true
         }
         scope.launch {
-            val result = loanService.create(sender, borrower, proposal.borrowAmount, proposal.repayAmount, proposal.paybackDays, proposal.collaterals)
-            if (!result) {
-                returnCollateralsToBorrower(proposal)
+            val result = loanService.create(sender, borrower, proposal.borrowAmount, proposal.repayAmount, proposal.paybackDays, collaterals)
+            // 作成されなかったと確定した場合だけ返す（結果不明で返すと、作成済みだった場合に担保が二重になる）
+            if (result == LoanService.CreateResult.FAILED) {
+                returnCollateralsToBorrower(proposal.borrower, collaterals)
             }
         }
         return true
@@ -312,10 +353,9 @@ class LendCommand(
             Messages.error(sender, "この提案は見つからないか、あなたが貸し手ではありません。")
             return true
         }
-        // 担保返却（UI設定のみで実物を保持していない場合は冪等）
-        returnCollateralsToBorrower(proposal!!)
+        // 担保の実物は借り手が持ったままなので返却は不要
         remove(id)
-        val borrower = Bukkit.getPlayer(proposal.borrower)
+        val borrower = Bukkit.getPlayer(proposal!!.borrower)
         if (borrower != null) Messages.warn(borrower, "貸し手に拒否されました。（ID: ${proposal.id}）")
         Messages.send(sender, "§6提案を拒否しました。")
         return true
@@ -324,7 +364,9 @@ class LendCommand(
     // 借り手: 自身の未返済/担保未回収の一覧
     private fun handleBorrowerList(sender: Player): Boolean {
         scope.launch {
+            // サーバーは完済・担保処理済みのものも含めて返すため、未返済か担保が残っているものだけを表示する
             val loans = loanService.getBorrowerLoans(sender)
+                .filter { (it.amount ?: 0.0) > 0.0 || it.hasPendingCollateral }
             if (loans.isEmpty()) {
                 Messages.send(plugin, sender, "未返済または担保未回収の借金はありません。")
                 return@launch
@@ -336,8 +378,11 @@ class LendCommand(
                 val lender = loan.lendPlayer
                 val amount = BalanceFormats.coloredYen(loan.amount ?: 0.0)
                 val deadline = loan.paybackDate?.let { DateFormats.toDateTime(it) } ?: "-"
-                val hasCollateral = !loan.collateralItem.isNullOrBlank()
-                val collateral = if (hasCollateral) "§6担保未回収" else "§7担保なし"
+                val collateral = when {
+                    !loan.hasPendingCollateral -> "§7担保なし"
+                    (loan.amount ?: 0.0) > 0.0 -> "§6担保あり"
+                    else -> "§a担保受取可: /mlend release $id"
+                }
                 lines += "§bID:${id} §f貸し手:${lender} §f支払額:${amount} §f期限:${deadline} §f[$collateral§f]"
             }
             Messages.sendMultiline(plugin, sender, lines.joinToString("\n"))
@@ -357,23 +402,65 @@ class LendCommand(
         return true
     }
     /**
-     * 担保を借り手に返却（オンライン時）。
+     * 最終承認で回収した担保を、ローンが作成されなかったと確定した場合に借り手へ返却する。
+     * 借り手がオフラインで返せない場合は、運営が復旧できるよう担保データを要確認ログへ残す（DESIGN 3.6）。
      */
-    private fun returnCollateralsToBorrower(p: Proposal) {
+    private fun returnCollateralsToBorrower(borrowerUuid: UUID, items: List<ItemStack>) {
+        if (items.isEmpty()) return
         plugin.server.scheduler.runTask(plugin, Runnable {
-            val borrower = Bukkit.getPlayer(p.borrower) ?: return@Runnable
-            val inv = borrower.inventory
-            if (p.collaterals.isEmpty()) return@Runnable
-            var count = 0
-            for (stack in p.collaterals) {
-                val leftovers = inv.addItem(stack.clone())
-                if (leftovers.isNotEmpty()) {
-                    leftovers.values.forEach { l -> borrower.world.dropItemNaturally(borrower.location, l) }
-                }
-                count++
+            val borrower = Bukkit.getPlayer(borrowerUuid)
+            if (borrower == null) {
+                val reason = "ローン作成に失敗したが借り手がオフラインのため担保を返却できなかった"
+                val recoveryId = recovery.recordItems(RecoveryLedger.Type.COLLATERAL_RETURN_FAILED, borrowerUuid, items, reason)
+                val encoded = runCatching { ItemStackBase64.encodeItems(items) }.getOrElse { "エンコード失敗: ${it.message}" }
+                plugin.logger.severe(
+                    "要手動対応[担保返却失敗] borrower=${borrowerUuid} 件数=${items.size} " +
+                            "詳細=${reason} 記録ID=${recoveryId} 担保データ(Base64)=${encoded}"
+                )
+                return@Runnable
             }
-            p.collaterals = emptyList()
-            Messages.send(borrower, "担保を返却しました（${count}件）。")
+            for (stack in items) {
+                borrower.inventory.addItem(stack.clone()).values.forEach { borrower.world.dropItemNaturally(borrower.location, it) }
+            }
+            Messages.send(borrower, "担保を返却しました（${items.size}件）。")
         })
+    }
+
+    /**
+     * 登録済みの担保をプレイヤーのインベントリから取り出す。実際に取り出せた分だけを返す。
+     * メインスレッドで呼ぶこと。
+     */
+    private fun takeAvailable(player: Player, items: List<ItemStack>): List<ItemStack> {
+        if (items.isEmpty()) return emptyList()
+        // removeItem は渡したスタックの個数を書き換えるため、コピーを渡す
+        val leftovers = player.inventory.removeItem(*items.map { it.clone() }.toTypedArray())
+        return items.mapIndexedNotNull { index, item ->
+            val removed = item.amount - (leftovers[index]?.amount ?: 0)
+            if (removed > 0) item.clone().apply { amount = removed } else null
+        }
+    }
+
+    /**
+     * 登録済みの担保がすべてインベントリにあればまとめて取り出して返す。1つでも足りなければ何も取り出さず null。
+     * メインスレッドで呼ぶこと。
+     */
+    private fun takeAll(player: Player, items: List<ItemStack>): List<ItemStack>? {
+        if (items.isEmpty()) return emptyList()
+        // 同じ種類のアイテムは合算した個数で所持を確認する
+        val required = mutableListOf<Pair<ItemStack, Int>>()
+        for (item in items) {
+            val index = required.indexOfFirst { it.first.isSimilar(item) }
+            if (index >= 0) required[index] = required[index].let { it.first to it.second + item.amount }
+            else required += item to item.amount
+        }
+        if (required.any { (item, amount) -> !player.inventory.containsAtLeast(item, amount) }) return null
+
+        val taken = takeAvailable(player, items)
+        if (taken.sumOf { it.amount } != items.sumOf { it.amount }) {
+            // 確認直後なので通常は起きないが、取り出しきれなければ戻して取り消す
+            taken.forEach { stack -> player.inventory.addItem(stack).values.forEach { player.world.dropItemNaturally(player.location, it) } }
+            return null
+        }
+        return taken
     }
 }

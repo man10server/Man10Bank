@@ -8,7 +8,8 @@ import red.man10.man10bank.ui.InventoryUI
 /**
  * 債務者用の担保返還受け取りメニュー。
  * - 債権者から解放された担保を債務者が受け取るUI
- * - スロット0〜8に担保を配置し、取り出して全て空になったら onReleased を呼ぶ
+ * - スロット0〜7に担保を配置する。サーバー側では開く前に返還済みになっているため、
+ *   取り出さずに閉じた分はクローズ時にインベントリへ戻す（戻さないと担保が消える）
  */
 class CollateralDebtorReleaseUI(
     private val player: Player,
@@ -21,16 +22,12 @@ class CollateralDebtorReleaseUI(
     previousUI = previousUI,
     onClose = object : OnClose() {
         override fun onClose(ui: InventoryUI, event: InventoryCloseEvent) {
-            val empty = (ui as CollateralBaseUI).isCollateralAreaEmpty()
-            if (empty) {
-                onReleased()
-            }
+            (ui as CollateralBaseUI).returnRemainingCollateral(player)
+            onReleased()
         }
     }
 ) {
     init {
         collaterals?.let { setCollateralItems(it.map { it.clone() }) }
     }
-
-    fun open() { super.open(player) }
 }
