@@ -190,7 +190,7 @@ class Man10Bank : JavaPlugin(), Listener {
         getCommand("atm")?.setExecutor(AtmCommand(this, scope, atmService, vaultManager, cashItemManager, featureToggles, playerLookup))
         getCommand("mcheque")?.setExecutor(ChequeCommand(this, scope, chequeService))
         getCommand("mchequeop")?.setExecutor(ChequeCommand(this, scope, chequeService))
-        getCommand("mrevo")?.setExecutor(ServerLoanCommand(this, scope, serverLoanService))
+        getCommand("mrevo")?.setExecutor(ServerLoanCommand(this, scope, serverLoanService, playerLookup))
         getCommand("mlend")?.setExecutor(red.man10.man10bank.command.loan.LendCommand(this, scope, loanService, featureToggles, recoveryLedger))
 
         // 残高系（/bal, /balance ほか別名にも割り当て）

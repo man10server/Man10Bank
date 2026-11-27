@@ -8,6 +8,7 @@ import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 import red.man10.man10bank.Man10Bank
 import red.man10.man10bank.command.BaseCommand
+import red.man10.man10bank.service.PlayerLookupService
 import red.man10.man10bank.service.ServerLoanService
 import red.man10.man10bank.util.BalanceFormats
 import red.man10.man10bank.util.Messages
@@ -22,12 +23,14 @@ import java.util.concurrent.ConcurrentHashMap
  * - /mrevo pay <金額>: 返済
  * - /mrevo payment <金額>: 支払額設定
  * - /mrevo log <ページ>: ログ表示（ページ）
+ * - /mrevo link ...: 契約の共有（[ServerLoanLinkHandler]）
  * - /mrevo help: ヘルプ
  */
 class ServerLoanCommand(
     private val plugin: Man10Bank,
     private val scope: CoroutineScope,
     private val service: ServerLoanService,
+    playerLookup: PlayerLookupService,
 ) : BaseCommand(
     allowPlayer = true,
     allowConsole = false,
@@ -41,6 +44,8 @@ class ServerLoanCommand(
         // スレッドセーフにする（DESIGN 3.5）。
         private val borrowConfirmations: MutableMap<UUID, PendingBorrow> = ConcurrentHashMap()
     }
+
+    private val linkHandler = ServerLoanLinkHandler(plugin, scope, service, playerLookup)
 
     private data class PendingBorrow(
         val amount: Double,
@@ -84,6 +89,10 @@ class ServerLoanCommand(
                 scope.launch { showLogs(player, page, limit) }
                 return true
             }
+            "link" -> {
+                linkHandler.handle(player, args.drop(1))
+                return true
+            }
             else -> sendHelp(sender)
         }
         return true
@@ -91,8 +100,9 @@ class ServerLoanCommand(
 
     override fun tabComplete(sender: CommandSender, label: String, args: Array<out String>): List<String> {
         if (args.isEmpty()) return emptyList()
-        return when (args.size) {
-            1 -> listOf("help", "borrow", "pay", "payment", "log")
+        return when {
+            args.size == 1 -> listOf("help", "borrow", "pay", "payment", "log", "link")
+            args[0].lowercase() == "link" -> linkHandler.tabComplete(args.drop(1))
             else -> emptyList()
         }
     }
@@ -137,6 +147,7 @@ class ServerLoanCommand(
         val getRes = service.get(player)
         val limitRes = service.borrowLimit(player)
         val paymentInfoRes = service.paymentInfo(player)
+        val contract = service.contract(player.uniqueId).getOrNull()
         val lines = mutableListOf("§e§n == Man10 Revolving Loan ==")
 
         val loan = getRes.getOrNull()
@@ -156,6 +167,17 @@ class ServerLoanCommand(
             "§b前回返済日: $last",
             "§b次回返済日: $next",
         )
+        // 他のプレイヤーと契約を共有している場合や、承認待ちの申請がある場合だけ表示する
+        if (contract != null) {
+            if (ServerLoanContractView.isMember(contract, player.uniqueId)) {
+                lines += "§b共有: §f${contract.ownerPlayer.ifBlank { contract.ownerUuid }} §bの契約に参加中（上の金額は契約全体のもの）"
+            } else if (ServerLoanContractView.isShared(contract)) {
+                lines += "§b共有: §f${contract.members.joinToString(", ") { it.player.ifBlank { it.uuid } }} §bが参加中"
+            }
+            if (contract.pendingRequests.isNotEmpty()) {
+                lines += "§e参加申請が${contract.pendingRequests.size}件あります。§f/mrevo link §eで確認できます"
+            }
+        }
 
         Messages.sendMultiline(plugin, player, lines.joinToString("\n"))
 
@@ -174,7 +196,7 @@ class ServerLoanCommand(
             "§b/mrevo pay <金額> §7- 返済",
             "§b/mrevo payment <金額> §7- 支払額設定",
             "§b/mrevo log [ページ] §7- ログ表示",
-        )
+        ) + linkHandler.helpLines()
         Messages.sendMultiline(sender, lines.joinToString("\n"))
     }
 
