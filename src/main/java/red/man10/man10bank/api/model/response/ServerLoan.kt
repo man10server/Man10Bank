@@ -11,7 +11,6 @@ data class ServerLoan(
     val lastPayDate: String? = null,
     val borrowAmount: Double? = null,
     val paymentAmount: Double? = null,
-    val failedPayment: Int? = null,
     val stopInterest: Boolean? = null,
 )
 
