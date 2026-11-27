@@ -60,12 +60,14 @@ Man10サーバー用の総合的な銀行システムプラグインです。オ
 ### ローンコマンド
 - `/mlend` - プレイヤーローンコマンド
 - `/mrevo` - サーバーローンシステムコマンド
+- `/mrevo link [request|accept|deny|cancel|leave]` - サーバーローンの契約を他のプレイヤーと共有（残債・借入枠・延滞を共有）
 
 ### 管理者コマンド
 - `/mbaltop` - サーバー残高ランキング
 - `/ballog` - 銀行ログ確認
 - `/bankop loan note <loanId>` - プレイヤーローンの手形を再発行して受け取る
 - `/bankop loan recovery <list|info|give|discard>` - 返せなかった手形・小切手・担保（要手動対応ログの記録）の確認・復元・破棄
+- `/bankop serverloan <info|link|unlink>` - サーバーローンの契約の共有の確認・強制リンク・解除
 
 ## 権限
 
