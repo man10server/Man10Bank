@@ -8,6 +8,7 @@ import red.man10.man10bank.command.op.sub.HealthSubcommand
 import red.man10.man10bank.command.op.sub.HistorySubcommand
 import red.man10.man10bank.command.op.sub.LookupSubcommand
 import red.man10.man10bank.command.op.sub.OverdueWorldSubcommand
+import red.man10.man10bank.command.op.sub.ServerLoanLinkSubcommand
 import red.man10.man10bank.command.op.sub.SetCashSubcommand
 import red.man10.man10bank.command.op.sub.loan.LoanSubcommand
 import red.man10.man10bank.command.op.sub.adjust.AdjustSubcommand
@@ -81,6 +82,8 @@ class BankOpCommand(
         DisableFeatureSubcommand(featureToggles),
         // サーバーローン延滞者の進入禁止ワールド
         OverdueWorldSubcommand(plugin, overdueWorldGuard),
+        // サーバーローンの契約の共有（運営による確認・強制リンク・解除）
+        ServerLoanLinkSubcommand(plugin, scope, serverLoanService, playerLookup),
     ).associateBy { it.name }
 
     override fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean {
