@@ -5,6 +5,7 @@ import red.man10.man10bank.Man10Bank
 import red.man10.man10bank.api.ServerLoanApiClient
 import red.man10.man10bank.api.model.request.ServerLoanBorrowBodyRequest
 import red.man10.man10bank.api.model.response.ServerLoan
+import red.man10.man10bank.api.model.response.ServerLoanContract
 import red.man10.man10bank.api.model.response.ServerLoanLog
 import red.man10.man10bank.api.model.response.PaymentInfoResponse
 import red.man10.man10bank.command.balance.BalanceRegistry
@@ -171,4 +172,44 @@ class ServerLoanService(
      */
     suspend fun paymentInfo(player: Player): Result<PaymentInfoResponse> =
         api.paymentInfo(player.uniqueId)
+
+    // ===== 契約の共有（リンク） =====
+
+    /** リボが停止中ならプレイヤーに知らせて false を返す。 */
+    fun ensureEnabled(player: Player): Boolean {
+        if (featureToggles.isEnabled(FeatureToggleService.Feature.SERVER_LOAN)) return true
+        Messages.error(plugin, player, "Man10リボは現在停止中です。")
+        return false
+    }
+
+    /** uuid が使っている契約と、共有の状態（参加者・承認待ちの申請）。 */
+    suspend fun contract(uuid: UUID): Result<ServerLoanContract> = api.contract(uuid)
+
+    /** uuid が target の契約への参加を申請する。 */
+    suspend fun requestLink(uuid: UUID, target: UUID): Result<ServerLoanContract> = api.requestLink(uuid, target)
+
+    /** 本垢 uuid が、member からの参加申請を承認する。 */
+    suspend fun approveLink(uuid: UUID, member: UUID): Result<ServerLoanContract> = api.approveLink(uuid, member)
+
+    /** 本垢 uuid が、member からの参加申請を拒否する。 */
+    suspend fun rejectLink(uuid: UUID, member: UUID): Result<ServerLoanContract> = api.rejectLink(uuid, member)
+
+    /** uuid が、自分の出した参加申請を取り消す。 */
+    suspend fun cancelLinkRequest(uuid: UUID): Result<ServerLoanContract> = api.cancelLinkRequest(uuid)
+
+    /** uuid が、参加している契約から脱退する（契約に残債がある間は不可）。 */
+    suspend fun leaveLink(uuid: UUID): Result<ServerLoanContract> = api.leaveLink(uuid)
+
+    /** 運営用: uuid を owner の契約に申請・承認なしで参加させる（機能トグルの影響を受けない）。 */
+    suspend fun forceLink(uuid: UUID, owner: UUID, operator: String, resetLimit: Boolean): Result<ServerLoanContract> =
+        api.forceLink(uuid, owner, operator.take(OPERATOR_NAME_MAX_LENGTH), resetLimit)
+
+    /** 運営用: uuid の参加（または承認待ちの申請）を取り消す（機能トグルの影響を受けない）。 */
+    suspend fun forceUnlink(uuid: UUID, operator: String): Result<ServerLoanContract> =
+        api.forceUnlink(uuid, operator.take(OPERATOR_NAME_MAX_LENGTH))
+
+    private companion object {
+        // 銀行サーバーが受け付ける操作者名の長さ（server_loan_member.linked_by）
+        const val OPERATOR_NAME_MAX_LENGTH = 16
+    }
 }
