@@ -16,9 +16,8 @@ import red.man10.man10bank.util.Messages
 import java.util.UUID
 
 /**
- * サーバーローン機能のサービス（型のみ）。
- * - ServerLoanApiClient を利用（実装は後続で追加）
- * - Listener は継承しない
+ * サーバーローン（リボ、/mrevo）のサービス。
+ * 借入・返済・借入枠の計算などは銀行サーバーが行い、ここは API の呼び出しとプレイヤーへの結果の通知を受け持つ。
  */
 class ServerLoanService(
     private val plugin: Man10Bank,
@@ -118,15 +117,14 @@ class ServerLoanService(
 
     /**
      * 支払額の設定（プレイヤー指定）。
-     * - paymentAmount が null の場合は未設定に戻す
      * - 正の数のみ許容
      */
-    suspend fun setPaymentAmount(player: Player, paymentAmount: Double?) {
+    suspend fun setPaymentAmount(player: Player, paymentAmount: Double) {
         if (!featureToggles.isEnabled(FeatureToggleService.Feature.SERVER_LOAN)) {
             Messages.error(plugin, player, "Man10リボは現在停止中です。")
             return
         }
-        if (paymentAmount != null && paymentAmount <= 0.0) {
+        if (paymentAmount <= 0.0) {
             Messages.error(plugin, player, "金額が不正です。正の数を指定してください。")
             return
         }

@@ -27,10 +27,6 @@ fun localizedMessageForCode(code: String?): String? = when (code) {
     "LoanNotFound" -> "ローンが見つかりません"
     "BorrowLimitExceeded" -> "借入上限を超えています"
     "NoRepaymentNeeded" -> "返済の必要はありません"
-    "PaymentAmountNotSet" -> "支払額が設定されていません"
-    "PaymentAmountZero" -> "支払額が0です"
-    "InterestStopped" -> "利息の計上は停止されています"
-    "InterestZero" -> "利息が0です"
     "BeforePaybackDate" -> "返済期限前です"
     "IdempotencyKeyMismatch" -> "同じ要求IDで内容の異なる要求は処理できません"
     else -> null
