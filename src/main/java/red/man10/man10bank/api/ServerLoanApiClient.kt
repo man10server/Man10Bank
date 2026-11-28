@@ -19,14 +19,14 @@ class ServerLoanApiClient(private val client: HttpClient) {
     suspend fun borrow(uuid: UUID, body: ServerLoanBorrowBodyRequest): Result<ServerLoan> =
         client.postJson("/api/ServerLoan/${uuid}/borrow", body)
 
-    suspend fun repay(uuid: UUID, amount: Double?): Result<ServerLoan> =
+    suspend fun repay(uuid: UUID, amount: Double): Result<ServerLoan> =
         client.postJson("/api/ServerLoan/${uuid}/repay") {
-            amount?.let { parameter("amount", it) }
+            parameter("amount", amount)
         }
 
-    suspend fun setPaymentAmount(uuid: UUID, paymentAmount: Double?): Result<ServerLoan> =
+    suspend fun setPaymentAmount(uuid: UUID, paymentAmount: Double): Result<ServerLoan> =
         client.postJson("/api/ServerLoan/${uuid}/payment-amount") {
-            paymentAmount?.let { parameter("paymentAmount", it) }
+            parameter("paymentAmount", paymentAmount)
         }
 
     suspend fun setBorrowAmount(uuid: UUID, amount: Double): Result<ServerLoan> =
